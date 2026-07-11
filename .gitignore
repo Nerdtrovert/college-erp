@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Production Build
+dist/
+**/dist/
+
+# Logs
+*.log
+*.err
+**/*.log
+**/*.err
+
+# Local Env
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDEs & System Files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Agent/AI metadata
+.agents/
+.claude/
+.gemini/
