@@ -43,7 +43,7 @@ export const StudentDashboard: React.FC<Props> = ({ user, onLogout }) => {
   };
 
   return (
-    <div className="flex min-h-screen" style={{ background: '#f0f4f8' }}>
+    <div className="flex h-screen overflow-hidden" style={{ background: '#f0f4f8' }}>
       <Sidebar
         user={user}
         items={NAV_ITEMS}
@@ -72,7 +72,7 @@ export const StudentDashboard: React.FC<Props> = ({ user, onLogout }) => {
       </div>
 
       {/* Main */}
-      <main className="flex-1 flex flex-col min-w-0 w-full overflow-x-hidden">
+      <main className="flex-1 flex flex-col min-w-0 w-full overflow-hidden">
         {/* Mobile topbar */}
         <div className="md:hidden sticky top-0 z-40 flex items-center justify-between px-4 py-4 bg-white border-b border-gray-200">
           <div className="flex items-center gap-3">
@@ -89,7 +89,7 @@ export const StudentDashboard: React.FC<Props> = ({ user, onLogout }) => {
           </button>
         </div>
 
-        <div key={active} className="flex-1 p-4 sm:p-6 md:p-8 overflow-auto animate-slide-up">
+        <div key={active} className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto animate-slide-up" style={{ scrollbarGutter: 'stable' }}>
           {renderContent()}
         </div>
       </main>
