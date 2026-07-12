@@ -33,12 +33,12 @@ export const useAuth = () => React.useContext(AuthContext);
 
 export const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(() => {
-    const stored = localStorage.getItem('user');
+    const stored = sessionStorage.getItem('user');
     if (stored) {
       try {
         return JSON.parse(stored);
       } catch (e) {
-        localStorage.removeItem('user');
+        sessionStorage.removeItem('user');
         return null;
       }
     }
@@ -47,13 +47,13 @@ export const App: React.FC = () => {
 
   const login = (userData: User) => {
     setUser(userData);
-    // In a real app, you would save token to localStorage or cookies
-    localStorage.setItem('user', JSON.stringify(userData));
+    // In a real app, you would save token to sessionStorage or cookies
+    sessionStorage.setItem('user', JSON.stringify(userData));
   };
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('user');
+    sessionStorage.removeItem('user');
   };
 
   const StudentOnlyRoute = ({ children }: { children: React.ReactNode }) => {

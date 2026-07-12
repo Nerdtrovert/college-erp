@@ -52,7 +52,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, defaultRole }) => {
         role,
       });
       const { token, user: loggedInUser } = response.data;
-      localStorage.setItem('token', token);
+      sessionStorage.setItem('token', token);
       onLogin(loggedInUser);
 
       // Redirect based on role
