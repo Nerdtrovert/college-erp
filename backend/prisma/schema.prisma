@@ -10,6 +10,14 @@ generator client {
 enum Role {
   student
   teacher
+  dean
+  principal
+}
+
+enum SemesterStatus {
+  ACTIVE
+  UPCOMING
+  ARCHIVED
 }
 
 model User {
@@ -48,13 +56,30 @@ model Subject {
   updatedAt DateTime @updatedAt
 }
 
+model Semester {
+  id        String   @id @default(uuid())
+  name      String
+  startDate String?   // YYYY-MM-DD
+  endDate   String?   // YYYY-MM-DD
+  status    SemesterStatus
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations (optional, via foreign keys in other tables)
+  attendanceSessions AttendanceSession[]
+  marks              Mark[]
+  timetableSlots     TimetableSlot[]
+}
+
 model AttendanceSession {
   id          String   @id @default(uuid())
   subjectCode String
   date        String   // Stored as "YYYY-MM-DD"
   classGroup  String   // e.g. "CSE-B"
+  semesterId  String
 
   subject Subject @relation(fields: [subjectCode], references: [code], onDelete: Cascade)
+  semester Semester @relation(fields: [semesterId], references: [id])
 
   // Relations
   records AttendanceRecord[]
@@ -62,7 +87,7 @@ model AttendanceSession {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([subjectCode, date, classGroup])
+  @@unique([subjectCode, date, classGroup, semesterId])
 }
 
 model AttendanceRecord {
@@ -87,14 +112,16 @@ model Mark {
   type        String // "ia1", "ia2", "assignment", "lab"
   score       Float? // null represents "Pending"
   maxScore    Float
+  semesterId  String
 
   student User    @relation(fields: [studentId], references: [id], onDelete: Cascade)
   subject Subject @relation(fields: [subjectCode], references: [code], onDelete: Cascade)
+  semester Semester @relation(fields: [semesterId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([studentId, subjectCode, type])
+  @@unique([studentId, subjectCode, type, semesterId])
 }
 
 model Announcement {
@@ -121,13 +148,15 @@ model TimetableSlot {
   room        String?
   classGroup  String  // Target section for students (e.g., "CSE-B")
   teacherId   String  // Associated teacher ID
+  semesterId  String
 
   subject Subject? @relation(fields: [subjectCode], references: [code], onDelete: SetNull)
+  semester Semester @relation(fields: [semesterId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([classGroup, day, slotIndex])
+  @@unique([classGroup, day, slotIndex, semesterId])
 }
 
 model Note {

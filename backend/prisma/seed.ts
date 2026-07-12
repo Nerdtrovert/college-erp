@@ -1,4 +1,4 @@
-import { PrismaClient, Role } from '@prisma/client';
+import { PrismaClient, Role, SemesterStatus } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -9,14 +9,31 @@ async function main() {
   // Hash passwords
   const studentPasswordHash = await bcrypt.hash('student123', 10);
   const teacherPasswordHash = await bcrypt.hash('teacher123', 10);
+  const deanPasswordHash = await bcrypt.hash('dean123', 10); // Dean password
 
-  // 1. Seed Faculty Users
+  // Seed default semester first so other records can reference its ID
+  const defaultSemester = await prisma.semester.upsert({
+    where: { id: 'sem1' },
+    update: {},
+    create: {
+      id: 'sem1',
+      name: 'Fall 2024',
+      startDate: '2024-08-01',
+      endDate: '2024-12-20',
+      status: SemesterStatus.ACTIVE,
+    },
+  });
+  console.log('Default semester seeded.');
+
+  // 1. Seed Faculty Users (including Dean)
   const facultyData = [
     { id: 'FAC2018', name: 'Dr. Priya Sharma', password: teacherPasswordHash, role: Role.teacher, department: 'Computer Science & Engineering' },
     { id: 'FAC2019', name: 'Prof. Ramesh Iyer', password: teacherPasswordHash, role: Role.teacher, department: 'Computer Science & Engineering' },
     { id: 'FAC2020', name: 'Dr. Anita Raj', password: teacherPasswordHash, role: Role.teacher, department: 'Computer Science & Engineering' },
     { id: 'FAC2021', name: 'Mr. Vijay Kumar', password: teacherPasswordHash, role: Role.teacher, department: 'Computer Science & Engineering' },
     { id: 'FAC2022', name: 'Dr. Meena Nair', password: teacherPasswordHash, role: Role.teacher, department: 'Computer Science & Engineering' },
+    // Dean user
+    { id: 'DEAN123', name: 'Dr. Dean Administrator', password: deanPasswordHash, role: Role.dean, department: 'Administration' },
   ];
 
   for (const f of facultyData) {
@@ -26,7 +43,7 @@ async function main() {
       create: f,
     });
   }
-  console.log('Faculty users seeded.');
+  console.log('Faculty users seeded (including Dean).');
 
   // 2. Seed Student Users
   const students = [
@@ -170,10 +187,11 @@ async function main() {
   for (const t of timetable) {
     await prisma.timetableSlot.upsert({
       where: {
-        classGroup_day_slotIndex: {
+        classGroup_day_slotIndex_semesterId: {
           classGroup: t.classGroup,
           day: t.day,
           slotIndex: t.slotIndex,
+          semesterId: defaultSemester.id,
         },
       },
       update: {
@@ -181,12 +199,20 @@ async function main() {
         room: t.room,
         teacherId: t.teacherId,
       },
-      create: t,
+      create: {
+        day: t.day,
+        slotIndex: t.slotIndex,
+        subjectCode: t.subjectCode,
+        room: t.room,
+        classGroup: t.classGroup,
+        teacherId: t.teacherId,
+        semesterId: defaultSemester.id,
+      },
     });
   }
   console.log('Timetable seeded.');
 
-  // 6. Seed mock Marks for the demo students
+  // 7. Seed mock Marks for the demo students
   const activeStudents = ['CS21B042', 'CS21B001', 'CS21B002', 'CS21B003', 'CS21B004', 'CS21B005'];
   const testSubjects = ['CS2301', 'CS2302', 'CS2303', 'CS2304', 'CS2305'];
   const assessmentTypes = [
@@ -207,10 +233,11 @@ async function main() {
 
         await prisma.mark.upsert({
           where: {
-            studentId_subjectCode_type: {
+            studentId_subjectCode_type_semesterId: {
               studentId: sId,
               subjectCode: subCode,
               type: ass.type,
+              semesterId: defaultSemester.id,
             },
           },
           update: {},
@@ -220,6 +247,7 @@ async function main() {
             type: ass.type,
             score,
             maxScore: ass.max,
+            semesterId: defaultSemester.id,
           },
         });
       }
@@ -227,17 +255,18 @@ async function main() {
   }
   console.log('Marks seeded.');
 
-  // 7. Seed mock Attendance Sessions & Records
+  // 8. Seed mock Attendance Sessions & Records
   const dates = ['2024-11-01', '2024-11-04', '2024-11-06', '2024-11-08', '2024-11-11', '2024-11-12', '2024-11-14', '2024-11-15'];
 
   for (const subCode of testSubjects) {
     for (const date of dates) {
       const session = await prisma.attendanceSession.upsert({
         where: {
-          subjectCode_date_classGroup: {
+          subjectCode_date_classGroup_semesterId: {
             subjectCode: subCode,
             date: date,
             classGroup: 'CSE-B',
+            semesterId: defaultSemester.id,
           },
         },
         update: {},
@@ -245,6 +274,7 @@ async function main() {
           subjectCode: subCode,
           date: date,
           classGroup: 'CSE-B',
+          semesterId: defaultSemester.id,
         },
       });
 

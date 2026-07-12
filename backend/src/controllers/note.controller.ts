@@ -1,14 +1,17 @@
 import { Response } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
-import { fileURLToPath } from 'url';
 import prisma from '../prisma/client';
 import { AuthRequest } from '../types';
 
 // Ensure uploads directory exists and get its absolute path
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 const uploadDir = path.join(__dirname, '../../uploads');
+
+// Sanitize filename to prevent path traversal
+const sanitizeFilename = (filename: string): string => {
+  const name = filename.replace(/^.*[\\/]/, '');
+  return name.replace(/[^\w.\-]/g, '_');
+};
 
 // Ensure uploads directory exists
 if (!fs.existsSync(uploadDir)) {

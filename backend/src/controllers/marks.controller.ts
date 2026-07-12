@@ -11,13 +11,25 @@ export const getStudentMarks = async (req: AuthRequest, res: Response) => {
   }
 
   try {
-    // Find all subjects for this student's class group
+    // Get active semester
+    const activeSem = await prisma.semester.findFirst({
+      where: { status: 'ACTIVE' },
+      select: { id: true },
+    });
+    if (!activeSem) {
+      return res.status(400).json({ error: 'No active semester found' });
+    }
+
+    // Find all subjects for this student's class group in the active semester
     const subjects = await prisma.subject.findMany({
       where: { classGroup },
       include: {
         faculty: { select: { name: true } },
         marks: {
-          where: { studentId },
+          where: {
+            studentId,
+            semesterId: activeSem.id,
+          },
         },
       },
     });
@@ -61,17 +73,27 @@ export const getTeacherMarks = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: 'Subject code not found' });
     }
 
+    // Get active semester
+    const activeSem = await prisma.semester.findFirst({
+      where: { status: 'ACTIVE' },
+      select: { id: true },
+    });
+    if (!activeSem) {
+      return res.status(400).json({ error: 'No active semester found' });
+    }
+
     // Get all students inside this class group section
     const students = await prisma.user.findMany({
       where: { role: 'student', classGroup: subject.classGroup },
       orderBy: { id: 'asc' },
     });
 
-    // Get marks records matching the subject and type
+    // Get marks records matching the subject, type, student, and active semester
     const marks = await prisma.mark.findMany({
       where: {
         subjectCode,
         type: assessmentType,
+        semesterId: activeSem.id,
       },
     });
 
@@ -91,7 +113,7 @@ export const getTeacherMarks = async (req: AuthRequest, res: Response) => {
     });
   } catch (error) {
     console.error('Error fetching teacher marks registry view:', error);
-    return res.status(500).json({ error: 'Internal server error during marks registry fetch' });
+    return res.status(500).json({ error: 'Internal server error during marks repository fetch' });
   }
 };
 
@@ -105,15 +127,25 @@ export const saveTeacherMarks = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: 'Subject code not found' });
     }
 
+    // Get active semester
+    const activeSem = await prisma.semester.findFirst({
+      where: { status: 'ACTIVE' },
+      select: { id: true },
+    });
+    if (!activeSem) {
+      return res.status(400).json({ error: 'No active semester found' });
+    }
+
     // Bulk upsert using transaction
     await prisma.$transaction(
       records.map((rec: { studentId: string; score: number | null }) =>
         prisma.mark.upsert({
           where: {
-            studentId_subjectCode_type: {
+            studentId_subjectCode_type_semesterId: {
               studentId: rec.studentId,
               subjectCode,
               type,
+              semesterId: activeSem.id,
             },
           },
           update: {
@@ -126,6 +158,7 @@ export const saveTeacherMarks = async (req: AuthRequest, res: Response) => {
             type,
             score: rec.score,
             maxScore,
+            semesterId: activeSem.id,
           },
         })
       )

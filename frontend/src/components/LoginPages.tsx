@@ -1,17 +1,17 @@
 import React, { useState } from 'react';
-import type { User, Role } from '../types';
-import { BookOpen, GraduationCap, Users, Eye, EyeOff } from 'lucide-react';
+import type { SignInRole, User } from '../types';
+import { BookOpen, GraduationCap, Users, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import API from '../services/api';
 
 interface LoginPageProps {
   onLogin: (user: User) => void;
-  defaultRole: Role;
+  defaultRole: SignInRole;
 }
 
 const LoginPage: React.FC<LoginPageProps> = ({ onLogin, defaultRole }) => {
   const navigate = useNavigate();
-  const [role, setRole] = useState<Role>(defaultRole);
+  const [role, setRole] = useState<SignInRole>(defaultRole);
   const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
   const [showPwd, setShowPwd] = useState(false);
@@ -32,6 +32,12 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, defaultRole }) => {
       name: 'Dr. Priya Sharma',
       department: 'Computer Science & Engineering',
     },
+    supervisor: {
+      id: 'DEAN123',
+      password: 'dean123',
+      name: 'Dr. Dean Administrator',
+      department: 'Administration',
+    },
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -48,7 +54,13 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, defaultRole }) => {
       const { token, user: loggedInUser } = response.data;
       localStorage.setItem('token', token);
       onLogin(loggedInUser);
-      navigate(`/${role}/dashboard`, { replace: true });
+
+      // Redirect based on role
+      if (loggedInUser.role === 'dean' || loggedInUser.role === 'principal') {
+        navigate(`/supervisor/dashboard`, { replace: true });
+      } else {
+        navigate(`/${loggedInUser.role}/dashboard`, { replace: true });
+      }
     } catch (err: any) {
       console.error('Login error:', err);
       setError(err.response?.data?.error || 'Invalid credentials. Try the demo account below.');
@@ -89,19 +101,19 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, defaultRole }) => {
           <p>© 2026 EduPortal · Dr. HN National College of Engineering</p>
           <p className="text-white/30 text-xs mt-1.5">
             Developed by{' '}
-            <a 
-              href="https://github.com/Nerdtrovert" 
-              target="_blank" 
-              rel="noopener noreferrer" 
+            <a
+              href="https://github.com/Nerdtrovert"
+              target="_blank"
+              rel="noopener noreferrer"
               className="hover:text-white underline transition-colors"
             >
               Prajwal
             </a>
             {' '}and{' '}
-            <a 
-              href="https://github.com/sudhanva1608" 
-              target="_blank" 
-              rel="noopener noreferrer" 
+            <a
+              href="https://github.com/sudhanva1608"
+              target="_blank"
+              rel="noopener noreferrer"
               className="hover:text-white underline transition-colors"
             >
               Sudhanva
@@ -128,8 +140,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, defaultRole }) => {
             {/* Role toggle */}
             <div className="flex flex-col sm:flex-row gap-3 mb-8">
               {[
-                { role: 'student' as Role, icon: <GraduationCap size={16} />, label: 'Student' },
-                { role: 'teacher' as Role, icon: <Users size={16} />, label: 'Faculty' },
+                { role: 'student' as SignInRole, icon: <GraduationCap size={16} />, label: 'Student' },
+                { role: 'teacher' as SignInRole, icon: <Users size={16} />, label: 'Faculty' },
+                { role: 'supervisor' as SignInRole, icon: <ShieldCheck size={16} />, label: 'Supervisor Faculty' },
               ].map((r) => (
                 <button
                   key={r.role}
@@ -149,13 +162,13 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, defaultRole }) => {
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {role === 'student' ? 'Roll Number' : 'Faculty ID'}
+                  {role === 'student' ? 'Roll Number' : 'Faculty / Staff ID'}
                 </label>
                 <input
                   type="text"
                   value={userId}
                   onChange={(e) => setUserId(e.target.value)}
-                  placeholder={role === 'student' ? 'e.g. CS21B042' : 'e.g. FAC2018'}
+                  placeholder={role === 'student' ? 'e.g. CS21B042' : role === 'teacher' ? 'e.g. FAC2018' : 'e.g. DEAN123 or PRINCIPAL456'}
                   className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 bg-gray-50"
                   required
                 />
@@ -202,6 +215,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, defaultRole }) => {
               <p className="text-xs text-amber-700 font-mono">
                 ID: {DEMO_ACCOUNTS[role].id} &nbsp;|&nbsp; Password: {DEMO_ACCOUNTS[role].password}
               </p>
+              {role === 'supervisor' && <p className="mt-1 text-xs text-amber-700">Deans, principals, and other approved supervisory faculty use this option.</p>}
               <button
                 onClick={fillDemo}
                 className="mt-2 text-xs text-amber-800 underline underline-offset-2 hover:text-amber-900"
@@ -215,19 +229,19 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, defaultRole }) => {
             <p>© 2026 EduPortal · Dr. HN National College of Engineering</p>
             <p className="mt-1.5 text-white/40">
               Developed by{' '}
-              <a 
-                href="https://github.com/Nerdtrovert" 
-                target="_blank" 
-                rel="noopener noreferrer" 
+              <a
+                href="https://github.com/Nerdtrovert"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="underline hover:text-white transition-colors"
               >
                 Prajwal
               </a>
               {' '}and{' '}
-              <a 
-                href="https://github.com/sudhanva1608" 
-                target="_blank" 
-                rel="noopener noreferrer" 
+              <a
+                href="https://github.com/sudhanva1608"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="underline hover:text-white transition-colors"
               >
                 Sudhanva
@@ -244,6 +258,10 @@ export const StudentLoginPage: React.FC<{ onLogin: (user: User) => void }> = ({ 
   return <LoginPage onLogin={onLogin} defaultRole="student" />;
 };
 
-export const TeacherLoginPage: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
+export const FacultyLoginPage: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
   return <LoginPage onLogin={onLogin} defaultRole="teacher" />;
+};
+
+export const SupervisorLoginPage: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
+  return <LoginPage onLogin={onLogin} defaultRole="supervisor" />;
 };

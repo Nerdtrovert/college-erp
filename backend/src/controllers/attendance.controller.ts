@@ -11,6 +11,15 @@ export const getStudentAttendance = async (req: AuthRequest, res: Response) => {
   }
 
   try {
+    // Get active semester
+    const activeSem = await prisma.semester.findFirst({
+      where: { status: 'ACTIVE' },
+      select: { id: true },
+    });
+    if (!activeSem) {
+      return res.status(400).json({ error: 'No active semester found' });
+    }
+
     // Get all subjects corresponding to the student's class group section
     const subjects = await prisma.subject.findMany({
       where: { classGroup },
@@ -19,6 +28,9 @@ export const getStudentAttendance = async (req: AuthRequest, res: Response) => {
           select: { name: true },
         },
         attendanceSessions: {
+          where: {
+            semesterId: activeSem.id,
+          },
           include: {
             records: {
               where: { studentId },
@@ -74,20 +86,28 @@ export const getTeacherAttendance = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: 'Subject code not found' });
     }
 
+    // Get active semester
+    const activeSem = await prisma.semester.findFirst({
+      where: { status: 'ACTIVE' },
+      select: { id: true },
+    });
+    if (!activeSem) {
+      return res.status(400).json({ error: 'No active semester found' });
+    }
+
     // Get all students enrolled in this subject's class section
     const students = await prisma.user.findMany({
       where: { role: 'student', classGroup: subject.classGroup },
       orderBy: { id: 'asc' },
     });
 
-    // Get existing session attendance records if saved
-    const session = await prisma.attendanceSession.findUnique({
+    // Get existing session attendance records if saved (for active semester)
+    const session = await prisma.attendanceSession.findFirst({
       where: {
-        subjectCode_date_classGroup: {
-          subjectCode,
-          date,
-          classGroup: subject.classGroup,
-        },
+        subjectCode,
+        date,
+        classGroup: subject.classGroup,
+        semesterId: activeSem.id,
       },
       include: {
         records: true,
@@ -126,13 +146,23 @@ export const saveTeacherAttendance = async (req: AuthRequest, res: Response) => 
       return res.status(404).json({ error: 'Subject code not found' });
     }
 
-    // 2. Upsert the session for the given subject, date, classGroup
+    // Get active semester
+    const activeSem = await prisma.semester.findFirst({
+      where: { status: 'ACTIVE' },
+      select: { id: true },
+    });
+    if (!activeSem) {
+      return res.status(400).json({ error: 'No active semester found' });
+    }
+
+    // 2. Upsert the session for the given subject, date, classGroup, and active semester
     const session = await prisma.attendanceSession.upsert({
       where: {
-        subjectCode_date_classGroup: {
+        subjectCode_date_classGroup_semesterId: {
           subjectCode,
           date,
           classGroup,
+          semesterId: activeSem.id,
         },
       },
       update: {},
@@ -140,6 +170,7 @@ export const saveTeacherAttendance = async (req: AuthRequest, res: Response) => 
         subjectCode,
         date,
         classGroup,
+        semesterId: activeSem.id,
       },
     });
 

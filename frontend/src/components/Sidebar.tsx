@@ -32,7 +32,7 @@ export const Sidebar: React.FC<Props> = ({ user, items, active, onNavigate, onLo
         </div>
         <div>
           <div className="text-white font-semibold text-sm leading-tight">EduPortal</div>
-          <div className="text-white/40 text-xs">{user.role === 'student' ? 'Student' : 'Faculty'} Portal</div>
+          <div className="text-white/40 text-xs">{user.role === 'student' ? 'Student' : user.role === 'teacher' ? 'Faculty' : 'Supervisor Faculty'} Portal</div>
         </div>
       </div>
 

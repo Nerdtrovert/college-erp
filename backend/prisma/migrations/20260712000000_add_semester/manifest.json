@@ -1,0 +1,7 @@
+{
+  "migrationId": "20260712000000_add_semester",
+  "prismaVersion": "6.19.3",
+  "engine": {
+    "version": "6.19.3"
+  }
+}

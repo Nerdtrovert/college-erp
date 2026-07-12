@@ -8,7 +8,7 @@
     "db:push": "cd backend && npm run prisma:generate && npx prisma db push",
     "db:seed": "cd backend && npx tsc prisma/seed.ts --ignoreConfig --esModuleInterop --module commonjs --target es2020 --outDir prisma/dist --skipLibCheck --types node && node prisma/dist/seed.js",
     "db:setup": "npm run db:start && npm run db:push && npm run db:seed",
-    "dev:backend": "trap 'npm run db:stop' EXIT SIGINT SIGTERM; npm run db:start && npm --prefix backend run build && npm --prefix backend start",
+    "dev:backend": "trap 'npm run db:stop' SIGINT SIGTERM; npm run db:start && npm --prefix backend run dev",
     "dev:frontend": "npm --prefix frontend run dev"
   }
 }
