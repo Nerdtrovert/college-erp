@@ -1,24 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import type { User } from '../../types';
+import API from '../../services/api';
 
 export const StudentNotes: React.FC<{ user: User }> = ({ user }) => {
   const [notes, setNotes] = useState<Array<any>>([]); // Note shape
   const [loading, setLoading] = useState(true);
 
-  // Load notes from localStorage on mount
+  // Load notes from backend on mount
   useEffect(() => {
-    const stored = localStorage.getItem('notes');
-    if (stored) {
+    const fetchNotes = async () => {
       try {
-        setNotes(JSON.parse(stored));
-      } catch (e) {
-        console.error('Failed to parse notes from localStorage', e);
-        setNotes([]);
+        const res = await API.get('/notes');
+        setNotes(res.data);
+      } catch (err: any) {
+        console.error('Error fetching notes:', err);
+      } finally {
+        setLoading(false);
       }
-    } else {
-      setNotes([]);
-    }
-    setLoading(false);
+    };
+    fetchNotes();
   }, []);
 
   // Helper to download file
@@ -96,10 +96,15 @@ export const StudentNotes: React.FC<{ user: User }> = ({ user }) => {
                   {/* Optionally allow teacher to delete their own notes */}
                   {user.role === 'teacher' && note.uploadedBy === user.name && (
                     <button
-                      onClick={() => {
+                      onClick={async () => {
                         if (window.confirm('Delete this note?')) {
-                          setNotes(prev => prev.filter(n => n.id !== note.id));
-                          localStorage.setItem('notes', JSON.stringify([...notes.filter(n => n.id !== note.id)]));
+                          try {
+                            await API.delete(`/notes/${note.id}`);
+                            setNotes((prev) => prev.filter((n) => n.id !== note.id));
+                          } catch (err) {
+                            console.error(err);
+                            alert('Failed to delete note.');
+                          }
                         }
                       }}
                       className="px-3 py-1 bg-red-600 text-xs text-white rounded hover:bg-red-700 transition"

@@ -1,69 +1,9 @@
+import { useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Info } from 'lucide-react';
-
-const SUBJECTS = [
-  {
-    name: 'Data Structures & Algorithms',
-    code: 'CS2301',
-    faculty: 'Dr. Priya Sharma',
-    present: 26, absent: 4, total: 30,
-    sessions: [
-      { date: '2024-11-01', status: 'present' }, { date: '2024-11-04', status: 'present' },
-      { date: '2024-11-06', status: 'absent' }, { date: '2024-11-08', status: 'present' },
-      { date: '2024-11-11', status: 'present' }, { date: '2024-11-12', status: 'present' },
-      { date: '2024-11-14', status: 'absent' }, { date: '2024-11-15', status: 'present' },
-    ]
-  },
-  {
-    name: 'Operating Systems',
-    code: 'CS2302',
-    faculty: 'Prof. Ramesh Iyer',
-    present: 22, absent: 8, total: 30,
-    sessions: [
-      { date: '2024-11-01', status: 'present' }, { date: '2024-11-04', status: 'absent' },
-      { date: '2024-11-06', status: 'absent' }, { date: '2024-11-08', status: 'present' },
-      { date: '2024-11-11', status: 'absent' }, { date: '2024-11-12', status: 'present' },
-      { date: '2024-11-14', status: 'present' }, { date: '2024-11-15', status: 'absent' },
-    ]
-  },
-  {
-    name: 'Computer Networks',
-    code: 'CS2303',
-    faculty: 'Dr. Anita Raj',
-    present: 27, absent: 3, total: 30,
-    sessions: [
-      { date: '2024-11-01', status: 'present' }, { date: '2024-11-04', status: 'present' },
-      { date: '2024-11-06', status: 'present' }, { date: '2024-11-08', status: 'present' },
-      { date: '2024-11-11', status: 'present' }, { date: '2024-11-12', status: 'absent' },
-      { date: '2024-11-14', status: 'present' }, { date: '2024-11-15', status: 'present' },
-    ]
-  },
-  {
-    name: 'Database Systems',
-    code: 'CS2304',
-    faculty: 'Mr. Vijay Kumar',
-    present: 20, absent: 10, total: 30,
-    sessions: [
-      { date: '2024-11-01', status: 'absent' }, { date: '2024-11-04', status: 'absent' },
-      { date: '2024-11-06', status: 'present' }, { date: '2024-11-08', status: 'absent' },
-      { date: '2024-11-11', status: 'present' }, { date: '2024-11-12', status: 'present' },
-      { date: '2024-11-14', status: 'absent' }, { date: '2024-11-15', status: 'present' },
-    ]
-  },
-  {
-    name: 'Software Engineering',
-    code: 'CS2305',
-    faculty: 'Dr. Meena Nair',
-    present: 25, absent: 5, total: 30,
-    sessions: [
-      { date: '2024-11-01', status: 'present' }, { date: '2024-11-04', status: 'present' },
-      { date: '2024-11-06', status: 'present' }, { date: '2024-11-08', status: 'absent' },
-      { date: '2024-11-11', status: 'present' }, { date: '2024-11-12', status: 'present' },
-      { date: '2024-11-14', status: 'absent' }, { date: '2024-11-15', status: 'present' },
-    ]
-  },
-];
+import API from '../../services/api';
 
 function classesNeeded(present: number, total: number): string {
+  if (total === 0) return 'No sessions recorded yet';
   const current = Math.round((present / total) * 100);
   if (current >= 75) return `${Math.max(0, Math.ceil((0.75 * total - present) / 0.25))} more classes can be missed`;
   const needed = Math.ceil((0.75 * total - present) / 0.25);
@@ -71,7 +11,36 @@ function classesNeeded(present: number, total: number): string {
 }
 
 export const StudentAttendance: React.FC = () => {
-  const overall = Math.round(SUBJECTS.reduce((s, sub) => s + sub.present / sub.total * 100, 0) / SUBJECTS.length);
+  const [subjects, setSubjects] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const fetchAttendance = async () => {
+      try {
+        const res = await API.get('/attendance/student');
+        setSubjects(res.data);
+      } catch (err: any) {
+        console.error(err);
+        setError('Failed to fetch attendance records.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAttendance();
+  }, []);
+
+  if (loading) {
+    return <div className="p-6 text-center text-gray-500 font-medium">Loading attendance records...</div>;
+  }
+
+  if (error) {
+    return <div className="p-6 text-center text-red-500 font-medium">{error}</div>;
+  }
+
+  const overall = subjects.length > 0
+    ? Math.round(subjects.reduce((s, sub) => s + (sub.total > 0 ? (sub.present / sub.total) * 100 : 100), 0) / subjects.length)
+    : 0;
 
   return (
     <div className="space-y-6">
@@ -111,7 +80,7 @@ export const StudentAttendance: React.FC = () => {
 
       {/* Subject cards */}
       <div className="grid md:grid-cols-2 gap-4">
-        {SUBJECTS.map((s) => {
+        {subjects.map((s) => {
           const pct = Math.round((s.present / s.total) * 100);
           const status = pct >= 85 ? 'good' : pct >= 75 ? 'moderate' : 'low';
           return (
@@ -144,7 +113,7 @@ export const StudentAttendance: React.FC = () => {
 
               {/* Mini session dots */}
               <div className="flex flex-wrap gap-1.5">
-                {s.sessions.map((session, i) => (
+                {s.sessions.map((session: any, i: number) => (
                   <div
                     key={i}
                     title={`${session.date} — ${session.status}`}

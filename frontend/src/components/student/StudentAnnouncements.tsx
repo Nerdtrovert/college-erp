@@ -1,52 +1,6 @@
+import { useEffect, useState } from 'react';
 import { Bell, CalendarDays, User } from 'lucide-react';
-
-const ANNOUNCEMENTS = [
-  {
-    id: 1,
-    title: 'Mid-semester exams begin Nov 18',
-    body: 'All students are notified that mid-semester examinations will commence from November 18, 2024. The exam schedule has been posted on the notice board and college website.',
-    category: 'exam',
-    date: 'Nov 10, 2024',
-    author: 'Exam Cell',
-    pinned: true
-  },
-  {
-    id: 2,
-    title: 'Lab record submission deadline extended to Nov 15',
-    body: 'Due to technical issues in some labs, the deadline for submission of laboratory records has been extended to November 15, 2024. Please ensure your records are complete and signed by the respective lab instructors.',
-    category: 'info',
-    date: 'Nov 8, 2024',
-    author: 'Academic Office',
-    pinned: false
-  },
-  {
-    id: 3,
-    title: 'Guest lecture on AI/ML — Nov 14, 2 PM, Seminar Hall',
-    body: 'The Computer Science Department is organizing a guest lecture on Artificial Intelligence and Machine Learning by Dr. Rajesh Kumar from IIT Delhi. All interested students are invited to attend the session on November 14, 2024 at 2:00 PM in the Seminar Hall.',
-    category: 'event',
-    date: 'Nov 7, 2024',
-    author: 'CSE Department',
-    pinned: false
-  },
-  {
-    id: 4,
-    title: 'Sports meet registration opens',
-    body: 'Registration for the annual inter-departmental sports meet is now open. Students can register for various events including cricket, football, badminton, table tennis, and athletics. Last date for registration is November 20, 2024.',
-    category: 'event',
-    date: 'Nov 5, 2024',
-    author: 'Sports Committee',
-    pinned: false
-  },
-  {
-    id: 5,
-    title: 'Library hours extended during exams',
-    body: 'To facilitate better preparation for upcoming examinations, the central library will remain open until 10:00 PM from November 15 to December 1, 2024. All students are advised to make use of this facility.',
-    category: 'info',
-    date: 'Nov 3, 2024',
-    author: 'Library Committee',
-    pinned: false
-  }
-];
+import API from '../../services/api';
 
 const getCategoryIcon = (category: string) => {
   switch (category) {
@@ -63,6 +17,33 @@ const Calendar = () => <span className="text-green-600">📅</span>;
 const MessageCircle = () => <span className="text-gray-600">💬</span>;
 
 export const StudentAnnouncements: React.FC = () => {
+  const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const fetchAnnouncements = async () => {
+      try {
+        const res = await API.get('/announcements');
+        setAnnouncements(res.data);
+      } catch (err: any) {
+        console.error(err);
+        setError('Failed to fetch announcements.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAnnouncements();
+  }, []);
+
+  if (loading) {
+    return <div className="p-6 text-center text-gray-500 font-medium">Loading announcements...</div>;
+  }
+
+  if (error) {
+    return <div className="p-6 text-center text-red-500 font-medium">{error}</div>;
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -75,7 +56,7 @@ export const StudentAnnouncements: React.FC = () => {
           <h2 className="font-semibold text-gray-900 px-4 sm:px-6 py-4">All Announcements</h2>
         </div>
         <div className="divide-y divide-gray-100">
-          {ANNOUNCEMENTS.map((announcement) => (
+          {announcements.map((announcement) => (
             <div key={announcement.id} className="px-4 sm:px-6 py-4 cursor-pointer hover:bg-gray-50 transition-colors duration-200">
               <div className="flex items-start gap-3 sm:gap-4">
                 <div className="flex-shrink-0 mt-1">

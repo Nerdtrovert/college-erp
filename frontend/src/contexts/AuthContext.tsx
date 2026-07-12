@@ -14,13 +14,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const login = (userData: User) => {
     setUser(userData);
-    // In a real app, you would save token to localStorage or cookies
-    localStorage.setItem('user', JSON.stringify(userData));
+    // In a real app, you would save token to sessionStorage or cookies
+    sessionStorage.setItem('user', JSON.stringify(userData));
   };
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('user');
+    sessionStorage.removeItem('user');
   };
 
   return (

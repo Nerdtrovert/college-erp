@@ -1,64 +1,111 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CheckCircle2, XCircle, Save, ChevronDown } from 'lucide-react';
-
-const CLASSES = [
-  { id: 'cs2301-b', label: 'CS2301 — Data Structures (CSE-B)' },
-  { id: 'cs3401-a', label: 'CS3401 — Design & Analysis of Algorithms (CSE-A)' },
-  { id: 'cs2301l-b', label: 'CS2301L — DS Lab (CSE-B)' },
-];
-
-const STUDENTS = [
-  { roll: 'CS21B001', name: 'Aakash Nair' },
-  { roll: 'CS21B002', name: 'Aditi Rao' },
-  { roll: 'CS21B003', name: 'Ajay Singh' },
-  { roll: 'CS21B004', name: 'Amrita Das' },
-  { roll: 'CS21B005', name: 'Ananya Krishnan' },
-  { roll: 'CS21B006', name: 'Rehman Dakait' },
-  { roll: 'CS21B007', name: 'Bhavna Pillai' },
-  { roll: 'CS21B008', name: 'Deepak Verma' },
-  { roll: 'CS21B009', name: 'Divya Sharma' },
-  { roll: 'CS21B010', name: 'Ganesh Reddy' },
-  { roll: 'CS21B011', name: 'Harish Kumar' },
-  { roll: 'CS21B012', name: 'Ishita Bansal' },
-  { roll: 'CS21B013', name: 'Jayant Patel' },
-  { roll: 'CS21B014', name: 'Kavitha Mohan' },
-  { roll: 'CS21B015', name: 'Kiran Menon' },
-  { roll: 'CS21B016', name: 'Lavanya Subramanian' },
-  { roll: 'CS21B017', name: 'Manish Gupta' },
-  { roll: 'CS21B018', name: 'Rohit Sharma' },
-];
+import API from '../../services/api';
 
 type AttendanceMap = Record<string, 'present' | 'absent'>;
 
+interface SubjectItem {
+  code: string;
+  name: string;
+  classGroup: string;
+}
+
+interface StudentItem {
+  roll: string;
+  name: string;
+  status: 'present' | 'absent';
+}
+
 export const TeacherAttendance: React.FC = () => {
-  const [selectedClass, setSelectedClass] = useState(CLASSES[0].id);
+  const [subjects, setSubjects] = useState<SubjectItem[]>([]);
+  const [selectedClass, setSelectedClass] = useState('');
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [attendance, setAttendance] = useState<AttendanceMap>(() =>
-    Object.fromEntries(STUDENTS.map(s => [s.roll, 'present']))
-  );
+  const [students, setStudents] = useState<StudentItem[]>([]);
+  const [attendance, setAttendance] = useState<AttendanceMap>({});
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch subjects taught by the teacher
+  useEffect(() => {
+    const fetchSubjects = async () => {
+      try {
+        const res = await API.get('/timetable/teacher-subjects');
+        setSubjects(res.data);
+        if (res.data.length > 0) {
+          setSelectedClass(res.data[0].code);
+        }
+      } catch (err) {
+        console.error('Error fetching teacher subjects:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSubjects();
+  }, []);
+
+  // Fetch student roster and attendance statuses when class or date changes
+  useEffect(() => {
+    if (!selectedClass) return;
+    const fetchRoster = async () => {
+      try {
+        const res = await API.get(`/attendance/teacher/${selectedClass}?date=${date}`);
+        setStudents(res.data.students);
+        setAttendance(
+          Object.fromEntries(res.data.students.map((s: any) => [s.roll, s.status]))
+        );
+      } catch (err) {
+        console.error('Error fetching attendance roster:', err);
+      }
+    };
+    fetchRoster();
+  }, [selectedClass, date]);
 
   const toggle = (roll: string) => {
     setSaved(false);
-    setAttendance(prev => ({ ...prev, [roll]: prev[roll] === 'present' ? 'absent' : 'present' }));
+    setAttendance((prev) => ({
+      ...prev,
+      [roll]: prev[roll] === 'present' ? 'absent' : 'present',
+    }));
   };
 
   const markAll = (status: 'present' | 'absent') => {
     setSaved(false);
-    setAttendance(Object.fromEntries(STUDENTS.map(s => [s.roll, status])));
+    setAttendance(Object.fromEntries(students.map((s) => [s.roll, status])));
   };
 
-  const presentCount = Object.values(attendance).filter(v => v === 'present').length;
-  const absentCount = STUDENTS.length - presentCount;
+  const presentCount = Object.values(attendance).filter((v) => v === 'present').length;
+  const absentCount = students.length - presentCount;
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (!selectedClass) return;
     setSaving(true);
-    setTimeout(() => {
-      setSaving(false);
+    try {
+      const selectedSubj = subjects.find((s) => s.code === selectedClass);
+      const records = Object.entries(attendance).map(([roll, status]) => ({
+        studentId: roll,
+        status,
+      }));
+
+      await API.post('/attendance/teacher', {
+        subjectCode: selectedClass,
+        date,
+        classGroup: selectedSubj ? selectedSubj.classGroup : 'CSE-B',
+        records,
+      });
+
       setSaved(true);
-    }, 800);
+    } catch (err) {
+      console.error('Error saving attendance:', err);
+      alert('Failed to save attendance.');
+    } finally {
+      setSaving(false);
+    }
   };
+
+  if (loading) {
+    return <div className="p-6 text-center text-gray-500 font-medium">Loading subjects...</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -78,7 +125,7 @@ export const TeacherAttendance: React.FC = () => {
                 onChange={(e) => { setSelectedClass(e.target.value); setSaved(false) }}
                 className="w-full appearance-none px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500 pr-10"
               >
-                {CLASSES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+                {subjects.map(c => <option key={c.code} value={c.code}>{c.code} — {c.name} ({c.classGroup})</option>)}
               </select>
               <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
             </div>
@@ -104,7 +151,7 @@ export const TeacherAttendance: React.FC = () => {
           <span className="text-sm font-semibold text-red-700 bg-red-100 px-3 py-1.5 rounded-full">
             {absentCount} Absent
           </span>
-          <span className="text-sm text-gray-500">{STUDENTS.length} total</span>
+          <span className="text-sm text-gray-500">{students.length} total</span>
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto sm:ml-auto">
           <button onClick={() => markAll('present')} className="text-xs font-medium px-3 py-2 rounded-lg border border-green-200 text-green-700 hover:bg-green-50">
@@ -119,7 +166,7 @@ export const TeacherAttendance: React.FC = () => {
       {/* Student list */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="divide-y divide-gray-100">
-          {STUDENTS.map((s, i) => {
+          {students.map((s, i) => {
             const isPresent = attendance[s.roll] === 'present';
             return (
               <div

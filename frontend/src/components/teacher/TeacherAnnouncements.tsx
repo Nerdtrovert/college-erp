@@ -1,33 +1,6 @@
 import * as React from 'react';
-import { Save, Calendar, Info, MessageCircle, User, FileText } from 'lucide-react';
-
-const INITIAL_ANNOUNCEMENTS = [
-  {
-    id: 1,
-    title: 'Mid-semester exams begin Nov 18',
-    body: 'All students are notified that mid-semester examinations will commence from November 18, 2024. The exam schedule has been posted on the notice board and college website.',
-    category: 'exam',
-    date: 'Nov 10, 2024',
-    author: 'Dr. Priya Sharma',
-    target: 'All Students'
-  },
-  {
-    id: 2,
-    title: 'Lab schedule change for CS2301L',
-    body: 'Due to maintenance work in Lab 1, the lab schedule for CS2301L (Data Structures Lab) has been changed. Please note the new timings effective from November 12, 2024.',
-    category: 'info',
-    date: 'Nov 8, 2024',
-    author: 'Lab Incharge',
-    target: 'CSE-B Students'
-  }
-];
-
-const CLASSES = [
-  { id: 'cs2301-b', label: 'CS2301 — Data Structures (CSE-B)' },
-  { id: 'cs3401-a', label: 'CS3401 — Design & Analysis of Algorithms (CSE-A)' },
-  { id: 'cs2301l-b', label: 'CS2301L — DS Lab (CSE-B)' },
-  { id: 'cs3401l-a', label: 'CS3401L — DAA Lab (CSE-A)' },
-];
+import { Save, Calendar, Info, MessageCircle, User, FileText, Trash2 } from 'lucide-react';
+import API from '../../services/api';
 
 interface Announcement {
   id: number;
@@ -39,38 +12,74 @@ interface Announcement {
   target: string;
 }
 
+interface SubjectItem {
+  code: string;
+  name: string;
+  classGroup: string;
+}
+
 export const TeacherAnnouncements: React.FC = () => {
-  const [announcements, setAnnouncements] = React.useState<Array<Announcement>>(INITIAL_ANNOUNCEMENTS);
-  const [newAnnouncement, setNewAnnouncement] = React.useState<Omit<Announcement, 'id' | 'date' | 'author'>>({
+  const [announcements, setAnnouncements] = React.useState<Array<Announcement>>([]);
+  const [subjects, setSubjects] = React.useState<Array<SubjectItem>>([]);
+  const [newAnnouncement, setNewAnnouncement] = React.useState({
     title: '',
     body: '',
     category: 'info',
-    target: CLASSES[0].id
+    target: 'all'
   });
   const [saving, setSaving] = React.useState(false);
+  const [loading, setLoading] = React.useState(true);
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  // Fetch announcements and subjects on mount
+  React.useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [annRes, subjRes] = await Promise.all([
+          API.get('/announcements'),
+          API.get('/timetable/teacher-subjects')
+        ]);
+        setAnnouncements(annRes.data);
+        setSubjects(subjRes.data);
+      } catch (err) {
+        console.error('Error fetching announcements/subjects:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!newAnnouncement.title.trim() || !newAnnouncement.body.trim()) return;
 
     setSaving(true);
-    const newAnn = {
-      ...newAnnouncement,
-      id: Date.now(),
-      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-      author: 'Dr. Priya Sharma'
-    };
-
-    setTimeout(() => {
-      setAnnouncements(prev => [newAnn, ...prev]);
+    try {
+      const res = await API.post('/announcements', newAnnouncement);
+      setAnnouncements(prev => [res.data, ...prev]);
       setNewAnnouncement({
         title: '',
         body: '',
         category: 'info',
-        target: CLASSES[0].id
+        target: 'all'
       });
+    } catch (err) {
+      console.error('Error creating announcement:', err);
+      alert('Failed to publish announcement.');
+    } finally {
       setSaving(false);
-    }, 800);
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!window.confirm('Delete this announcement?')) return;
+    try {
+      await API.delete(`/announcements/${id}`);
+      setAnnouncements(prev => prev.filter(a => a.id !== id));
+    } catch (err) {
+      console.error('Error deleting announcement:', err);
+      alert('Failed to delete announcement.');
+    }
   };
 
   const getCategoryIcon = (category: string) => {
@@ -81,6 +90,10 @@ export const TeacherAnnouncements: React.FC = () => {
       default: return <MessageCircle />;
     }
   };
+
+  if (loading) {
+    return <div className="p-6 text-center text-gray-500 font-medium">Loading announcements...</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -142,10 +155,10 @@ export const TeacherAnnouncements: React.FC = () => {
                   onChange={(e) => setNewAnnouncement(prev => ({ ...prev, target: e.target.value }))}
                   className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all bg-gray-50/50 hover:bg-gray-50 cursor-pointer"
                 >
-                  {CLASSES.map(cls => (
-                    <option key={cls.id} value={cls.id}>{cls.label}</option>
-                  ))}
                   <option value="all">All Students</option>
+                  {subjects.map(cls => (
+                    <option key={cls.code} value={cls.code}>{cls.code} — {cls.name} ({cls.classGroup})</option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -186,7 +199,7 @@ export const TeacherAnnouncements: React.FC = () => {
         </div>
         <div className="divide-y divide-gray-100">
           {announcements.map((announcement) => (
-            <div key={announcement.id} className="px-4 sm:px-6 py-4 flex items-start gap-3 sm:gap-4">
+            <div key={announcement.id} className="px-4 sm:px-6 py-4 flex items-start gap-3 sm:gap-4 relative group">
               <div className="flex-shrink-0 mt-1">
                 {getCategoryIcon(announcement.category)}
               </div>
@@ -213,6 +226,16 @@ export const TeacherAnnouncements: React.FC = () => {
                     <User size={13} /> {announcement.author}
                   </span>
                 </div>
+              </div>
+              <div className="absolute right-4 top-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                  type="button"
+                  onClick={() => handleDelete(announcement.id)}
+                  className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-gray-50 transition"
+                  title="Delete Notice"
+                >
+                  <Trash2 size={16} />
+                </button>
               </div>
             </div>
           ))}

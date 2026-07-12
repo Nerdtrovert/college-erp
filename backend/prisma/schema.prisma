@@ -1,0 +1,174 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  student
+  teacher
+  dean
+  principal
+}
+
+enum SemesterStatus {
+  ACTIVE
+  UPCOMING
+  ARCHIVED
+}
+
+model User {
+  id          String   @id // Roll Number (e.g. CS21B042) or Faculty ID (e.g. FAC2018)
+  name        String
+  password    String
+  role        Role
+  department  String
+  classGroup  String?  // Section for students (e.g., "CSE-B"). Null for teachers.
+
+  // Relations
+  taughtSubjects    Subject[]          @relation("TeacherSubjects")
+  attendanceRecords AttendanceRecord[]
+  marks             Mark[]
+  announcements     Announcement[]     @relation("UserAnnouncements")
+  notes             Note[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Subject {
+  code        String @id // Course Code (e.g. CS2301)
+  name        String
+  facultyId   String
+  classGroup  String // Target class (e.g., "CSE-B")
+
+  faculty User @relation("TeacherSubjects", fields: [facultyId], references: [id])
+
+  // Relations
+  attendanceSessions AttendanceSession[]
+  marks              Mark[]
+  timetableSlots     TimetableSlot[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Semester {
+  id        String   @id @default(uuid())
+  name      String
+  startDate String?   // YYYY-MM-DD
+  endDate   String?   // YYYY-MM-DD
+  status    SemesterStatus
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations (optional, via foreign keys in other tables)
+  attendanceSessions AttendanceSession[]
+  marks              Mark[]
+  timetableSlots     TimetableSlot[]
+}
+
+model AttendanceSession {
+  id          String   @id @default(uuid())
+  subjectCode String
+  date        String   // Stored as "YYYY-MM-DD"
+  classGroup  String   // e.g. "CSE-B"
+  semesterId  String
+
+  subject Subject @relation(fields: [subjectCode], references: [code], onDelete: Cascade)
+  semester Semester @relation(fields: [semesterId], references: [id])
+
+  // Relations
+  records AttendanceRecord[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([subjectCode, date, classGroup, semesterId])
+}
+
+model AttendanceRecord {
+  id        String @id @default(uuid())
+  sessionId String
+  studentId String
+  status    String // "present" or "absent"
+
+  session AttendanceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  student User              @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([sessionId, studentId])
+}
+
+model Mark {
+  id          String @id @default(uuid())
+  studentId   String
+  subjectCode String
+  type        String // "ia1", "ia2", "assignment", "lab"
+  score       Float? // null represents "Pending"
+  maxScore    Float
+  semesterId  String
+
+  student User    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectCode], references: [code], onDelete: Cascade)
+  semester Semester @relation(fields: [semesterId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([studentId, subjectCode, type, semesterId])
+}
+
+model Announcement {
+  id        Int      @id @default(autoincrement())
+  title     String
+  body      String
+  category  String   // "exam", "info", "event"
+  date      String   // Formatted date (e.g. "Nov 10, 2024")
+  authorId  String
+  target    String   // e.g. "cs2301-b", "all", "CSE-B"
+  pinned    Boolean  @default(false)
+
+  author User @relation("UserAnnouncements", fields: [authorId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TimetableSlot {
+  id          String  @id @default(uuid())
+  day         String  // "Monday", "Tuesday", etc.
+  slotIndex   Int     // 0-indexed position (e.g., 0 for 8:30-9:30, 2 for break, etc.)
+  subjectCode String?
+  room        String?
+  classGroup  String  // Target section for students (e.g., "CSE-B")
+  teacherId   String  // Associated teacher ID
+  semesterId  String
+
+  subject Subject? @relation(fields: [subjectCode], references: [code], onDelete: SetNull)
+  semester Semester @relation(fields: [semesterId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([classGroup, day, slotIndex, semesterId])
+}
+
+model Note {
+  id           String   @id @default(uuid())
+  title        String
+  description  String?
+  fileName     String
+  filePath     String
+  uploadedById String
+
+  uploadedBy User @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

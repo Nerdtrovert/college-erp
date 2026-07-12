@@ -5,6 +5,7 @@ import {
   Loader2
 } from 'lucide-react';
 import type { User } from '../../types';
+import API from '../../services/api';
 
 export const TeacherNotes: React.FC<{ user: User }> = ({ user }) => {
   const [notes, setNotes] = useState<Array<any>>([]);
@@ -17,20 +18,19 @@ export const TeacherNotes: React.FC<{ user: User }> = ({ user }) => {
     filePreview: '' as string, // base64 preview
   });
 
-  // Load notes from localStorage
+  // Load notes from backend
   useEffect(() => {
-    const stored = localStorage.getItem('notes');
-    if (stored) {
+    const fetchNotes = async () => {
       try {
-        setNotes(JSON.parse(stored));
+        const res = await API.get('/notes');
+        setNotes(res.data);
       } catch (e) {
-        console.error('Failed to parse notes from localStorage', e);
-        setNotes([]);
+        console.error('Failed to parse notes:', e);
+      } finally {
+        setLoading(false);
       }
-    } else {
-      setNotes([]);
-    }
-    setLoading(false);
+    };
+    fetchNotes();
   }, []);
 
   // Handle file change
@@ -69,20 +69,20 @@ export const TeacherNotes: React.FC<{ user: User }> = ({ user }) => {
 
     setUploading(true);
     try {
-      // Create new note object
-      const newNote = {
-        id: Date.now() + Math.random().toString(36).substr(2, 9),
-        title: form.title.trim(),
-        description: form.description.trim(),
-        fileName: form.file.name,
-        fileBase64: form.filePreview, // already base64 from FileReader
-        uploadedBy: user.name,
-        timestamp: Date.now(),
-      };
+      // Build multipart Form Data for Multer
+      const formData = new FormData();
+      formData.append('title', form.title.trim());
+      formData.append('description', form.description.trim());
+      formData.append('file', form.file);
 
-      // Update state and localStorage
-      setNotes(prev => [newNote, ...prev]); // prepend newest
-      localStorage.setItem('notes', JSON.stringify([...notes, newNote]));
+      const res = await API.post('/notes', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      // Update state
+      setNotes(prev => [res.data, ...prev]); // prepend newest
 
       // Reset form
       setForm({ title: '', description: '', file: null, filePreview: '' });
@@ -90,7 +90,7 @@ export const TeacherNotes: React.FC<{ user: User }> = ({ user }) => {
       const fileInput = document.getElementById('file-input') as HTMLInputElement | null;
       if (fileInput) fileInput.value = '';
     } catch (err) {
-      console.error('Error uploading note', err);
+      console.error('Error uploading note:', err);
       alert('Failed to upload note. Please try again.');
     } finally {
       setUploading(false);
@@ -98,15 +98,19 @@ export const TeacherNotes: React.FC<{ user: User }> = ({ user }) => {
   };
 
   // Delete note (teacher only)
-  const handleDelete = (id: string) => {
-    if (window.confirm('Delete this note?')) {
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Delete this note?')) return;
+    try {
+      await API.delete(`/notes/${id}`);
       setNotes(prev => prev.filter(n => n.id !== id));
-      localStorage.setItem('notes', JSON.stringify(notes.filter(n => n.id !== id)));
+    } catch (err) {
+      console.error('Error deleting note:', err);
+      alert('Failed to delete note. Please try again.');
     }
   };
 
   if (loading) {
-    return <div className="p-6 text-center">Loading...</div>;
+    return <div className="p-6 text-center text-gray-500 font-medium">Loading study notes...</div>;
   }
 
   return (

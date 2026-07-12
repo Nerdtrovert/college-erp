@@ -1,10 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Save, CheckCircle2, ChevronDown } from 'lucide-react';
-
-const CLASSES = [
-  { id: 'cs2301-b', label: 'CS2301 — Data Structures (CSE-B)' },
-  { id: 'cs3401-a', label: 'CS3401 — Design & Analysis of Algorithms (CSE-A)' },
-];
+import API from '../../services/api';
 
 const ASSESSMENTS = [
   { id: 'ia1', label: 'IA-1', max: 30 },
@@ -13,45 +9,66 @@ const ASSESSMENTS = [
   { id: 'lab', label: 'Lab', max: 25 },
 ];
 
-const STUDENTS = [
-  'CS21B001|Aakash Nair',
-  'CS21B002|Aditi Rao',
-  'CS21B003|Ajay Singh',
-  'CS21B004|Amrita Das',
-  'CS21B005|Ananya Krishnan',
-  'CS21B006|Rehman Dakait',
-  'CS21B007|Bhavna Pillai',
-  'CS21B008|Deepak Verma',
-  'CS21B009|Divya Sharma',
-  'CS21B010|Ganesh Reddy',
-  'CS21B011|Harish Kumar',
-  'CS21B012|Ishita Bansal',
-].map(s => ({ roll: s.split('|')[0], name: s.split('|')[1] }));
+type MarksMap = Record<string, string>; // Maps roll -> score string
 
-type MarksMap = Record<string, Record<string, string>>;
+interface SubjectItem {
+  code: string;
+  name: string;
+  classGroup: string;
+}
 
-function initMarks(): MarksMap {
-  const defaults: Record<string, Record<string, number>> = {
-    'CS21B001': { ia1: 28, ia2: 26, assignment: 9, lab: 23 },
-    'CS21B002': { ia1: 25, ia2: 24, assignment: 8, lab: 21 },
-    'CS21B003': { ia1: 22, ia2: 19, assignment: 7, lab: 18 },
-    'CS21B004': { ia1: 29, ia2: 28, assignment: 10, lab: 24 },
-    'CS21B005': { ia1: 18, ia2: 20, assignment: 6, lab: 17 },
-  };
-  return Object.fromEntries(
-    STUDENTS.map(s => [
-      s.roll,
-      Object.fromEntries(ASSESSMENTS.map(a => [a.id, String(defaults[s.roll]?.[a.id] ?? '')]))
-    ])
-  );
+interface StudentMarkItem {
+  roll: string;
+  name: string;
+  score: number | null;
 }
 
 export const TeacherMarks: React.FC = () => {
-  const [selectedClass, setSelectedClass] = useState(CLASSES[0].id);
+  const [subjects, setSubjects] = useState<SubjectItem[]>([]);
+  const [selectedClass, setSelectedClass] = useState('');
   const [selectedAssessment, setSelectedAssessment] = useState(ASSESSMENTS[0].id);
-  const [marks, setMarks] = useState<MarksMap>(initMarks);
+  const [students, setStudents] = useState<StudentMarkItem[]>([]);
+  const [marks, setMarks] = useState<MarksMap>({});
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch subjects taught by the teacher
+  useEffect(() => {
+    const fetchSubjects = async () => {
+      try {
+        const res = await API.get('/timetable/teacher-subjects');
+        setSubjects(res.data);
+        if (res.data.length > 0) {
+          setSelectedClass(res.data[0].code);
+        }
+      } catch (err) {
+        console.error('Error fetching teacher subjects:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSubjects();
+  }, []);
+
+  // Fetch student marks roster when class or assessment type changes
+  useEffect(() => {
+    if (!selectedClass || !selectedAssessment) return;
+    const fetchMarksRoster = async () => {
+      try {
+        const res = await API.get(`/marks/teacher/${selectedClass}/${selectedAssessment}`);
+        setStudents(res.data.students);
+        setMarks(
+          Object.fromEntries(
+            res.data.students.map((s: any) => [s.roll, s.score !== null ? String(s.score) : ''])
+          )
+        );
+      } catch (err) {
+        console.error('Error fetching marks roster:', err);
+      }
+    };
+    fetchMarksRoster();
+  }, [selectedClass, selectedAssessment]);
 
   const assessment = ASSESSMENTS.find(a => a.id === selectedAssessment)!;
 
@@ -59,19 +76,43 @@ export const TeacherMarks: React.FC = () => {
     const num = parseInt(value);
     if (value !== '' && (isNaN(num) || num < 0 || num > assessment.max)) return;
     setSaved(false);
-    setMarks(prev => ({ ...prev, [roll]: { ...prev[roll], [selectedAssessment]: value } }));
+    setMarks(prev => ({ ...prev, [roll]: value }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (!selectedClass) return;
     setSaving(true);
-    setTimeout(() => { setSaving(false); setSaved(true); }, 800);
+    try {
+      const records = Object.entries(marks).map(([roll, scoreStr]) => ({
+        studentId: roll,
+        score: scoreStr === '' ? null : Number(scoreStr),
+      }));
+
+      await API.post('/marks/teacher', {
+        subjectCode: selectedClass,
+        type: selectedAssessment,
+        maxScore: assessment.max,
+        records,
+      });
+
+      setSaved(true);
+    } catch (err) {
+      console.error('Error saving marks:', err);
+      alert('Failed to save marks.');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const filled = STUDENTS.filter(s => marks[s.roll]?.[selectedAssessment] !== '').length;
+  const filled = students.filter(s => marks[s.roll] !== undefined && marks[s.roll] !== '').length;
   const avg = (() => {
-    const vals = STUDENTS.map(s => parseInt(marks[s.roll]?.[selectedAssessment] ?? '')).filter(v => !isNaN(v));
+    const vals = students.map(s => parseInt(marks[s.roll] ?? '')).filter(v => !isNaN(v));
     return vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length * 10) / 10 : null;
   })();
+
+  if (loading) {
+    return <div className="p-6 text-center text-gray-500 font-medium">Loading subjects...</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -91,7 +132,7 @@ export const TeacherMarks: React.FC = () => {
                 onChange={(e) => { setSelectedClass(e.target.value); setSaved(false) }}
                 className="w-full appearance-none px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500 pr-10"
               >
-                {CLASSES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+                {subjects.map(c => <option key={c.code} value={c.code}>{c.code} — {c.name} ({c.classGroup})</option>)}
               </select>
               <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
             </div>
@@ -121,12 +162,12 @@ export const TeacherMarks: React.FC = () => {
       <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-sm">
         <div className="bg-white rounded-xl border border-gray-100 px-4 py-3 shadow-sm">
           <span className="text-gray-500">Filled: </span>
-          <span className="font-semibold text-gray-900">{filled}/{STUDENTS.length}</span>
+          <span className="font-semibold text-gray-900">{filled}/{students.length}</span>
         </div>
         {avg !== null && (
           <div className="bg-white rounded-xl border border-gray-100 px-4 py-3 shadow-sm">
             <span className="text-gray-500">Class avg: </span>
-            <span className="font-semibold text-gray-900">{avg}/${assessment.max}</span>
+            <span className="font-semibold text-gray-900">{avg}/{assessment.max}</span>
           </div>
         )}
         <div className="bg-white rounded-xl border border-gray-100 px-4 py-3 shadow-sm">
@@ -144,8 +185,8 @@ export const TeacherMarks: React.FC = () => {
           </div>
         </div>
         <div className="divide-y divide-gray-100">
-          {STUDENTS.map((s, i) => {
-            const val = marks[s.roll]?.[selectedAssessment] ?? '';
+          {students.map((s, i) => {
+            const val = marks[s.roll] ?? '';
             const num = parseInt(val);
             const pct = !isNaN(num) ? num / assessment.max : null;
             return (

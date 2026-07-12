@@ -1,5 +1,5 @@
-import * as React from 'react';
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
+import API from '../../services/api';
 
 // Color palette for subjects - each subject gets a unique, soft pastel style
 const subjectColors: Record<string, { bg: string; text: string; border: string }> = {
@@ -38,73 +38,6 @@ const timeHeaders = [
   { label: '2:45–3:45', type: 'class' as const },
 ];
 
-const schedule: DaySchedule[] = [
-  {
-    day: 'Monday',
-    slots: [
-      { subject: 'Data Structures', room: 'Lab 1', class: 'CSE-B' },
-      { subject: 'Operating Systems', room: 'Room 201', class: 'CSE-A' },
-      null, // Break
-      { subject: 'Computer Networks', room: 'Lab 2', class: 'CSE-A' },
-      null,
-      null, // Lunch
-      { subject: 'DS Lab', room: 'Lab-2', class: 'CSE-B' },
-      { subject: 'DS Lab', room: 'Lab-2', class: 'CSE-B' },
-    ],
-  },
-  {
-    day: 'Tuesday',
-    slots: [
-      { subject: 'Database Systems', room: 'Room 105', class: 'CSE-B' },
-      { subject: 'Software Engineering', room: 'Room 301', class: 'CSE-A' },
-      null,
-      { subject: 'Data Structures', room: 'Lab 1', class: 'CSE-B' },
-      null,
-      null,
-      { subject: 'Networks Lab', room: 'Lab-4', class: 'CSE-A' },
-      { subject: 'Networks Lab', room: 'Lab-4', class: 'CSE-A' },
-    ],
-  },
-  {
-    day: 'Wednesday',
-    slots: [
-      { subject: 'Computer Networks', room: 'Lab 2', class: 'CSE-A' },
-      { subject: 'Operating Systems', room: 'Room 201', class: 'CSE-A' },
-      null,
-      { subject: 'Database Systems', room: 'Room 105', class: 'CSE-B' },
-      null,
-      null,
-      null,
-      null,
-    ],
-  },
-  {
-    day: 'Thursday',
-    slots: [
-      { subject: 'Software Engineering', room: 'Room 301', class: 'CSE-A' },
-      { subject: 'Data Structures', room: 'Lab 1', class: 'CSE-B' },
-      null,
-      { subject: 'Operating Systems', room: 'Room 201', class: 'CSE-A' },
-      null,
-      null,
-      { subject: 'OS Lab', room: 'Lab-1', class: 'CSE-A' },
-      { subject: 'OS Lab', room: 'Lab-1', class: 'CSE-A' },
-    ],
-  },
-  {
-    day: 'Friday',
-    slots: [
-      { subject: 'Computer Networks', room: 'Lab 2', class: 'CSE-A' },
-      { subject: 'Database Systems', room: 'Room 105', class: 'CSE-B' },
-      null,
-      { subject: 'Software Engineering', room: 'Room 301', class: 'CSE-A' },
-      null,
-      null,
-      null,
-      null,
-    ],
-  },
-];
 
 // Time range labels for the today section cards
 const timeRanges = [
@@ -158,12 +91,44 @@ const subjectTodayBg: Record<string, string> = {
 };
 
 export const TeacherTimetable: React.FC = () => {
+  const [schedule, setSchedule] = useState<DaySchedule[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const fetchTimetable = async () => {
+      try {
+        const res = await API.get('/timetable/teacher');
+        setSchedule(res.data);
+      } catch (err: any) {
+        console.error(err);
+        setError('Failed to load timetable.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchTimetable();
+  }, []);
+
   const todayIndex = useMemo(() => {
     const dayOfWeek = new Date().getDay();
     return dayOfWeek >= 1 && dayOfWeek <= 5 ? dayOfWeek - 1 : -1;
   }, []);
 
   const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+
+  if (loading) {
+    return <div className="p-6 text-center text-gray-500 font-medium">Loading timetable...</div>;
+  }
+
+  if (error) {
+    return <div className="p-6 text-center text-red-500 font-medium">{error}</div>;
+  }
+
+  if (schedule.length === 0) {
+    return <div className="p-6 text-center text-gray-500 font-medium">No timetable schedule loaded.</div>;
+  }
+
   const todaySchedule = todayIndex >= 0 ? schedule[todayIndex] : schedule[0];
   const todayName = todayIndex >= 0 ? dayNames[todayIndex] : dayNames[0];
 

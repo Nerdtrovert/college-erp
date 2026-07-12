@@ -1,62 +1,6 @@
+import { useEffect, useState } from 'react';
 import { TrendingUp, Award } from 'lucide-react';
-
-const SUBJECTS = [
-  {
-    name: 'Data Structures & Algorithms',
-    code: 'CS2301',
-    faculty: 'Dr. Priya Sharma',
-    assessments: [
-      { name: 'IA-1', marks: 28, max: 30 },
-      { name: 'IA-2', marks: 25, max: 30 },
-      { name: 'Assignment', marks: 9, max: 10 },
-      { name: 'Lab', marks: 24, max: 25 },
-    ]
-  },
-  {
-    name: 'Operating Systems',
-    code: 'CS2302',
-    faculty: 'Prof. Ramesh Iyer',
-    assessments: [
-      { name: 'IA-1', marks: 21, max: 30 },
-      { name: 'IA-2', marks: 24, max: 30 },
-      { name: 'Assignment', marks: 7, max: 10 },
-      { name: 'Lab', marks: 20, max: 25 },
-    ]
-  },
-  {
-    name: 'Computer Networks',
-    code: 'CS2303',
-    faculty: 'Dr. Anita Raj',
-    assessments: [
-      { name: 'IA-1', marks: 29, max: 30 },
-      { name: 'IA-2', marks: 27, max: 30 },
-      { name: 'Assignment', marks: 10, max: 10 },
-      { name: 'Lab', marks: 23, max: 25 },
-    ]
-  },
-  {
-    name: 'Database Systems',
-    code: 'CS2304',
-    faculty: 'Mr. Vijay Kumar',
-    assessments: [
-      { name: 'IA-1', marks: 18, max: 30 },
-      { name: 'IA-2', marks: 22, max: 30 },
-      { name: 'Assignment', marks: 8, max: 10 },
-      { name: 'Lab', marks: 19, max: 25 },
-    ]
-  },
-  {
-    name: 'Software Engineering',
-    code: 'CS2305',
-    faculty: 'Dr. Meena Nair',
-    assessments: [
-      { name: 'IA-1', marks: 26, max: 30 },
-      { name: 'IA-2', marks: null, max: 30 },
-      { name: 'Assignment', marks: 9, max: 10 },
-      { name: 'Lab', marks: 22, max: 25 },
-    ]
-  },
-];
+import API from '../../services/api';
 
 function grade(pct: number) {
   if (pct >= 90) return { label: 'O', color: 'text-purple-700 bg-purple-100' };
@@ -68,6 +12,73 @@ function grade(pct: number) {
 }
 
 export const StudentMarks: React.FC = () => {
+  const [subjects, setSubjects] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const fetchMarks = async () => {
+      try {
+        const res = await API.get('/marks/student');
+        setSubjects(res.data);
+      } catch (err: any) {
+        console.error(err);
+        setError('Failed to fetch marks records.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchMarks();
+  }, []);
+
+  if (loading) {
+    return <div className="p-6 text-center text-gray-500 font-medium">Loading internal marks...</div>;
+  }
+
+  if (error) {
+    return <div className="p-6 text-center text-red-500 font-medium">{error}</div>;
+  }
+
+  // Calculate dynamic metrics
+  let highestPct = 0;
+  let highestSubjectName = 'N/A';
+  let totalScored = 0;
+  let totalMax = 0;
+  let subjectsClearedCount = 0;
+  let hasPendingMarks = false;
+
+  subjects.forEach((sub) => {
+    let subScored = 0;
+    let subMax = 0;
+    let subPending = false;
+
+    sub.assessments.forEach((ass: any) => {
+      if (ass.marks !== null) {
+        subScored += ass.marks;
+        subMax += ass.max;
+      } else {
+        subPending = true;
+        hasPendingMarks = true;
+      }
+    });
+
+    if (subMax > 0) {
+      const pct = (subScored / subMax) * 100;
+      if (pct > highestPct) {
+        highestPct = pct;
+        highestSubjectName = sub.name;
+      }
+      totalScored += subScored;
+      totalMax += subMax;
+
+      if (pct >= 50 && !subPending) {
+        subjectsClearedCount++;
+      }
+    }
+  });
+
+  const averagePct = totalMax > 0 ? Math.round((totalScored / totalMax) * 100) : 0;
+  const projectedSGPA = averagePct > 0 ? (averagePct / 10 + 0.8).toFixed(1) : '0.0';
   return (
     <div className="space-y-6">
       <div>
@@ -78,10 +89,10 @@ export const StudentMarks: React.FC = () => {
       {/* Summary row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Highest Mark', value: '89%', sub: 'Computer Networks', icon: <Award size={18} />, color: 'text-purple-600 bg-purple-50' },
-          { label: 'Average', value: '76%', sub: 'Across all subjects', icon: <TrendingUp size={18} />, color: 'text-blue-600 bg-blue-50' },
-          { label: 'Subjects Cleared', value: '4/5', sub: 'IA-2 pending in SE', icon: <TrendingUp size={18} />, color: 'text-green-600 bg-green-50' },
-          { label: 'SGPA (projected)', value: '8.4', sub: 'Based on internals', icon: <TrendingUp size={18} />, color: 'text-amber-600 bg-amber-50' },
+          { label: 'Highest Mark', value: `${Math.round(highestPct)}%`, sub: highestSubjectName, icon: <Award size={18} />, color: 'text-purple-600 bg-purple-50' },
+          { label: 'Average', value: `${averagePct}%`, sub: 'Across all subjects', icon: <TrendingUp size={18} />, color: 'text-blue-600 bg-blue-50' },
+          { label: 'Subjects Cleared', value: `${subjectsClearedCount}/${subjects.length}`, sub: hasPendingMarks ? 'Assessments pending' : 'All marks posted', icon: <TrendingUp size={18} />, color: 'text-green-600 bg-green-50' },
+          { label: 'SGPA (projected)', value: projectedSGPA, sub: 'Based on internals', icon: <TrendingUp size={18} />, color: 'text-amber-600 bg-amber-50' },
         ].map((s) => (
           <div key={s.label} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-5">
             <div className={`w-9 h-9 rounded-xl flex items-center justify-center mb-3 ${s.color}`}>{s.icon}</div>
@@ -108,11 +119,11 @@ export const StudentMarks: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {SUBJECTS.map((s) => {
-                const scored = s.assessments.reduce((acc, a) => acc + (a.marks ?? 0), 0);
-                const maxScored = s.assessments.reduce((acc, a) => acc + (a.marks !== null ? a.max : 0), 0);
-                const fullMax = s.assessments.reduce((acc, a) => acc + a.max, 0);
-                const pct = Math.round((scored / maxScored) * 100);
+              {subjects.map((s) => {
+                const scored = s.assessments.reduce((acc: number, a: any) => acc + (a.marks ?? 0), 0);
+                const maxScored = s.assessments.reduce((acc: number, a: any) => acc + (a.marks !== null ? a.max : 0), 0);
+                const fullMax = s.assessments.reduce((acc: number, a: any) => acc + a.max, 0);
+                const pct = maxScored > 0 ? Math.round((scored / maxScored) * 100) : 0;
                 const g = grade(pct);
 
                 return (
@@ -121,7 +132,7 @@ export const StudentMarks: React.FC = () => {
                       <div className="font-medium text-gray-900 text-sm">{s.name}</div>
                       <div className="text-xs text-gray-400">{s.code} &middot; {s.faculty}</div>
                     </td>
-                    {s.assessments.map((a) => (
+                    {s.assessments.map((a: any) => (
                       <td key={a.name} className="px-4 py-4 text-center">
                         {a.marks !== null ? (
                           <span className={`font-semibold ${a.marks / a.max >= 0.8 ? 'text-green-700' : a.marks / a.max >= 0.6 ? 'text-amber-700' : 'text-red-700'}`}>
