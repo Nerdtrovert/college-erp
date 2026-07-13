@@ -1,42 +1,91 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import {
+  LayoutDashboard, CalendarRange, Users, ClipboardList, Menu, X, Shield
+} from 'lucide-react';
+import type { User } from '../../types';
+import { Sidebar } from '../Sidebar';
+import { SupervisorHome } from './SupervisorHome';
+import { SemesterManagement } from './SemesterManagement';
+import { FacultyManagement } from './FacultyManagement';
+import { TimetableManagement } from './TimetableManagement';
 
-export const SupervisorDashboard: React.FC<{
-  user: { name: string };
+const NAV_ITEMS = [
+  { id: 'home', label: 'Overview', icon: <LayoutDashboard size={16} /> },
+  { id: 'semesters', label: 'Semesters', icon: <CalendarRange size={16} /> },
+  { id: 'faculty', label: 'Faculty & Access', icon: <Users size={16} /> },
+  { id: 'timetable', label: 'Timetables', icon: <ClipboardList size={16} /> },
+];
+
+interface Props {
+  user: User;
   onLogout: () => void;
-}> = ({ user, onLogout }) => {
-  const navigate = useNavigate();
-  const actions = [
-    { title: 'Semester Management', description: 'Create, copy, and manage academic semesters.', path: '/supervisor/semesters' },
-    { title: 'Faculty Management', description: 'Add faculty and assign supervisory access.', path: '/supervisor/faculty' },
-    { title: 'Timetable Management', description: 'Review and manage class schedules and timetables.', path: '/supervisor/timetable' },
-  ];
+}
+
+export const SupervisorDashboard: React.FC<Props> = ({ user, onLogout }) => {
+  const [active, setActive] = useState('home');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const renderContent = () => {
+    switch (active) {
+      case 'home': return <SupervisorHome user={user} onNavigate={setActive} />;
+      case 'semesters': return <SemesterManagement />;
+      case 'faculty': return <FacultyManagement />;
+      case 'timetable': return <TimetableManagement />;
+      default: return null;
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <h1 className="text-2xl font-bold text-gray-900">Supervisor Faculty Dashboard</h1>
-      <p className="mt-1 mb-6 text-gray-600">Welcome, {user.name}. Set up faculty, semesters, and timetables from here.</p>
+    <div className="flex h-screen overflow-hidden" style={{ background: '#f0f4f8' }}>
+      <Sidebar
+        user={user}
+        items={NAV_ITEMS}
+        active={active}
+        onNavigate={(id) => { setActive(id); setMobileMenuOpen(false) }}
+        onLogout={onLogout}
+      />
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {actions.map((action) => (
-          <button
-            key={action.path}
-            onClick={() => navigate(action.path)}
-            className="rounded-xl border border-gray-200 bg-white p-6 text-left shadow-sm transition hover:border-blue-500 hover:shadow-md"
-          >
-            <h2 className="font-semibold text-gray-900">{action.title}</h2>
-            <p className="mt-1 text-sm text-gray-500">{action.description}</p>
-            <span className="mt-4 inline-block text-sm font-semibold text-blue-700">Open management →</span>
-          </button>
-        ))}
+      {/* Mobile nav */}
+      <div className={`fixed inset-0 z-50 md:hidden flex transition-all duration-300 ${
+        mobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+      }`}>
+        <div className={`w-64 transform transition-transform duration-300 ease-out ${
+          mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}>
+          <Sidebar
+            user={user}
+            items={NAV_ITEMS}
+            active={active}
+            onNavigate={(id) => { setActive(id); setMobileMenuOpen(false) }}
+            onLogout={onLogout}
+            className="flex flex-col w-64 min-h-screen"
+          />
+        </div>
+        <div className="flex-1 bg-black/40" onClick={() => setMobileMenuOpen(false)} />
       </div>
 
-      <button
-        onClick={onLogout}
-        className="mt-8 w-full rounded-md bg-red-500 px-6 py-3 font-bold text-white transition-colors hover:bg-red-600"
-      >
-        Logout
-      </button>
+      {/* Main content */}
+      <main className="flex-1 flex flex-col min-w-0 w-full overflow-hidden">
+        {/* Mobile topbar */}
+        <div className="md:hidden sticky top-0 z-40 flex items-center justify-between px-4 py-4 bg-white border-b border-gray-200 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-blue-700 flex items-center justify-center">
+              <Shield size={15} className="text-white" />
+            </div>
+            <span className="font-semibold text-gray-900">EduPortal Supervisor</span>
+          </div>
+          <button 
+            onClick={() => setMobileMenuOpen(true)} 
+            className="text-gray-600 active:scale-90 transition-transform duration-150 p-2 rounded-xl hover:bg-gray-50 active:bg-gray-100"
+          >
+            {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+        </div>
+
+        <div key={active} className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto animate-slide-up" style={{ scrollbarGutter: 'stable' }}>
+          {renderContent()}
+        </div>
+      </main>
     </div>
   );
 };

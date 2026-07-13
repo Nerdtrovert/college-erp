@@ -46,9 +46,9 @@ export const updateSemester = async (req: AuthRequest, res: Response) => {
       },
     });
     return res.status(200).json(semester);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error updating semester:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: error.message || 'Internal server error' });
   }
 };
 
