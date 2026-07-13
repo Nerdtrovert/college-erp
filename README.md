@@ -48,8 +48,8 @@ college-erp/
 Setting up a new development environment is straightforward:
 
 1. **Install Dependencies**: Run `npm install` inside the `backend` and `frontend` directories to download the packages.
-2. **Configure Environment Variables**: The backend reads properties from the `backend/.env` file. This is configured to point to `localhost:5432` and database `college_erp`. Make sure no native PostgreSQL services block port 5432.
-3. **Database Spin-up**: When launching the backend dev server, Docker Desktop must be running. The launch script automatically checks and starts the PostgreSQL container, applies migrations, and runs the seed scripts on initial setup.
+2. **Configure Environment Variables**: Copy `backend/.env.example` to `backend/.env`. The included local configuration connects to the Docker database at `localhost:5432`.
+3. **Database Setup**: With Docker Desktop running, run `npm run db:setup` from the repository root. This starts PostgreSQL, generates the Prisma client, creates the database schema, and seeds mock data.
 4. **State Persistence**: The database container maps a volume on your machine. This means records are preserved when you stop the services.
 
 ## Main Project Models
@@ -135,16 +135,23 @@ We welcome contributions to this ERP portal. To contribute, fork this repository
 All backend endpoints and frontend interfaces compile and validate cleanly with zero compiler warnings.
 ## Setup Instructions
 
-1. One-time Setup: Start database and seed mock data:
+The following commands work the same in macOS, Windows, and Linux. Run the backend and frontend in separate terminals.
+
+1. One-time setup: copy `backend/.env.example` to `backend/.env`, then seed mock data:
    ```bash
    npm run db:setup
    ```
-2. Start backend server (automatically starts database):
+2. Start the database whenever you begin development:
    ```bash
-   npm run dev:backend
+   npm run db:start
    ```
-3. Start frontend client (runs on http://localhost:5173):
+3. Start the backend:
    ```bash
-   npm run dev:frontend
+   cd backend
+   npm run dev
    ```
-
+4. Start the frontend (in another terminal):
+   ```bash
+   cd frontend
+   npm run dev
+   ```
