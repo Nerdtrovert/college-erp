@@ -380,7 +380,7 @@ export const StudentManagement: React.FC = () => {
       )}
 
       {/* Top Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Student Directory Management</h1>
           <p className="text-gray-500 text-sm mt-1">Enroll students semester-wise by uploading lists or manage individual accounts.</p>
@@ -398,7 +398,7 @@ export const StudentManagement: React.FC = () => {
               setEditingStudent(null);
               setShowFormModal(true);
             }}
-            className="flex items-center justify-center gap-2 bg-blue-700 hover:bg-blue-800 text-white font-semibold text-sm px-4 py-2.5 rounded-xl shadow-sm transition-colors duration-150 self-start sm:self-auto"
+            className="flex items-center justify-center gap-2 bg-blue-700 hover:bg-blue-800 text-white font-semibold text-sm px-4 h-[42px] rounded-xl shadow-sm transition-colors duration-150 whitespace-nowrap"
           >
             <Plus size={16} />
             Add Single Student
@@ -407,7 +407,7 @@ export const StudentManagement: React.FC = () => {
             <select
               value={reportType}
               onChange={(e) => setReportType(e.target.value)}
-              className="px-3 py-2 rounded-lg border border-gray-200 bg-gray-50 text-gray-900 focus:outline-none focus:border-blue-500"
+              className="px-3 h-[42px] rounded-xl border border-gray-200 bg-gray-50 text-gray-900 text-sm focus:outline-none focus:border-blue-500 cursor-pointer"
             >
               <option value="students">Student List</option>
               <option value="faculty-marks">Faculty-wise Marks</option>
@@ -417,7 +417,7 @@ export const StudentManagement: React.FC = () => {
             <select
               value={exportFormat}
               onChange={(e) => setExportFormat(e.target.value)}
-              className="px-3 py-2 rounded-lg border border-gray-200 bg-gray-50 text-gray-900 focus:outline-none focus:border-blue-500"
+              className="px-3 h-[42px] rounded-xl border border-gray-200 bg-gray-50 text-gray-900 text-sm focus:outline-none focus:border-blue-500 cursor-pointer"
             >
               <option value="csv">CSV</option>
               <option value="excel">Excel</option>
@@ -428,7 +428,7 @@ export const StudentManagement: React.FC = () => {
           <button
             onClick={handleDownloadReport}
             disabled={loading || uploading}
-            className="flex items-center justify-center gap-2 bg-green-700 hover:bg-green-800 text-white font-semibold text-sm px-4 py-2.5 rounded-xl shadow-sm transition-colors duration-150 self-start sm:self-auto"
+            className="flex items-center justify-center gap-2 bg-green-700 hover:bg-green-800 text-white font-semibold text-sm px-4 h-[42px] rounded-xl shadow-sm transition-colors duration-150 whitespace-nowrap"
           >
             <Download size={16} />
             Export Report
