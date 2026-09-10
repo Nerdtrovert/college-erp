@@ -8,6 +8,24 @@ import { parseExcel, parseWord, parsePDF, extractStudentsFromText } from '../uti
 import * as path from 'path';
 import * as fs from 'fs';
 
+const removeUploadedFile = async (filePath: string): Promise<void> => {
+  try {
+    await fs.promises.unlink(filePath);
+  } catch (error: any) {
+    if (error.code !== 'ENOENT') {
+      console.error('Unable to remove uploaded file:', error);
+    }
+  }
+};
+
+const hasExpectedFileSignature = (buffer: Buffer, ext: string): boolean => {
+  if (ext === '.pdf') return buffer.subarray(0, 5).toString() === '%PDF-';
+  if (ext === '.xls') return buffer.subarray(0, 8).equals(Buffer.from('D0CF11E0A1B11AE1', 'hex'));
+  if (ext === '.xlsx' || ext === '.docx') return buffer.subarray(0, 2).toString() === 'PK';
+  if (ext === '.doc') return buffer.subarray(0, 8).equals(Buffer.from('D0CF11E0A1B11AE1', 'hex'));
+  return false;
+};
+
 export const login = async (req: Request, res: Response) => {
   const { id, password, role } = req.body;
 
@@ -246,20 +264,45 @@ export const uploadStudents = async (req: AuthRequest, res: Response) => {
 
   if (!semesterId) {
     // Clean up uploaded file
-    fs.unlinkSync(req.file.path);
+    await removeUploadedFile(req.file.path);
     return res.status(400).json({ error: 'semesterId is required' });
   }
 
   // Verify semester exists
   const semester = await prisma.semester.findUnique({ where: { id: semesterId } });
   if (!semester) {
-    fs.unlinkSync(req.file.path);
+    await removeUploadedFile(req.file.path);
     return res.status(404).json({ error: 'Semester not found' });
   }
 
+  // File type validation - check both extension and MIME type
+  const allowedExtensions = ['.xlsx', '.xls', '.docx', '.doc', '.pdf'];
+  const ext = path.extname(req.file.originalname).toLowerCase();
+  const allowedMimeTypes = [
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+    'application/vnd.ms-excel', // .xls
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+    'application/msword', // .doc
+    'application/octet-stream', // legacy .xls/.doc clients
+    'application/pdf' // .pdf
+  ];
+
+  if (!allowedExtensions.includes(ext)) {
+    await removeUploadedFile(req.file.path);
+    return res.status(400).json({ error: 'Unsupported file type. Please upload Excel (.xlsx/.xls), Word (.docx/.doc), or PDF (.pdf)' });
+  }
+
+  if (!allowedMimeTypes.includes(req.file.mimetype.toLowerCase())) {
+    await removeUploadedFile(req.file.path);
+    return res.status(400).json({ error: 'File extension and MIME type do not match' });
+  }
+
   try {
-    const fileBuffer = fs.readFileSync(req.file.path);
-    const ext = path.extname(req.file.originalname).toLowerCase();
+    const fileBuffer = await fs.promises.readFile(req.file.path);
+    if (!hasExpectedFileSignature(fileBuffer, ext)) {
+      await removeUploadedFile(req.file.path);
+      return res.status(400).json({ error: 'The uploaded file does not match its declared format' });
+    }
     const defaultPassword = await bcrypt.hash('student123', 12);
 
     let parsedStudents: { id: string; name: string; department: string; classGroup: string }[] = [];
@@ -327,12 +370,12 @@ export const uploadStudents = async (req: AuthRequest, res: Response) => {
         classGroup: s.classGroup || defaultClassGroup || 'CSE-B',
       }));
     } else {
-      fs.unlinkSync(req.file.path);
+      await removeUploadedFile(req.file.path);
       return res.status(400).json({ error: 'Unsupported file type. Please upload Excel (.xlsx/.xls), Word (.docx/.doc), or PDF (.pdf)' });
     }
 
     // Clean up uploaded file
-    fs.unlinkSync(req.file.path);
+    await removeUploadedFile(req.file.path);
 
     if (parsedStudents.length === 0) {
       return res.status(400).json({
@@ -407,7 +450,7 @@ export const uploadStudents = async (req: AuthRequest, res: Response) => {
     console.error('Error processing student upload:', error);
     // Clean up file if still there
     if (req.file && fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
+      await removeUploadedFile(req.file.path);
     }
     return res.status(500).json({ error: error.message || 'Internal server error during student upload' });
   }

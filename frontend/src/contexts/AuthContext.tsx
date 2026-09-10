@@ -10,7 +10,16 @@ interface AuthContextProps {
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(() => {
+    const storedUser = sessionStorage.getItem('user');
+    if (!storedUser) return null;
+    try {
+      return JSON.parse(storedUser) as User;
+    } catch {
+      sessionStorage.removeItem('user');
+      return null;
+    }
+  });
 
   const login = (userData: User) => {
     setUser(userData);
@@ -21,6 +30,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = () => {
     setUser(null);
     sessionStorage.removeItem('user');
+    sessionStorage.removeItem('token');
   };
 
   return (

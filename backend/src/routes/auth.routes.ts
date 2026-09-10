@@ -3,19 +3,19 @@ import { login, register, getMe, getUsersByRole, updateUser, deleteUser, uploadS
 import { validate } from '../middleware/validate';
 import { loginSchema, registerSchema } from '../validations/auth.validation';
 import { authenticate, authorize } from '../middleware/auth';
-import { authLimiter } from '../middleware/rateLimit';
-import { upload } from '../config/multer';
+import { authLimiter, uploadLimiter } from '../middleware/rateLimit';
+import { studentUpload } from '../config/multer';
 
 const router = Router();
 
 router.post('/login', authLimiter, validate(loginSchema), login);
-router.post('/register', authenticate, authorize(['dean', 'principal']), authLimiter, validate(registerSchema), register);
+router.post('/register', authenticate, authorize(['dean', 'principal', 'hod']), authLimiter, validate(registerSchema), register);
 router.get('/me', authenticate, getMe);
-router.get('/users', authenticate, authorize(['dean', 'principal']), getUsersByRole);
-router.patch('/users/:id', authenticate, authorize(['dean', 'principal']), updateUser);
-router.delete('/users/:id', authenticate, authorize(['dean', 'principal']), deleteUser);
+router.get('/users', authenticate, authorize(['dean', 'principal', 'hod']), getUsersByRole);
+router.patch('/users/:id', authenticate, authorize(['dean', 'principal', 'hod']), updateUser);
+router.delete('/users/:id', authenticate, authorize(['dean', 'principal', 'hod']), deleteUser);
 
 // Student bulk upload from file (Excel, Word, PDF)
-router.post('/students/upload', authenticate, authorize(['dean', 'principal']), upload.single('file'), uploadStudents);
+router.post('/students/upload', authenticate, authorize(['dean', 'principal', 'hod']), uploadLimiter, studentUpload.single('file'), uploadStudents);
 
 export default router;

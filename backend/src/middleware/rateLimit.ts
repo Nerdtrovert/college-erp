@@ -11,6 +11,16 @@ export const authLimiter = rateLimit({
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
 });
 
+export const uploadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: process.env.NODE_ENV === 'production' ? 10 : 100,
+  message: {
+    error: 'Too many upload attempts from this IP, please try again later',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Rate limiter for general API endpoints
 export const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes

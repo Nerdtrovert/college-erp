@@ -8,18 +8,23 @@ if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// File filter to accept safe file types including Word and PDF
-const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-  const allowedExtensions = /jpeg|jpg|png|gif|pdf|doc|docx|txt|ppt|pptx|xls|xlsx/;
-  const ext = path.extname(file.originalname).toLowerCase().replace('.', '');
-  const extValid = allowedExtensions.test(ext);
+const studentFileTypes: Record<string, string[]> = {
+  '.xlsx': ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+  '.xls': ['application/vnd.ms-excel', 'application/octet-stream'],
+  '.docx': ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+  '.doc': ['application/msword', 'application/octet-stream'],
+  '.pdf': ['application/pdf'],
+};
 
-  // Accept by extension — mime types for docx/xlsx can vary by OS
-  if (extValid) {
-    return cb(null, true);
-  } else {
-    cb(new Error('Error: Only specific file types are allowed (Excel, Word, PDF, images)!'));
+const studentFileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  const ext = path.extname(file.originalname).toLowerCase();
+  const acceptedMimeTypes = studentFileTypes[ext];
+
+  if (!acceptedMimeTypes || !acceptedMimeTypes.includes(file.mimetype.toLowerCase())) {
+    return cb(new Error('Only Excel, Word, and PDF student import files are allowed'));
   }
+
+  cb(null, true);
 };
 
 // Sanitize filename to prevent path traversal
@@ -41,6 +46,16 @@ const storage = multer.diskStorage({
 
 export const upload = multer({
   storage,
-  fileFilter,
+  fileFilter: (req, file, cb) => {
+    cb(null, true);
+  },
   limits: { fileSize: 20 * 1024 * 1024 }, // 20MB limit
 });
+
+export const studentUpload = multer({
+  storage,
+  fileFilter: studentFileFilter,
+  limits: { fileSize: 20 * 1024 * 1024 },
+});
+
+export const getStudentFileTypes = () => studentFileTypes;

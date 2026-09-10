@@ -55,6 +55,7 @@ export const App: React.FC = () => {
   const logout = () => {
     setUser(null);
     sessionStorage.removeItem('user');
+    sessionStorage.removeItem('token');
   };
 
   const StudentOnlyRoute = ({ children }: { children: React.ReactNode }) => {
