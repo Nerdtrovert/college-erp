@@ -5,9 +5,10 @@
   "scripts": {
     "db:start": "node database/db-start.js",
     "db:stop": "docker compose -f database/docker-compose.yml down",
-    "db:push": "cd backend && npm run prisma:generate && npx prisma db push",
+    "db:sync": "cd backend && npm run prisma:generate && npx prisma db push",
+    "db:deploy": "cd backend && npm run prisma:generate && npx prisma migrate deploy",
     "db:seed": "cd backend && npx tsc prisma/seed.ts --ignoreConfig --esModuleInterop --module commonjs --target es2020 --outDir prisma/dist --skipLibCheck --types node && node prisma/dist/seed.js",
-    "db:setup": "npm run db:start && npm run db:push && npm run db:seed",
+    "db:setup": "npm run db:start && npm run db:sync && npm run db:seed",
     "dev:backend": "npm --prefix backend run dev",
     "dev:frontend": "npm --prefix frontend run dev"
   },

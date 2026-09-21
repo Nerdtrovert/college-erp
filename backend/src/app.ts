@@ -43,7 +43,11 @@ app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
 // Logging middleware for debugging
 app.use((req, res, next) => {
-  console.log(`[REQUEST] ${req.method} ${req.url} - Body:`, JSON.stringify(req.body));
+  const body = { ...req.body };
+  for (const field of ['password', 'token', 'accessToken']) {
+    if (field in body) body[field] = '[REDACTED]';
+  }
+  console.log(`[REQUEST] ${req.method} ${req.url} - Body:`, JSON.stringify(body));
   res.on('finish', () => {
     console.log(`[RESPONSE] ${req.method} ${req.url} - Status: ${res.statusCode}`);
   });

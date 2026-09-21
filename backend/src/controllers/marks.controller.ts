@@ -1,4 +1,5 @@
 import { Response } from 'express';
+import PDFDocument from 'pdfkit';
 import prisma from '../prisma/client';
 import { AuthRequest } from '../types';
 
@@ -158,6 +159,105 @@ export const getTeacherMarks = async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error('Error fetching teacher marks registry view:', error);
     return res.status(500).json({ error: 'Internal server error during marks repository fetch' });
+  }
+};
+
+export const exportTeacherMarks = async (req: AuthRequest, res: Response) => {
+  const { subjectCode, assessmentType } = req.params as { subjectCode: string; assessmentType: string };
+
+  try {
+    const subject = await prisma.subject.findUnique({
+      where: { code: subjectCode },
+      select: { code: true, name: true, classGroup: true },
+    });
+
+    if (!subject) {
+      return res.status(404).json({ error: 'Subject code not found' });
+    }
+
+    const activeSem = await prisma.semester.findFirst({
+      where: { status: 'ACTIVE' },
+      select: { id: true },
+    });
+    if (!activeSem) {
+      return res.status(400).json({ error: 'No active semester found' });
+    }
+
+    const [students, marks] = await Promise.all([
+      prisma.user.findMany({
+        where: { role: 'student', classGroup: subject.classGroup },
+        orderBy: { id: 'asc' },
+        select: { id: true, name: true },
+      }),
+      prisma.mark.findMany({
+        where: {
+          subjectCode,
+          type: assessmentType,
+          semesterId: activeSem.id,
+        },
+        select: { studentId: true, score: true },
+      }),
+    ]);
+
+    const marksMap = new Map(marks.map(mark => [mark.studentId, mark.score]));
+    const assessmentLabel = assessmentType
+      .replace(/(\d+)/, '-$1')
+      .replace(/^./, character => character.toUpperCase());
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${subject.code}-${assessmentType}-marks.pdf"`,
+    );
+
+    const doc = new PDFDocument({ size: 'A4', margin: 48 });
+    doc.pipe(res);
+
+    doc.fontSize(18).font('Helvetica-Bold').text('Internal Marks', { align: 'center' });
+    doc.moveDown(0.5);
+    doc.fontSize(11).font('Helvetica').text(`${subject.code} - ${subject.name}`, { align: 'center' });
+    doc.text(`Class: ${subject.classGroup}    Assessment: ${assessmentLabel}`, { align: 'center' });
+    doc.moveDown(1.5);
+
+    const columns = [
+      { label: 'USN', x: 48, width: 150 },
+      { label: 'Name', x: 198, width: 260 },
+      { label: 'Marks', x: 458, width: 90 },
+    ];
+    const rowHeight = 24;
+    const drawHeader = () => {
+      const top = doc.y;
+      doc.save().fillColor('#1d4ed8').rect(48, top, 500, rowHeight).fill().restore();
+      doc.font('Helvetica-Bold').fontSize(10).fillColor('white');
+      columns.forEach(column => doc.text(column.label, column.x + 8, top + 7, { width: column.width - 16 }));
+      doc.y = top + rowHeight;
+    };
+    const drawRow = (student: { id: string; name: string }, score: number | null) => {
+      if (doc.y + rowHeight > doc.page.height - 48) {
+        doc.addPage();
+        drawHeader();
+      }
+
+      const top = doc.y;
+      if (students.indexOf(student) % 2 === 0) {
+        doc.save().fillColor('#eff6ff').rect(48, top, 500, rowHeight).fill().restore();
+      }
+      doc.font('Helvetica').fontSize(10).fillColor('#111827');
+      doc.text(student.id, 56, top + 7, { width: 134, ellipsis: true });
+      doc.text(student.name, 206, top + 7, { width: 244, ellipsis: true });
+      doc.text(score === null ? '—' : String(score), 466, top + 7, { width: 74, align: 'right' });
+      doc.y = top + rowHeight;
+    };
+
+    drawHeader();
+    students.forEach(student => drawRow(student, marksMap.get(student.id) ?? null));
+    doc.end();
+  } catch (error) {
+    console.error('Error exporting teacher marks PDF:', error);
+    if (!res.headersSent) {
+      return res.status(500).json({ error: 'Internal server error while exporting marks' });
+    }
+    res.end();
   }
 };
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, CheckCircle2, ChevronDown, Upload } from 'lucide-react';
+import { Save, CheckCircle2, ChevronDown, Download, Upload } from 'lucide-react';
 import API from '../../services/api';
 import * as XLSX from 'xlsx';
 
@@ -41,6 +41,7 @@ export const TeacherMarks: React.FC = () => {
   const [marks, setMarks] = useState<MarksMap>({});
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // Fetch subjects taught by the teacher
@@ -176,6 +177,31 @@ export const TeacherMarks: React.FC = () => {
       alert('Failed to save marks.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleExport = async () => {
+    if (!selectedClass || exporting) return;
+
+    setExporting(true);
+    try {
+      const response = await API.get(
+        `/marks/teacher/${encodeURIComponent(selectedClass)}/${encodeURIComponent(selectedAssessment)}/export`,
+        { responseType: 'blob' },
+      );
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${selectedClass}-${selectedAssessment}-marks.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error exporting marks:', err);
+      alert('Failed to export marks.');
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -325,6 +351,14 @@ export const TeacherMarks: React.FC = () => {
             className="hidden"
           />
         </label>
+        <button
+          onClick={handleExport}
+          disabled={exporting || !selectedClass}
+          className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm shadow-sm bg-slate-700 text-white hover:bg-slate-800 disabled:opacity-60"
+        >
+          <Download size={16} />
+          {exporting ? 'Exporting...' : 'Export Marks PDF'}
+        </button>
         {saved && (
           <span className="text-sm text-green-700 font-medium flex items-start sm:items-center gap-1.5">
             <CheckCircle2 size={14} />

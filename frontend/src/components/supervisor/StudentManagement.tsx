@@ -206,6 +206,8 @@ export const StudentManagement: React.FC = () => {
         } else if (exportFormat === 'pdf') {
           blob = new Blob([response.data], { type: 'application/pdf' });
           filename = `students-report${filterSemester !== 'all' ? `-${filterSemester}` : ''}${filterSection !== 'all' ? `-${filterSection}` : ''}${searchQuery ? `-search` : ''}.pdf`;
+        } else {
+          throw new Error(`Unsupported student report format: ${exportFormat}`);
         }
 
         const url = window.URL.createObjectURL(blob);
@@ -240,6 +242,8 @@ export const StudentManagement: React.FC = () => {
         } else if (exportFormat === 'pdf') {
           blob = new Blob([response.data], { type: 'application/pdf' });
           filename = `faculty-marks-report.pdf`;
+        } else {
+          throw new Error(`Unsupported faculty marks report format: ${exportFormat}`);
         }
 
         const url = window.URL.createObjectURL(blob);

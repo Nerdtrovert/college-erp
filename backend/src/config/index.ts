@@ -11,7 +11,12 @@ export const config = {
   nodeEnv: process.env.NODE_ENV || 'development',
 };
 
-// Validate required environment variables in production
-if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
-  throw new Error('JWT_SECRET must be set in production environment');
+if (config.nodeEnv === 'production') {
+  const missing = ['JWT_SECRET', 'DATABASE_URL'].filter(name => !process.env[name]);
+  if (missing.length > 0) {
+    throw new Error(`Missing required production environment variables: ${missing.join(', ')}`);
+  }
+  if (config.jwtSecret.length < 32) {
+    throw new Error('JWT_SECRET must be at least 32 characters in production');
+  }
 }
