@@ -8,6 +8,7 @@ import noteRoutes from './note.routes';
 import semesterRoutes from './semester.routes';
 import subjectRoutes from './subject.routes';
 import vipRoutes from './vip.routes';
+import reportsRoutes from './reports.routes';
 
 const router = Router();
 
@@ -20,5 +21,6 @@ router.use('/notes', noteRoutes);
 router.use('/semesters', semesterRoutes);
 router.use('/subjects', subjectRoutes);
 router.use('/vip', vipRoutes);
+router.use('/reports', reportsRoutes);
 
 export default router;

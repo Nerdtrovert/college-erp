@@ -135,25 +135,35 @@ We welcome contributions to this ERP portal. To contribute, fork this repository
 ## Testing Status
 
 All backend endpoints and frontend interfaces compile and validate cleanly with zero compiler warnings.
-## Setup Instructions
+## Setup & Database Management Commands
 
-The following commands work the same in macOS, Windows, and Linux. Run the backend and frontend in separate terminals.
+To ensure smooth development and deployment, this project uses several custom database scripts. Run these from the **root directory**.
 
-1. One-time setup: copy `backend/.env.example` to `backend/.env`, then seed mock data:
-   ```bash
-   npm run db:setup
-   ```
-2. Start the database whenever you begin development:
-   ```bash
-   npm run db:start
-   ```
-3. Start the backend:
-   ```bash
-   cd backend
-   npm run dev
-   ```
-4. Start the frontend (in another terminal):
-   ```bash
-   cd frontend
-   npm run dev
-   ```
+### 1. New Developer Onboarding (The "Nuclear" Option)
+```bash
+npm run db:setup
+```
+**What it does:** Starts the PostgreSQL container, generates the Prisma client, pushes the schema, and executes the `seed.ts` script.
+**When to use it:** Only when you are setting up the project for the very first time, or if you want to completely wipe all your local database data and reset it back to the default mock data.
+
+### 2. Everyday Development (Safe Sync)
+```bash
+npm run db:sync
+```
+**What it does:** Generates the updated Prisma Client and safely pushes any new schema changes (like adding new columns) to your local PostgreSQL database.
+**When to use it:** Run this every time you modify `backend/prisma/schema.prisma`. It will securely inject new fields without wiping your existing manual test data. 
+
+### 3. Production Deployment
+```bash
+npm run db:deploy
+```
+**What it does:** Uses Prisma's standard migration tool to safely apply version-controlled migration histories to a remote database.
+**When to use it:** Run this as part of your CI/CD pipeline or deployment script when pushing the app to production. Do not use `db:push` or `db:setup` in production, as they can cause data loss or schema drift.
+
+### Standard Startup
+Start these in separate terminal windows:
+```bash
+npm run db:start            # 1. Start the Docker database
+npm run dev:backend         # 2. Start the Express server on port 5001
+npm run dev:frontend        # 3. Start the Vite React app on port 5173
+```

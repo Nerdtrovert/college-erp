@@ -17,6 +17,7 @@ import { SemesterManagement } from './components/supervisor/SemesterManagement';
 import { FacultyManagement } from './components/supervisor/FacultyManagement';
 import { TimetableManagement } from './components/supervisor/TimetableManagement';
 import { Leaderboard } from './components/supervisor/Leaderboard';
+import ReportsDashboard from './components/supervisor/ReportsDashboard';
 
 
 // Auth context
@@ -122,6 +123,7 @@ export const App: React.FC = () => {
             <Route path="/supervisor/faculty" element={<FacultyManagement />} />
             <Route path="/supervisor/timetable" element={<TimetableManagement />} />
             <Route path="/supervisor/leaderboard" element={<Leaderboard />} />
+            <Route path="/supervisor/reports" element={<ReportsDashboard />} />
           </Route>
 
           {/* Catch-all redirect to login */}

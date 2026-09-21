@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   getStudentMarks,
   getTeacherMarks,
+  exportTeacherMarks,
   saveTeacherMarks,
 } from '../controllers/marks.controller';
 import { authenticate, authorize } from '../middleware/auth';
@@ -15,6 +16,7 @@ router.get('/student', authenticate, authorize(['student']), getStudentMarks);
 
 // Teacher routes
 router.get('/teacher/:subjectCode/:assessmentType', authenticate, authorize(['teacher']), getTeacherMarks);
+router.get('/teacher/:subjectCode/:assessmentType/export', authenticate, authorize(['teacher']), exportTeacherMarks);
 router.post('/teacher', authenticate, authorize(['teacher']), validate(saveMarksSchema), saveTeacherMarks);
 
 export default router;
