@@ -55,7 +55,7 @@ export const TeacherDashboard: React.FC<Props> = ({ user, onLogout }) => {
       case 'marks': return <TeacherMarks />;
       case 'announcements': return <TeacherAnnouncements />;
       case 'notes': return <TeacherNotes user={user} />;
-      case 'reports': return <ReportsDashboard />;
+      case 'reports': return <ReportsDashboard user={user} />;
       default: return null;
     }
   };

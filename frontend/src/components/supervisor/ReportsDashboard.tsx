@@ -5,7 +5,6 @@ import { saveAs } from 'file-saver';
 import * as docx from 'docx';
 import { AlertTriangle, Download, FileText, RefreshCw } from 'lucide-react';
 import API from '../../services/api';
-import { useAuth } from '../../contexts/AuthContext';
 
 interface ReportStudent {
   id: string;
@@ -21,8 +20,11 @@ interface ReportStudent {
   vergeStatus: 'SAFE' | 'AT_RISK';
 }
 
-const ReportsDashboard: React.FC = () => {
-  const { user } = useAuth();
+interface Props {
+  user: any; // Using any for quick fix, or User if imported
+}
+
+const ReportsDashboard: React.FC<Props> = ({ user }) => {
   const [data, setData] = useState<ReportStudent[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
