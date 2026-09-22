@@ -55,7 +55,7 @@ export const SupervisorDashboard: React.FC<Props> = ({ user, onLogout }) => {
       case 'students': return <StudentManagement />;
       case 'faculty': return <FacultyManagement />;
       case 'timetable': return <TimetableManagement />;
-      case 'reports': return <ReportsDashboard />;
+      case 'reports': return <ReportsDashboard user={user} />;
       default: return null;
     }
   };

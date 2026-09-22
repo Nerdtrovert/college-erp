@@ -6,34 +6,61 @@ import * as docx from 'docx';
 import { AlertTriangle, Download, FileText, RefreshCw } from 'lucide-react';
 import API from '../../services/api';
 
+interface SubjectMarkDetail {
+  subjectCode: string;
+  subjectName: string;
+  ia1: number | null;
+  ia2: number | null;
+  ia3: number | null;
+  assignment: number | null;
+  lab: number | null;
+  total: number;
+  isVerge: boolean;
+}
+
 interface ReportStudent {
   id: string;
   name: string;
   department: string;
   classGroup?: string;
   numberOfBacklogs: number;
-  best2CieAvg: number;
-  cieScaled: number;
-  assignmentTotal: number;
-  labTotal: number;
+  backlogSubjects: string[];
   totalScore: number;
   vergeStatus: 'SAFE' | 'AT_RISK';
+  atRiskSubjects: string[];
+  subjects: SubjectMarkDetail[];
 }
 
-const ReportsDashboard: React.FC = () => {
+interface Props {
+  user: any; 
+}
+
+const ReportsDashboard: React.FC<Props> = ({ user }) => {
   const [data, setData] = useState<ReportStudent[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasSearched, setHasSearched] = useState(false);
+  
+  // Cascading Options State
+  const [reportCategory, setReportCategory] = useState<'marks' | 'backlogs' | ''>('');
+  const [reportDetail, setReportDetail] = useState<'verge' | 'current_backlogs' | 'all' | 'cie_total' | 'specific_cie' | ''>('');
+  const [specificCie, setSpecificCie] = useState<'ia1' | 'ia2' | 'ia3' | ''>('');
+  
   const [filters, setFilters] = useState({
     semesterId: '',
     department: '',
     classGroup: '',
-    vergeThreshold: '13'
+    hasBacklogs: 'all'
   });
   const [semesters, setSemesters] = useState<{ id: string; name: string }[]>([]);
 
-  // Fetch verge of backlog report
+  // Fetch report
   const fetchReport = async () => {
+    if (!reportCategory || !reportDetail) {
+      setError("Please select a report category and type.");
+      return;
+    }
+    setHasSearched(true);
     setLoading(true);
     setError(null);
     try {
@@ -41,22 +68,12 @@ const ReportsDashboard: React.FC = () => {
       if (filters.semesterId) queryParams.append('semesterId', filters.semesterId);
       if (filters.department) queryParams.append('department', filters.department);
       if (filters.classGroup) queryParams.append('classGroup', filters.classGroup);
-      if (filters.vergeThreshold) queryParams.append('vergeThreshold', filters.vergeThreshold);
+      if (reportCategory === 'backlogs' && filters.hasBacklogs !== 'all') {
+         queryParams.append('hasBacklogs', filters.hasBacklogs);
+      }
 
       const response = await API.get(`/reports/verge-of-backlog?${queryParams.toString()}`);
       setData(response.data);
-      /*
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      */
     } catch (err) {
       console.error('Error fetching report:', err);
       setError('Failed to load report data');
@@ -69,449 +86,466 @@ const ReportsDashboard: React.FC = () => {
     const newCount = parseInt(newCountStr, 10);
     if (isNaN(newCount)) return;
 
-    // Optimistically update state
     setData(prev => prev.map(s => s.id === studentId ? { ...s, numberOfBacklogs: newCount } : s));
 
     try {
       await API.put(`/reports/backlogs/${studentId}`, { numberOfBacklogs: newCount });
-      /*
-      const response = await fetch(`http://localhost:5001/api/reports/backlogs/${studentId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || sessionStorage.getItem('token') || ''}`
-        },
-        body: JSON.stringify({ numberOfBacklogs: newCount })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update backlog');
-      }*/
     } catch (err) {
-      console.error('Error updating backlog:', err);
-      // Revert if error
-      fetchReport();
+      console.error('Failed to update backlog count', err);
     }
   };
+
+  // Helper to format Department to Acronym
+  const formatDept = (dept: string) => dept.match(/\((.*?)\)/)?.[1] || dept;
+
+  const subjectCodes = Array.from(new Set(data.flatMap(s => s.subjects.map(sub => sub.subjectCode)))).sort();
 
   // Export to PDF
   const exportToPDF = () => {
     if (data.length === 0) return;
-
-    const doc = new jsPDF();
-    // Set title to bold and black
-    doc.setFontSize(18);
-    doc.setTextColor(0); // Black color
-    doc.text('Verge of Backlog Report', 14, 22);
+    const doc = new jsPDF('landscape');
+    doc.setFontSize(16);
+    doc.text(`Student Report (${reportDetail.toUpperCase()})`, 14, 22);
     doc.setFontSize(10);
-    doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
+    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 30);
 
-    const tableData = data.map(student => [
-      student.id,
-      student.name,
-      student.department,
-      student.classGroup || '-',
-      student.numberOfBacklogs,
-      student.best2CieAvg,
-      student.cieScaled,
-      student.assignmentTotal,
-      student.labTotal,
-      student.totalScore,
-      student.vergeStatus
-    ]);
+    let head: any[] = [];
+    let tableData: any[] = [];
 
-    // Use basic table with borders, no colors (black and white only)
+    if (reportDetail === 'verge') {
+      head = [['ID', 'Name', 'Dept', 'Sec', '# Backlogs', 'At Risk Subjects', 'Total Score', 'Status']];
+      tableData = data.map(s => [
+        s.id, s.name, formatDept(s.department), s.classGroup || '-',
+        s.numberOfBacklogs, s.atRiskSubjects.join(', ') || '-', s.totalScore, s.vergeStatus
+      ]);
+    } else if (reportDetail === 'current_backlogs') {
+      head = [['ID', 'Name', 'Dept', 'Sec', '# Backlogs', 'Backlog Subjects']];
+      tableData = data.map(s => [
+        s.id, s.name, formatDept(s.department), s.classGroup || '-',
+        s.numberOfBacklogs, s.backlogSubjects?.join(', ') || '-'
+      ]);
+    } else if (reportDetail === 'all') {
+      head = [['ID', 'Name', 'Dept', 'Sec', ...subjectCodes.map(c => `${c} (Total)`)]];
+      tableData = data.map(s => {
+        const row: any[] = [s.id, s.name, formatDept(s.department), s.classGroup || '-'];
+        subjectCodes.forEach(code => {
+          const sub = s.subjects.find(x => x.subjectCode === code);
+          row.push(sub?.total ?? '-');
+        });
+        return row;
+      });
+    } else if (reportDetail === 'cie_total') {
+      head = [['ID', 'Name', 'Dept', 'Sec', ...subjectCodes.map(c => `${c} (CIE)`)]];
+      tableData = data.map(s => {
+        const row: any[] = [s.id, s.name, formatDept(s.department), s.classGroup || '-'];
+        subjectCodes.forEach(code => {
+          const sub = s.subjects.find(x => x.subjectCode === code);
+          const cieScore = (sub?.ia1 || 0) + (sub?.ia2 || 0) + (sub?.ia3 || 0);
+          row.push(sub ? cieScore : '-');
+        });
+        return row;
+      });
+    } else if (reportDetail === 'specific_cie') {
+      head = [['ID', 'Name', 'Dept', 'Sec', ...subjectCodes.map(c => `${c} (${specificCie.toUpperCase()})`)]];
+      tableData = data.map(s => {
+        const row: any[] = [s.id, s.name, formatDept(s.department), s.classGroup || '-'];
+        subjectCodes.forEach(code => {
+          const sub = s.subjects.find(x => x.subjectCode === code);
+          row.push(sub?.[specificCie as 'ia1' | 'ia2' | 'ia3'] ?? '-');
+        });
+        return row;
+      });
+    }
+
     (doc as any).autoTable({
       startY: 40,
-      head: [['ID', 'Name', 'Department', 'Class Group', '# Backlogs', 'Best 2 CIE Avg', 'CIE Scaled', 'Assign Total', 'Lab Total', 'Total Score', 'Verge Status']],
+      head,
       body: tableData,
-      theme: 'grid', // Enforce all borders
-      headStyles: {
-        fillColor: [255, 255, 255], // White background
-        textColor: [0, 0, 0], // Black text
-        fontStyle: 'bold', // Bold header
-        lineColor: [0, 0, 0],
-        lineWidth: 0.1
-      },
-      bodyStyles: {
-        textColor: [0, 0, 0], // Black text
-        fillColor: [255, 255, 255] // White background
-      },
-      margin: { top: 20 },
-      // Ensure borders are visible
-      styles: {
-        lineColor: [0, 0, 0], // Black borders
-        lineWidth: 0.1
-      }
+      theme: 'grid',
+      headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold', lineColor: [0, 0, 0], lineWidth: 0.1 },
+      bodyStyles: { textColor: [0, 0, 0], fillColor: [255, 255, 255] },
+      styles: { lineColor: [0, 0, 0], lineWidth: 0.1 }
     });
 
-    doc.save('verge-of-backlog-report.pdf');
+    doc.save(`report-${reportDetail}.pdf`);
   };
 
-  // Export to Word (DOCX)
   const exportToWord = async () => {
+    // Basic word export just containing table data as strings for now
     if (data.length === 0) return;
-
+    
     const tableRows = data.map(student => {
-      return new docx.TableRow({
-        children: [
-          new docx.TableCell({ children: [new docx.Paragraph(student.id)] }),
-          new docx.TableCell({ children: [new docx.Paragraph(student.name)] }),
-          new docx.TableCell({ children: [new docx.Paragraph(student.department)] }),
-          new docx.TableCell({ children: [new docx.Paragraph(student.classGroup || '-')] }),
-          new docx.TableCell({ children: [new docx.Paragraph(student.numberOfBacklogs.toString())] }),
-          new docx.TableCell({ children: [new docx.Paragraph(student.best2CieAvg.toString())] }),
-          new docx.TableCell({ children: [new docx.Paragraph(student.cieScaled.toString())] }),
-          new docx.TableCell({ children: [new docx.Paragraph(student.assignmentTotal.toString())] }),
-          new docx.TableCell({ children: [new docx.Paragraph(student.labTotal.toString())] }),
-          new docx.TableCell({ children: [new docx.Paragraph(student.totalScore.toString())] }),
-          new docx.TableCell({ children: [new docx.Paragraph(student.vergeStatus)] })
-        ]
-      });
-    });
+      let cells = [
+        new docx.TableCell({ children: [new docx.Paragraph(student.id)] }),
+        new docx.TableCell({ children: [new docx.Paragraph(student.name)] }),
+        new docx.TableCell({ children: [new docx.Paragraph(formatDept(student.department))] }),
+        new docx.TableCell({ children: [new docx.Paragraph(student.classGroup || '-')] })
+      ];
 
-    const table = new docx.Table({
-      rows: [
-        new docx.TableRow({
-          children: [
-            new docx.TableCell({ children: [new docx.Paragraph({ children: [new docx.TextRun({ text: 'ID', bold: true })] })] }),
-            new docx.TableCell({ children: [new docx.Paragraph({ children: [new docx.TextRun({ text: 'Name', bold: true })] })] }),
-            new docx.TableCell({ children: [new docx.Paragraph({ children: [new docx.TextRun({ text: 'Department', bold: true })] })] }),
-            new docx.TableCell({ children: [new docx.Paragraph({ children: [new docx.TextRun({ text: 'Class Group', bold: true })] })] }),
-            new docx.TableCell({ children: [new docx.Paragraph({ children: [new docx.TextRun({ text: '# Backlogs', bold: true })] })] }),
-            new docx.TableCell({ children: [new docx.Paragraph({ children: [new docx.TextRun({ text: 'Best 2 CIE Avg', bold: true })] })] }),
-            new docx.TableCell({ children: [new docx.Paragraph({ children: [new docx.TextRun({ text: 'CIE Scaled', bold: true })] })] }),
-            new docx.TableCell({ children: [new docx.Paragraph({ children: [new docx.TextRun({ text: 'Assign Total', bold: true })] })] }),
-            new docx.TableCell({ children: [new docx.Paragraph({ children: [new docx.TextRun({ text: 'Lab Total', bold: true })] })] }),
-            new docx.TableCell({ children: [new docx.Paragraph({ children: [new docx.TextRun({ text: 'Total Score', bold: true })] })] }),
-            new docx.TableCell({ children: [new docx.Paragraph({ children: [new docx.TextRun({ text: 'Verge Status', bold: true })] })] })
-          ]
-        }),
-        ...tableRows
-      ],
-      // Table properties for borders
-      width: { size: 100, type: docx.WidthType.PERCENTAGE },
-      borders: {
-        top: { style: docx.BorderStyle.SINGLE, size: 4, color: '000000' },
-        bottom: { style: docx.BorderStyle.SINGLE, size: 4, color: '000000' },
-        left: { style: docx.BorderStyle.SINGLE, size: 4, color: '000000' },
-        right: { style: docx.BorderStyle.SINGLE, size: 4, color: '000000' },
-        insideHorizontal: { style: docx.BorderStyle.SINGLE, size: 2, color: '000000' },
-        insideVertical: { style: docx.BorderStyle.SINGLE, size: 2, color: '000000' }
+      if (reportDetail === 'verge') {
+        cells.push(new docx.TableCell({ children: [new docx.Paragraph(String(student.numberOfBacklogs))] }));
+        cells.push(new docx.TableCell({ children: [new docx.Paragraph(student.atRiskSubjects.join(', ') || '-')] }));
+        cells.push(new docx.TableCell({ children: [new docx.Paragraph(String(student.totalScore))] }));
+        cells.push(new docx.TableCell({ children: [new docx.Paragraph(student.vergeStatus)] }));
+      } else if (reportDetail === 'current_backlogs') {
+        cells.push(new docx.TableCell({ children: [new docx.Paragraph(String(student.numberOfBacklogs))] }));
+        cells.push(new docx.TableCell({ children: [new docx.Paragraph(student.backlogSubjects?.join(', ') || '-')] }));
+      } else if (reportDetail === 'all') {
+        subjectCodes.forEach(code => {
+          const sub = student.subjects.find(x => x.subjectCode === code);
+          cells.push(new docx.TableCell({ children: [new docx.Paragraph(String(sub?.total ?? '-'))] }));
+        });
+      } else if (reportDetail === 'cie_total') {
+        subjectCodes.forEach(code => {
+          const sub = student.subjects.find(x => x.subjectCode === code);
+          const cieScore = sub ? (sub.ia1 || 0) + (sub.ia2 || 0) + (sub.ia3 || 0) : '-';
+          cells.push(new docx.TableCell({ children: [new docx.Paragraph(String(cieScore))] }));
+        });
+      } else if (reportDetail === 'specific_cie') {
+        subjectCodes.forEach(code => {
+          const sub = student.subjects.find(x => x.subjectCode === code);
+          cells.push(new docx.TableCell({ children: [new docx.Paragraph(String(sub?.[specificCie as 'ia1' | 'ia2' | 'ia3'] ?? '-'))] }));
+        });
       }
+
+      return new docx.TableRow({ children: cells });
     });
 
     const doc = new docx.Document({
       sections: [{
         properties: {},
         children: [
-          new docx.Paragraph({
-            children: [new docx.TextRun({ text: 'Verge of Backlog Report', bold: true, size: 36 })],
-            
-            alignment: docx.AlignmentType.CENTER,
-            spacing: { after: 200 } // Add space after title
-          }),
-          new docx.Paragraph({
-            text: `Generated on: ${new Date().toLocaleString()}`,
-            alignment: docx.AlignmentType.CENTER,
-            spacing: { after: 200 } // Add space after date
-          }),
-          table
+          new docx.Paragraph({ text: `Student Report (${reportDetail})`, heading: docx.HeadingLevel.HEADING_1 }),
+          new docx.Table({ rows: tableRows })
         ]
       }]
     });
 
     const blob = await docx.Packer.toBlob(doc);
-    saveAs(blob, 'verge-of-backlog-report.docx');
+    saveAs(blob, `report-${reportDetail}.docx`);
   };
 
-  // Handle filter changes
   const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFilters(prev => ({ ...prev, [name]: value }));
   };
 
-  // Initial data load
   useEffect(() => {
     const fetchSemesters = async () => {
       try {
         const response = await API.get('/semesters');
         setSemesters(response.data || []);
-      } catch (err) {
-        console.error('Failed to fetch semesters', err);
-      }
+      } catch (err) {}
     };
-
     fetchSemesters();
-    fetchReport();
   }, []);
 
-  const atRiskCount = data.filter((student) => student.vergeStatus === 'AT_RISK').length;
-  const totalBacklogs = data.reduce((total, student) => total + student.numberOfBacklogs, 0);
+  const totalBacklogs = data.reduce((sum, student) => sum + student.numberOfBacklogs, 0);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Verge of Backlog Report</h1>
-          <p className="text-gray-500 text-sm mt-1">Review students at risk based on academic performance.</p>
+    <div className="flex-1 overflow-auto bg-gray-50/50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+        
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Custom Reports Dashboard</h1>
+            <p className="mt-1 text-sm text-gray-500">Filter, review, and download detailed academic reports.</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <button onClick={exportToPDF} className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-blue-600 shadow-sm ring-1 ring-inset ring-blue-100 hover:bg-blue-50 transition-colors">
+              <Download size={16} /> Export PDF
+            </button>
+            <button onClick={exportToWord} className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-green-600 shadow-sm ring-1 ring-inset ring-green-100 hover:bg-green-50 transition-colors">
+              <FileText size={16} /> Export Word
+            </button>
+            
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={exportToPDF}
-            className="inline-flex items-center gap-2 rounded-2xl border border-blue-200 bg-blue-100 px-4 h-[42px] text-sm font-semibold text-blue-800 transition-colors hover:bg-blue-200 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={loading || data.length === 0}
-          >
-            <Download size={16} strokeWidth={2} aria-hidden="true" />
-            Export PDF
-          </button>
-          <button
-            onClick={exportToWord}
-            className="inline-flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-100 px-4 h-[42px] text-sm font-semibold text-emerald-800 transition-colors hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={loading || data.length === 0}
-          >
-            <FileText size={16} strokeWidth={2} aria-hidden="true" />
-            Export Word
-          </button>
-          <button
-            onClick={fetchReport}
-            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 h-[42px] text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:border-gray-300 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={loading}
-          >
-            <RefreshCw size={16} strokeWidth={2} className={loading ? 'animate-spin' : ''} aria-hidden="true" />
-            {loading ? 'Loading...' : 'Refresh'}
-          </button>
-        </div>
-      </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Students reviewed</p>
-          <p className="mt-2 text-2xl font-bold text-gray-900">{data.length}</p>
+        {/* Stats */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm relative overflow-hidden">
+            <div className="relative z-10">
+              <p className="text-xs font-semibold text-gray-500 tracking-wide uppercase">Students in View</p>
+              <p className="mt-2 text-3xl font-bold text-gray-900">{data.length}</p>
+            </div>
+          </div>
+          <div className="bg-orange-50 rounded-2xl p-6 border border-orange-100 shadow-sm">
+            <p className="text-xs font-semibold text-orange-600 tracking-wide uppercase">Total Backlogs in Selection</p>
+            <p className="mt-2 text-3xl font-bold text-orange-700">{totalBacklogs}</p>
+          </div>
         </div>
-        <div className="rounded-2xl border border-red-100 bg-red-50 p-5 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-red-700">At risk</p>
-          <p className="mt-2 text-2xl font-bold text-red-900">{atRiskCount}</p>
-        </div>
-        <div className="rounded-2xl border border-amber-100 bg-amber-50 p-5 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Total backlogs</p>
-          <p className="mt-2 text-2xl font-bold text-amber-900">{totalBacklogs}</p>
-        </div>
-      </div>
 
-      {/* Filters */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-6">
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <h2 className="font-semibold text-gray-900">Report filters</h2>
-            <p className="text-xs text-gray-500 mt-1">Narrow the report by semester, department, or class.</p>
+        {/* Filters - Cascading */}
+        <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-bold text-gray-900">Report Settings & Filters</h2>
+              <p className="text-xs text-gray-500 mt-0.5">Select a category to reveal specific report options.</p>
+            </div>
           </div>
-          <div className="hidden sm:flex w-9 h-9 rounded-xl bg-blue-50 text-blue-700 items-center justify-center">
-            <FileText size={18} />
-          </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Semester</label>
-            <select
-              name="semesterId"
-              value={filters.semesterId}
-              onChange={handleFilterChange}
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500 appearance-none"
-            >
-              <option value="">All Semesters (Default Active)</option>
-              {semesters.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Department</label>
-            <select
-              name="department"
-              value={filters.department}
-              onChange={handleFilterChange}
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500 appearance-none"
-            >
-              <option value="">All Departments</option>
-              <option value="Computer Science & Engineering">CSE</option>
-              <option value="Information Science">ISE</option>
-              <option value="Artificial Intelligence">AI&DS</option>
-              <option value="Electronics & Communication">EC</option>
-              <option value="Mathematics">Mathematics</option>
-              <option value="Physics">Physics</option>
-              <option value="Chemistry">Chemistry</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Class Group</label>
-            <input
-              type="text"
-              name="classGroup"
-              placeholder="e.g. CSE-A (Optional)"
-              value={filters.classGroup}
-              onChange={handleFilterChange}
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Verge Threshold</label>
-            <select
-              name="vergeThreshold"
-              value={filters.vergeThreshold}
-              onChange={handleFilterChange}
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500 appearance-none"
-            >
-              <option value="5">5+ Backlogs (Critical)</option>
-              <option value="10">10+ Backlogs</option>
-              <option value="13">13+ Backlogs (Year Back)</option>
-              <option value="15">15+ Backlogs</option>
-            </select>
-          </div>
-        </div>
-      </div>
+          
+          {/* Row 1: Category & Detail Options */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
+            <div>
+              <label className="block text-xs font-semibold text-blue-600 uppercase tracking-wide mb-2">1. Report Category</label>
+              <select
+                value={reportCategory}
+                onChange={(e) => {
+                  const val = e.target.value as 'marks' | 'backlogs' | '';
+                  setReportCategory(val);
+                  setReportDetail(''); // Reset detail on category change
+                }}
+                className="w-full px-4 py-2.5 rounded-xl border border-blue-200 text-sm font-medium text-blue-900 bg-white shadow-sm focus:outline-none focus:border-blue-500"
+              >
+                <option value="" disabled>Select Category...</option>
+                <option value="backlogs">At Risk & Backlogs</option>
+                <option value="marks">Performance & Marks</option>
+              </select>
+            </div>
 
-      {/* Error Message */}
-      {error && (
-        <div className="flex items-start gap-3 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
-          <AlertTriangle size={17} className="mt-0.5 flex-shrink-0" />
-          {error}
-        </div>
-      )}
+            <div>
+              <label className="block text-xs font-semibold text-blue-600 uppercase tracking-wide mb-2">2. Specific Report</label>
+              <select
+                value={reportDetail}
+                onChange={(e) => setReportDetail(e.target.value as any)}
+                disabled={!reportCategory}
+                className="w-full px-4 py-2.5 rounded-xl border border-blue-200 text-sm font-medium text-blue-900 bg-white shadow-sm focus:outline-none focus:border-blue-500 disabled:opacity-50"
+              >
+                <option value="" disabled>Select Report Type...</option>
+                {reportCategory === 'backlogs' && (
+                  <>
+                    <option value="verge">Verge of Backlog (At Risk)</option>
+                    <option value="current_backlogs">Current Backlogs List</option>
+                  </>
+                )}
+                {reportCategory === 'marks' && (
+                  <>
+                    <option value="all">Overall Performance (All Marks)</option>
+                    <option value="cie_total">Total CIE Scores</option>
+                    <option value="specific_cie">Specific CIE (IA-1/2/3)</option>
+                  </>
+                )}
+              </select>
+            </div>
 
-      {/* Data Table */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        {loading ? (
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
-            <p className="text-gray-500 text-sm">Loading report data...</p>
+            {reportDetail === 'specific_cie' && (
+              <div>
+                <label className="block text-xs font-semibold text-blue-600 uppercase tracking-wide mb-2">3. Which CIE?</label>
+                <select
+                  value={specificCie}
+                  onChange={(e) => setSpecificCie(e.target.value as any)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-blue-200 text-sm font-medium text-blue-900 bg-white shadow-sm focus:outline-none focus:border-blue-500"
+                >
+                  <option value="" disabled>Select...</option>
+                  <option value="ia1">IA-1 Only</option>
+                  <option value="ia2">IA-2 Only</option>
+                  <option value="ia3">IA-3 Only</option>
+                </select>
+              </div>
+            )}
+            
+            {reportCategory === 'backlogs' && user?.role !== 'teacher' && (
+              <div>
+                <label className="block text-xs font-semibold text-blue-600 uppercase tracking-wide mb-2">3. Include</label>
+                <select
+                  name="hasBacklogs"
+                  value={filters.hasBacklogs}
+                  onChange={handleFilterChange}
+                  className="w-full px-4 py-2.5 rounded-xl border border-blue-200 text-sm font-medium text-blue-900 bg-white shadow-sm focus:outline-none focus:border-blue-500"
+                >
+                  <option value="all">All Students</option>
+                  <option value="yes">Yes (Has Backlogs)</option>
+                  <option value="no">No (Clear Record)</option>
+                </select>
+              </div>
+            )}
           </div>
-        ) : data.length === 0 ? (
-          <div className="text-center py-12">
-            <FileText size={28} className="mx-auto mb-3 text-gray-300" aria-hidden="true" />
-            <p className="font-medium text-gray-700">No students match these filters</p>
-            <p className="mt-1 text-sm text-gray-500">Try broadening the department, class, or threshold.</p>
+
+          {/* Row 2: Audience Filters */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Semester</label>
+              <select
+                name="semesterId"
+                value={filters.semesterId}
+                onChange={handleFilterChange}
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500"
+              >
+                <option value="">All Semesters (Default Active)</option>
+                {semesters.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Department</label>
+              <select
+                name="department"
+                value={filters.department}
+                onChange={handleFilterChange}
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500"
+              >
+                <option value="">All Departments</option>
+                <option value="Computer Science and Engineering (CSE)">Computer Science and Engineering (CSE)</option>
+                <option value="Information Science and Engineering (ISE)">Information Science and Engineering (ISE)</option>
+                <option value="Artificial Intelligence and Data Science (AI&DS)">Artificial Intelligence and Data Science (AI&DS)</option>
+                <option value="Electronics and Communication Engineering (ECE)">Electronics and Communication Engineering (ECE)</option>
+                <option value="Mathematics">Mathematics</option>
+                <option value="Physics">Physics</option>
+                <option value="Chemistry">Chemistry</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Section</label>
+              <input
+                type="text"
+                name="classGroup"
+                placeholder="e.g. CSE-A"
+                value={filters.classGroup}
+                onChange={handleFilterChange}
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500"
+              />
+            </div>
+            
+            <div>
+              <button
+                onClick={fetchReport}
+                disabled={!reportCategory || !reportDetail || (reportDetail === 'specific_cie' && !specificCie) || loading}
+                className="w-full inline-flex justify-center items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> 
+                {loading ? 'Loading...' : 'Generate Report'}
+              </button>
+            </div>
           </div>
-        ) : (
-          <>
-          <div className="grid gap-3 p-4 md:hidden">
-            {data.map((student) => (
-              <article key={student.id} className="rounded-xl border border-gray-100 bg-gray-50/60 p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="font-semibold text-gray-900 break-words">{student.name}</p>
-                    <p className="mt-0.5 font-mono text-xs text-gray-500">{student.id}</p>
-                  </div>
-                  <span className={student.vergeStatus === 'AT_RISK'
-                    ? 'shrink-0 rounded-full bg-red-100 px-2.5 py-1 text-[11px] font-semibold text-red-800'
-                    : 'shrink-0 rounded-full bg-green-100 px-2.5 py-1 text-[11px] font-semibold text-green-800'}
-                  >
-                    {student.vergeStatus}
-                  </span>
-                </div>
-                <p className="mt-2 text-xs text-gray-500 break-words">
-                  {student.department} · {student.classGroup || 'No class group'}
-                </p>
-                <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                  <div className="rounded-lg border border-gray-100 bg-white px-3 py-2">
-                    <p className="text-gray-400">Backlogs</p>
-                    <input
-                      type="number"
-                      min="0"
-                      defaultValue={student.numberOfBacklogs}
-                      onBlur={(event) => {
-                        if (event.target.value !== String(student.numberOfBacklogs)) {
-                          handleUpdateBacklog(student.id, event.target.value);
-                        }
-                      }}
-                      className={`mt-1 w-16 rounded border px-2 py-1 text-center font-semibold focus:outline-none focus:ring-2 ${
-                        student.numberOfBacklogs === 0
-                          ? 'border-green-300 bg-green-100 text-green-800 focus:ring-green-500'
-                          : student.numberOfBacklogs >= 5
-                            ? 'border-red-900 bg-red-700 text-white focus:ring-red-500'
-                            : 'border-red-300 bg-red-100 text-red-800 focus:ring-red-500'
-                      }`}
-                    />
-                  </div>
-                  <div className="rounded-lg border border-gray-100 bg-white px-3 py-2">
-                    <p className="text-gray-400">Total score</p>
-                    <p className="mt-1 font-semibold text-gray-800">{student.totalScore}</p>
-                  </div>
-                  <div className="rounded-lg border border-gray-100 bg-white px-3 py-2">
-                    <p className="text-gray-400">Best 2 CIE avg</p>
-                    <p className="mt-1 font-semibold text-gray-800">{student.best2CieAvg}</p>
-                  </div>
-                  <div className="rounded-lg border border-gray-100 bg-white px-3 py-2">
-                    <p className="text-gray-400">CIE scaled</p>
-                    <p className="mt-1 font-semibold text-gray-800">{student.cieScaled}</p>
-                  </div>
-                </div>
-                <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-gray-500">
-                  <span>Assignment: <strong className="text-gray-700">{student.assignmentTotal}</strong></span>
-                  <span>Lab: <strong className="text-gray-700">{student.labTotal}</strong></span>
-                </div>
-              </article>
-            ))}
+        </div>
+
+        {error && (
+          <div className="flex items-start gap-3 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertTriangle size={17} className="mt-0.5 flex-shrink-0" />
+            {error}
           </div>
-          <div className="hidden md:block overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <caption className="sr-only">Students at risk of backlog</caption>
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Class Group</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"># Backlogs</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Best 2 CIE Avg</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CIE Scaled</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assign Total</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lab Total</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Score</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Verge Status</th>
+        )}
+
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden overflow-x-auto pb-4">
+          {loading ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+              <p className="text-gray-500 text-sm">Loading report data...</p>
+            </div>
+          ) : !hasSearched ? (
+            <div className="text-center py-16">
+              <FileText size={48} className="mx-auto mb-4 text-gray-200" aria-hidden="true" />
+              <p className="text-lg font-medium text-gray-900">Ready to Generate Report</p>
+              <p className="mt-1 text-sm text-gray-500 max-w-sm mx-auto">Select your desired report type and filters above, then click Generate Report to fetch the data.</p>
+            </div>
+          ) : data.length === 0 ? (
+            <div className="text-center py-16">
+              <FileText size={32} className="mx-auto mb-3 text-gray-300" aria-hidden="true" />
+              <p className="font-medium text-gray-700">No students match these filters</p>
+              <p className="mt-1 text-sm text-gray-500">Try broadening the department, section, or options.</p>
+            </div>
+          ) : (
+            <table className="w-full text-left border-collapse min-w-max">
+              <thead>
+                <tr className="bg-gray-50/80 border-b border-gray-100">
+                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">USN</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Name</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Dept</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Sec</th>
+                  
+                  {reportDetail === 'verge' && (
+                    <>
+                      <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider"># Backlogs</th>
+                      <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">At Risk Subjects</th>
+                      <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                    </>
+                  )}
+                  
+                  {reportDetail === 'current_backlogs' && (
+                    <>
+                      <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider"># Backlogs</th>
+                      <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Backlog Subjects</th>
+                    </>
+                  )}
+
+                  {reportDetail === 'all' && subjectCodes.map(code => (
+                    <th key={code} className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">{code} (Total)</th>
+                  ))}
+
+                  {reportDetail === 'cie_total' && subjectCodes.map(code => (
+                    <th key={code} className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">{code} (CIE)</th>
+                  ))}
+
+                  {reportDetail === 'specific_cie' && subjectCodes.map(code => (
+                    <th key={code} className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">{code} ({specificCie.toUpperCase()})</th>
+                  ))}
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {data.map((student, index) => (
-                  <tr key={student.id} className={index % 2 === 1 ? 'bg-gray-50' : ''}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{student.id}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{student.name}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{student.department}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{student.classGroup || '-'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                      <input 
-                        type="number" 
-                        min="0"
-                        className={`w-16 px-2 py-1 border rounded text-center focus:outline-none focus:ring-2 ${
-                          student.numberOfBacklogs === 0 
-                            ? 'bg-green-100 text-green-800 border-green-300 focus:ring-green-500' 
-                            : student.numberOfBacklogs >= 5 
-                              ? 'bg-red-700 text-white border-red-900 font-bold focus:ring-red-500' 
-                              : 'bg-red-100 text-red-800 border-red-300 focus:ring-red-500'
-                        }`}
-                        defaultValue={student.numberOfBacklogs}
-                        onBlur={(e) => {
-                          if (e.target.value !== String(student.numberOfBacklogs)) {
-                            handleUpdateBacklog(student.id, e.target.value);
-                          }
-                        }}
-                      />
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{student.best2CieAvg}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{student.cieScaled}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{student.assignmentTotal}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{student.labTotal}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{student.totalScore}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm px-2 inline-flex items-center">
-                      <span className={student.vergeStatus === 'AT_RISK' ? 'bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded' : 'bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded'}>
-                        {student.vergeStatus}
-                      </span>
-                    </td>
+              <tbody className="divide-y divide-gray-50 bg-white">
+                {data.map((student) => (
+                  <tr key={student.id} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="px-6 py-4 text-sm font-medium text-gray-900">{student.id}</td>
+                    <td className="px-6 py-4 text-sm text-gray-700 whitespace-nowrap">{student.name}</td>
+                    <td className="px-6 py-4 text-sm text-gray-500 font-medium whitespace-nowrap">{formatDept(student.department)}</td>
+                    <td className="px-6 py-4 text-sm text-gray-700">{student.classGroup || '-'}</td>
+                    
+                    {reportDetail === 'verge' && (
+                      <>
+                        <td className="px-6 py-4 text-sm text-gray-700">
+                          <input
+                            type="number"
+                            min="0"
+                            defaultValue={student.numberOfBacklogs}
+                            onBlur={(event) => {
+                              if (event.target.value !== String(student.numberOfBacklogs)) {
+                                handleUpdateBacklog(student.id, event.target.value);
+                              }
+                            }}
+                            className={`w-16 rounded border px-2 py-1 text-center font-semibold focus:outline-none focus:ring-2 ${
+                              student.numberOfBacklogs === 0
+                                ? 'border-green-300 bg-green-50 text-green-700'
+                                : 'border-red-300 bg-red-50 text-red-700'
+                            }`}
+                          />
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">{student.atRiskSubjects.join(', ') || '-'}</td>
+                        <td className="px-6 py-4 text-sm">
+                          <span className={student.vergeStatus === 'AT_RISK' ? 'bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded' : 'bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded'}>
+                            {student.vergeStatus}
+                          </span>
+                        </td>
+                      </>
+                    )}
+
+                    {reportDetail === 'current_backlogs' && (
+                      <>
+                        <td className="px-6 py-4 text-sm font-semibold text-red-600">{student.numberOfBacklogs > 0 ? student.numberOfBacklogs : '-'}</td>
+                        <td className="px-6 py-4 text-sm text-gray-600 truncate max-w-xs">{student.backlogSubjects?.join(', ') || '-'}</td>
+                      </>
+                    )}
+
+                    {reportDetail === 'all' && subjectCodes.map(code => {
+                      const sub = student.subjects.find(x => x.subjectCode === code);
+                      return <td key={code} className="px-6 py-4 text-sm text-gray-700">{sub?.total ?? '-'}</td>;
+                    })}
+
+                    {reportDetail === 'cie_total' && subjectCodes.map(code => {
+                      const sub = student.subjects.find(x => x.subjectCode === code);
+                      const cieScore = sub ? (sub.ia1 || 0) + (sub.ia2 || 0) + (sub.ia3 || 0) : '-';
+                      return <td key={code} className="px-6 py-4 text-sm text-gray-700">{cieScore}</td>;
+                    })}
+
+                    {reportDetail === 'specific_cie' && subjectCodes.map(code => {
+                      const sub = student.subjects.find(x => x.subjectCode === code);
+                      return <td key={code} className="px-6 py-4 text-sm text-gray-700">{sub?.[specificCie as 'ia1' | 'ia2' | 'ia3'] ?? '-'}</td>;
+                    })}
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
-          </>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

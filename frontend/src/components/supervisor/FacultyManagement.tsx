@@ -311,16 +311,18 @@ export const FacultyManagement: React.FC = () => {
                   required
                 >
                                     <option value="" disabled>Select Department</option>
-                  <option value="Computer Science & Engineering">CSE</option>
+                  <option value="Computer Science & Engineering">Computer Science & Engineering</option>
+                  <option value="Information Science">Information Science</option>
+                  <option value="Electronics & Communication">Electronics & Communication</option>
+                  <option value="Artificial Intelligence">Artificial Intelligence</option>
                   <option value="Mathematics">Mathematics</option>
-                  <option value="Electronics & Communication">EC</option>
                   <option value="Physics">Physics</option>
                   <option value="Chemistry">Chemistry</option>
                   <option value="Academics">Academics (Dean)</option>
                   <option value="Student Affairs">Student Affairs (Dean)</option>
                   <option value="Administration">Administration (Principal)</option>
                   <option value="Mathematics">Mathematics</option>
-                  <option value="Electronics & Communication">EC</option>
+                  <option value="Electronics & Communication">Electronics & Communication</option>
                   <option value="Physics">Physics</option>
                   <option value="Chemistry">Chemistry</option>
                   <option value="Academics">Academics</option>
@@ -410,16 +412,18 @@ export const FacultyManagement: React.FC = () => {
                   required
                 >
                                     <option value="" disabled>Select Department</option>
-                  <option value="Computer Science & Engineering">CSE</option>
+                  <option value="Computer Science & Engineering">Computer Science & Engineering</option>
+                  <option value="Information Science">Information Science</option>
+                  <option value="Electronics & Communication">Electronics & Communication</option>
+                  <option value="Artificial Intelligence">Artificial Intelligence</option>
                   <option value="Mathematics">Mathematics</option>
-                  <option value="Electronics & Communication">EC</option>
                   <option value="Physics">Physics</option>
                   <option value="Chemistry">Chemistry</option>
                   <option value="Academics">Academics (Dean)</option>
                   <option value="Student Affairs">Student Affairs (Dean)</option>
                   <option value="Administration">Administration (Principal)</option>
                   <option value="Mathematics">Mathematics</option>
-                  <option value="Electronics & Communication">EC</option>
+                  <option value="Electronics & Communication">Electronics & Communication</option>
                   <option value="Physics">Physics</option>
                   <option value="Chemistry">Chemistry</option>
                   <option value="Academics">Academics</option>
