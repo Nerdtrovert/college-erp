@@ -31,7 +31,7 @@ export const StudentManagement: React.FC = () => {
   const [semesters, setSemesters] = useState<Semester[]>([]);
   const [students, setStudents] = useState<StudentUser[]>([]);
   const [selectedSemester, setSelectedSemester] = useState('');
-  const [defaultDepartment, setDefaultDepartment] = useState('Computer Science & Engineering');
+  const [defaultDepartment, setDefaultDepartment] = useState('Computer Science and Engineering (CSE)');
   const [defaultClassGroup, setDefaultClassGroup] = useState('CSE-B');
   const [file, setFile] = useState<File | null>(null);
   
@@ -478,7 +478,7 @@ export const StudentManagement: React.FC = () => {
               </div>
               
               <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Default Class Group (Fallback)</label>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Default Section (Fallback)</label>
                 <input
                   type="text"
                   value={defaultClassGroup}
@@ -558,7 +558,7 @@ export const StudentManagement: React.FC = () => {
               <ul className="list-disc list-inside mt-1 space-y-0.5 pl-1 font-mono text-[10px]">
                 <li><strong className="text-gray-700">Roll Number:</strong> Roll No, ID, USN, Roll</li>
                 <li><strong className="text-gray-700">Name:</strong> Name, Student Name, Full Name</li>
-                <li><strong className="text-gray-700">Section:</strong> Section, Class, Class Group</li>
+                <li><strong className="text-gray-700">Section:</strong> Section, Class, Section</li>
                 <li><strong className="text-gray-700">Department:</strong> Department, Dept, Branch</li>
               </ul>
             </div>
@@ -676,13 +676,13 @@ Section: CSE-B`}
                 className="appearance-none bg-gray-50 border border-gray-200 rounded-xl px-4 py-1.5 pr-8 font-semibold text-xs text-gray-700 focus:outline-none focus:border-blue-500"
               >
                 <option value="all">All Departments</option>
-                <option value="Computer Science & Engineering">CSE</option>
-                <option value="Information Science">ISE</option>
-                <option value="Artificial Intelligence">AI&DS</option>
-                <option value="Electronics & Communication">EC</option>
-                <option value="Mathematics">Mathematics</option>
-                <option value="Physics">Physics</option>
-                <option value="Chemistry">Chemistry</option>
+                <option value="Computer Science and Engineering (CSE)">Computer Science and Engineering (CSE)</option>
+                  <option value="Information Science and Engineering (ISE)">Information Science and Engineering (ISE)</option>
+                  <option value="Electronics and Communication Engineering (ECE)">Electronics and Communication Engineering (ECE)</option>
+                  <option value="Artificial Intelligence and Data Science (AI&DS)">Artificial Intelligence and Data Science (AI&DS)</option>
+                  <option value="Mathematics">Mathematics</option>
+                  <option value="Physics">Physics</option>
+                  <option value="Chemistry">Chemistry</option>
               </select>
               <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
             </div>
@@ -949,9 +949,11 @@ Section: CSE-B`}
                   className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500"
                 >
                   <option value="" disabled>Select Department</option>
-                  <option value="Computer Science & Engineering">CSE</option>
+                  <option value="Computer Science and Engineering (CSE)">Computer Science and Engineering (CSE)</option>
+                  <option value="Information Science and Engineering (ISE)">Information Science and Engineering (ISE)</option>
+                  <option value="Electronics and Communication Engineering (ECE)">Electronics and Communication Engineering (ECE)</option>
+                  <option value="Artificial Intelligence and Data Science (AI&DS)">Artificial Intelligence and Data Science (AI&DS)</option>
                   <option value="Mathematics">Mathematics</option>
-                  <option value="Electronics & Communication">EC</option>
                   <option value="Physics">Physics</option>
                   <option value="Chemistry">Chemistry</option>
                 </select>
@@ -974,7 +976,7 @@ Section: CSE-B`}
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase mb-2">Class Group / Sec</label>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase mb-2">Section</label>
                   <input
                     type="text"
                     required

@@ -102,7 +102,7 @@ export const TimetableManagement: React.FC = () => {
       setSelectedClassGroup(groups[0] || '');
       await fetchTimetable(semesterId, groups[0] || '');
     } catch (error) {
-      console.error('Failed to load class groups:', error);
+      console.error('Failed to load sections:', error);
       setClassGroups([]);
       setSelectedClassGroup('');
       setTimetable([]);
@@ -189,14 +189,14 @@ export const TimetableManagement: React.FC = () => {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Class group</label>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Section</label>
             <select
               value={selectedClassGroup}
               onChange={(event) => selectClassGroup(event.target.value)}
               disabled={!selectedSemester}
               className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-blue-500 disabled:opacity-50"
             >
-              <option value="">Select class group</option>
+              <option value="">Select section</option>
               {classGroups.map((group) => <option key={group} value={group}>{group}</option>)}
             </select>
           </div>
@@ -205,7 +205,7 @@ export const TimetableManagement: React.FC = () => {
 
       {!selectedSemester || !selectedClassGroup ? (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center text-gray-500">
-          Select a semester and class group to view the weekly timetable.
+          Select a semester and section to view the weekly timetable.
         </div>
       ) : (
         <>

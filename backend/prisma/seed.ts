@@ -27,11 +27,11 @@ async function main() {
 
   // 1. Seed Faculty Users (including Dean)
   const facultyData = [
-    { id: 'faculty@hnnce.in', name: 'Dr. Priya Sharma', password: teacherPasswordHash, role: Role.teacher, department: 'Computer Science & Engineering' },
-    { id: 'ramesh@hnnce.in', name: 'Prof. Ramesh Iyer', password: teacherPasswordHash, role: Role.teacher, department: 'Computer Science & Engineering' },
-    { id: 'anita@hnnce.in', name: 'Dr. Anita Raj', password: teacherPasswordHash, role: Role.teacher, department: 'Computer Science & Engineering' },
-    { id: 'vijay@hnnce.in', name: 'Mr. Vijay Kumar', password: teacherPasswordHash, role: Role.teacher, department: 'Computer Science & Engineering' },
-    { id: 'meena@hnnce.in', name: 'Dr. Meena Nair', password: teacherPasswordHash, role: Role.teacher, department: 'Computer Science & Engineering' },
+    { id: 'faculty@hnnce.in', name: 'Dr. Priya Sharma', password: teacherPasswordHash, role: Role.teacher, department: 'Computer Science and Engineering (CSE)' },
+    { id: 'ramesh@hnnce.in', name: 'Prof. Ramesh Iyer', password: teacherPasswordHash, role: Role.teacher, department: 'Computer Science and Engineering (CSE)' },
+    { id: 'anita@hnnce.in', name: 'Dr. Anita Raj', password: teacherPasswordHash, role: Role.teacher, department: 'Computer Science and Engineering (CSE)' },
+    { id: 'vijay@hnnce.in', name: 'Mr. Vijay Kumar', password: teacherPasswordHash, role: Role.teacher, department: 'Computer Science and Engineering (CSE)' },
+    { id: 'meena@hnnce.in', name: 'Dr. Meena Nair', password: teacherPasswordHash, role: Role.teacher, department: 'Computer Science and Engineering (CSE)' },
     // Dean user
     { id: 'deanCSE@hnnce.in', name: 'Dr. Dean Administrator', password: deanPasswordHash, role: Role.dean, department: 'Administration' },
   ];
@@ -52,25 +52,25 @@ async function main() {
 
   // 2. Seed Student Users
   const students = [
-    { id: '1HC24CS042', name: 'Rehman Dakait', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
-    { id: '1HC24CS001', name: 'Aakash Nair', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
-    { id: '1HC24CS002', name: 'Aditi Rao', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
-    { id: '1HC24CS003', name: 'Ajay Singh', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
-    { id: '1HC24CS004', name: 'Amrita Das', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
-    { id: '1HC24CS005', name: 'Ananya Krishnan', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
-    { id: '1HC24CS006', name: 'Rehman Dakait (Duplicate Roll)', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
-    { id: '1HC24CS007', name: 'Bhavna Pillai', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
-    { id: '1HC24CS008', name: 'Deepak Verma', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
-    { id: '1HC24CS009', name: 'Divya Sharma', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
-    { id: '1HC24CS010', name: 'Ganesh Reddy', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
-    { id: '1HC24CS011', name: 'Harish Kumar', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
-    { id: '1HC24CS012', name: 'Ishita Bansal', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
-    { id: '1HC24CS013', name: 'Jayant Patel', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
-    { id: '1HC24CS014', name: 'Kavitha Mohan', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
-    { id: '1HC24CS015', name: 'Kiran Menon', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
-    { id: '1HC24CS016', name: 'Lavanya Subramanian', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
-    { id: '1HC24CS017', name: 'Manish Gupta', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
-    { id: '1HC24CS018', name: 'Rohit Sharma', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
+    { id: '1HC24CS042', name: 'Rehman Dakait', password: studentPasswordHash, role: Role.student, department: 'Computer Science and Engineering (CSE)', classGroup: 'CSE-B' },
+    { id: '1HC24CS001', name: 'Aakash Nair', password: studentPasswordHash, role: Role.student, department: 'Computer Science and Engineering (CSE)', classGroup: 'CSE-B' },
+    { id: '1HC24CS002', name: 'Aditi Rao', password: studentPasswordHash, role: Role.student, department: 'Computer Science and Engineering (CSE)', classGroup: 'CSE-B' },
+    { id: '1HC24CS003', name: 'Ajay Singh', password: studentPasswordHash, role: Role.student, department: 'Computer Science and Engineering (CSE)', classGroup: 'CSE-B' },
+    { id: '1HC24CS004', name: 'Amrita Das', password: studentPasswordHash, role: Role.student, department: 'Computer Science and Engineering (CSE)', classGroup: 'CSE-B' },
+    { id: '1HC24CS005', name: 'Ananya Krishnan', password: studentPasswordHash, role: Role.student, department: 'Computer Science and Engineering (CSE)', classGroup: 'CSE-B' },
+    { id: '1HC24CS006', name: 'Rehman Dakait (Duplicate Roll)', password: studentPasswordHash, role: Role.student, department: 'Computer Science and Engineering (CSE)', classGroup: 'CSE-B' },
+    { id: '1HC24CS007', name: 'Bhavna Pillai', password: studentPasswordHash, role: Role.student, department: 'Computer Science and Engineering (CSE)', classGroup: 'CSE-B' },
+    { id: '1HC24CS008', name: 'Deepak Verma', password: studentPasswordHash, role: Role.student, department: 'Computer Science and Engineering (CSE)', classGroup: 'CSE-B' },
+    { id: '1HC24CS009', name: 'Divya Sharma', password: studentPasswordHash, role: Role.student, department: 'Computer Science and Engineering (CSE)', classGroup: 'CSE-B' },
+    { id: '1HC24CS010', name: 'Ganesh Reddy', password: studentPasswordHash, role: Role.student, department: 'Computer Science and Engineering (CSE)', classGroup: 'CSE-B' },
+    { id: '1HC24CS011', name: 'Harish Kumar', password: studentPasswordHash, role: Role.student, department: 'Computer Science and Engineering (CSE)', classGroup: 'CSE-B' },
+    { id: '1HC24CS012', name: 'Ishita Bansal', password: studentPasswordHash, role: Role.student, department: 'Computer Science and Engineering (CSE)', classGroup: 'CSE-B' },
+    { id: '1HC24CS013', name: 'Jayant Patel', password: studentPasswordHash, role: Role.student, department: 'Computer Science and Engineering (CSE)', classGroup: 'CSE-B' },
+    { id: '1HC24CS014', name: 'Kavitha Mohan', password: studentPasswordHash, role: Role.student, department: 'Computer Science and Engineering (CSE)', classGroup: 'CSE-B' },
+    { id: '1HC24CS015', name: 'Kiran Menon', password: studentPasswordHash, role: Role.student, department: 'Computer Science and Engineering (CSE)', classGroup: 'CSE-B' },
+    { id: '1HC24CS016', name: 'Lavanya Subramanian', password: studentPasswordHash, role: Role.student, department: 'Computer Science and Engineering (CSE)', classGroup: 'CSE-B' },
+    { id: '1HC24CS017', name: 'Manish Gupta', password: studentPasswordHash, role: Role.student, department: 'Computer Science and Engineering (CSE)', classGroup: 'CSE-B' },
+    { id: '1HC24CS018', name: 'Rohit Sharma', password: studentPasswordHash, role: Role.student, department: 'Computer Science and Engineering (CSE)', classGroup: 'CSE-B' },
   ];
 
   for (const s of students) {

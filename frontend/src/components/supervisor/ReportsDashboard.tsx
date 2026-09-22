@@ -125,7 +125,7 @@ const ReportsDashboard: React.FC = () => {
     // Use basic table with borders, no colors (black and white only)
     (doc as any).autoTable({
       startY: 40,
-      head: [['ID', 'Name', 'Department', 'Class Group', '# Backlogs', 'Best 2 CIE Avg', 'CIE Scaled', 'Assign Total', 'Lab Total', 'Total Score', 'Verge Status']],
+      head: [['ID', 'Name', 'Department', 'Section', '# Backlogs', 'Best 2 CIE Avg', 'CIE Scaled', 'Assign Total', 'Lab Total', 'Total Score', 'Verge Status']],
       body: tableData,
       theme: 'grid', // Enforce all borders
       headStyles: {
@@ -179,7 +179,7 @@ const ReportsDashboard: React.FC = () => {
             new docx.TableCell({ children: [new docx.Paragraph({ children: [new docx.TextRun({ text: 'ID', bold: true })] })] }),
             new docx.TableCell({ children: [new docx.Paragraph({ children: [new docx.TextRun({ text: 'Name', bold: true })] })] }),
             new docx.TableCell({ children: [new docx.Paragraph({ children: [new docx.TextRun({ text: 'Department', bold: true })] })] }),
-            new docx.TableCell({ children: [new docx.Paragraph({ children: [new docx.TextRun({ text: 'Class Group', bold: true })] })] }),
+            new docx.TableCell({ children: [new docx.Paragraph({ children: [new docx.TextRun({ text: 'Section', bold: true })] })] }),
             new docx.TableCell({ children: [new docx.Paragraph({ children: [new docx.TextRun({ text: '# Backlogs', bold: true })] })] }),
             new docx.TableCell({ children: [new docx.Paragraph({ children: [new docx.TextRun({ text: 'Best 2 CIE Avg', bold: true })] })] }),
             new docx.TableCell({ children: [new docx.Paragraph({ children: [new docx.TextRun({ text: 'CIE Scaled', bold: true })] })] }),
@@ -334,17 +334,17 @@ const ReportsDashboard: React.FC = () => {
               className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500 appearance-none"
             >
               <option value="">All Departments</option>
-              <option value="Computer Science & Engineering">CSE</option>
-              <option value="Information Science">ISE</option>
-              <option value="Artificial Intelligence">AI&DS</option>
-              <option value="Electronics & Communication">EC</option>
+              <option value="Computer Science and Engineering (CSE)">Computer Science and Engineering (CSE)</option>
+              <option value="Information Science and Engineering (ISE)">Information Science and Engineering (ISE)</option>
+              <option value="Artificial Intelligence and Data Science (AI&DS)">Artificial Intelligence and Data Science (AI&DS)</option>
+              <option value="Electronics and Communication Engineering (ECE)">Electronics and Communication Engineering (ECE)</option>
               <option value="Mathematics">Mathematics</option>
               <option value="Physics">Physics</option>
               <option value="Chemistry">Chemistry</option>
             </select>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Class Group</label>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Section</label>
             <input
               type="text"
               name="classGroup"
@@ -411,7 +411,7 @@ const ReportsDashboard: React.FC = () => {
                   </span>
                 </div>
                 <p className="mt-2 text-xs text-gray-500 break-words">
-                  {student.department} · {student.classGroup || 'No class group'}
+                  {student.department} · {student.classGroup || 'No section'}
                 </p>
                 <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
                   <div className="rounded-lg border border-gray-100 bg-white px-3 py-2">
@@ -462,7 +462,7 @@ const ReportsDashboard: React.FC = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Class Group</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Section</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"># Backlogs</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Best 2 CIE Avg</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CIE Scaled</th>
