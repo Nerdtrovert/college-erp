@@ -1,5 +1,5 @@
 import * as xlsx from 'xlsx';
-import mammoth = require('mammoth');
+import mammoth from 'mammoth';
 import { PDFParse } from 'pdf-parse';
 
 export interface ParsedStudent {
@@ -43,15 +43,6 @@ const cleanValue = (val: string): string => {
   return val
     .replace(/^(roll\s*no|roll\s*number|id|usn|name|department|dept|branch|section|class\s*group|classgroup|class|group|sec|roll\s*no:|roll\s*number:|id:|usn:|name:|department:|dept:|branch:|section:|class\s*group:|classgroup:|class:|group:|sec:)\s*/i, '')
     .trim();
-};
-
-/**
- * Detect typical Roll Number using regex
- * e.g. CS21B001, cs22b102, ME20B045, etc.
- */
-export const isRollNumber = (val: string): boolean => {
-  const rollRegex = /^[A-Za-z]{2,4}\d{2}[A-Za-z]?\d{3,4}$/;
-  return rollRegex.test(val.trim());
 };
 
 /**
@@ -154,7 +145,7 @@ export const extractStudentsFromText = (text: string): ParsedStudent[] => {
       separator = '\t';
     } else if (line.includes('|')) {
       separator = '|';
-    } else if (line.includes(';') && !line.includes('&amp;')) {
+    } else if (line.includes(';') && !line.includes('&')) {
       separator = ';';
     } else if (line.includes('-') && line.split('-').length >= 3) {
       separator = '-';
@@ -180,9 +171,9 @@ export const extractStudentsFromText = (text: string): ParsedStudent[] => {
       if (!roll) continue;
 
       // Identify class group / section (usually matches something like CSE-B or a short word)
-      const sectionIndex = parts.findIndex(p => 
-        /^[A-Za-z]{2,5}-[A-Za-z\d]$/.test(p) || 
-        /^(section|sec)\s*[A-Z\d]$/i.test(p) || 
+      const sectionIndex = parts.findIndex(p =>
+        /^[A-Za-z]{2,5}-[A-Za-z\d]$/.test(p) ||
+        /^(section|sec)\s*[A-Z\d]$/i.test(p) ||
         p.length <= 6
       );
       if (sectionIndex !== -1) {

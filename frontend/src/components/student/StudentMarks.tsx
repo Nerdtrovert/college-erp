@@ -155,7 +155,7 @@ export const StudentMarks: React.FC = () => {
         </div>
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full min-w-[760px] text-sm">
-            <thead>
+            <thead className="sticky top-0 z-10 shadow-[0_1px_0_0_#e5e7eb]">
               <tr className="bg-gray-50">
                 <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Subject</th>
                 {['CIE', 'Assignment', 'Lab', 'Total (50)', 'Grade'].map(h => (

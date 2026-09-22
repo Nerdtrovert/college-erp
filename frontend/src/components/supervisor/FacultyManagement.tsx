@@ -35,6 +35,7 @@ export const FacultyManagement: React.FC = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all');
 
   // Form states
   const [newFaculty, setNewFaculty] = useState({
@@ -206,11 +207,12 @@ export const FacultyManagement: React.FC = () => {
     setShowDeleteModal(true);
   };
 
-  const filteredFaculty = faculty.filter(f => 
-    f.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    f.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    f.department.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredFaculty = faculty.filter(f => {
+    const query = searchQuery.toLowerCase();
+    const matchesSearch = f.name.toLowerCase().includes(query) ||
+      f.id.toLowerCase().includes(query) || f.department.toLowerCase().includes(query);
+    return matchesSearch && (roleFilter === 'all' || f.role === roleFilter);
+  });
 
   if (loading && faculty.length === 0) {
     return <div className="text-center py-12 text-gray-500 font-medium animate-pulse">Loading faculty directory...</div>;
@@ -309,16 +311,18 @@ export const FacultyManagement: React.FC = () => {
                   required
                 >
                                     <option value="" disabled>Select Department</option>
-                  <option value="Computer Science & Engineering">CSE</option>
+                  <option value="Computer Science & Engineering">Computer Science & Engineering</option>
+                  <option value="Information Science">Information Science</option>
+                  <option value="Electronics & Communication">Electronics & Communication</option>
+                  <option value="Artificial Intelligence">Artificial Intelligence</option>
                   <option value="Mathematics">Mathematics</option>
-                  <option value="Electronics & Communication">EC</option>
                   <option value="Physics">Physics</option>
                   <option value="Chemistry">Chemistry</option>
                   <option value="Academics">Academics (Dean)</option>
                   <option value="Student Affairs">Student Affairs (Dean)</option>
                   <option value="Administration">Administration (Principal)</option>
                   <option value="Mathematics">Mathematics</option>
-                  <option value="Electronics & Communication">EC</option>
+                  <option value="Electronics & Communication">Electronics & Communication</option>
                   <option value="Physics">Physics</option>
                   <option value="Chemistry">Chemistry</option>
                   <option value="Academics">Academics</option>
@@ -408,16 +412,18 @@ export const FacultyManagement: React.FC = () => {
                   required
                 >
                                     <option value="" disabled>Select Department</option>
-                  <option value="Computer Science & Engineering">CSE</option>
+                  <option value="Computer Science & Engineering">Computer Science & Engineering</option>
+                  <option value="Information Science">Information Science</option>
+                  <option value="Electronics & Communication">Electronics & Communication</option>
+                  <option value="Artificial Intelligence">Artificial Intelligence</option>
                   <option value="Mathematics">Mathematics</option>
-                  <option value="Electronics & Communication">EC</option>
                   <option value="Physics">Physics</option>
                   <option value="Chemistry">Chemistry</option>
                   <option value="Academics">Academics (Dean)</option>
                   <option value="Student Affairs">Student Affairs (Dean)</option>
                   <option value="Administration">Administration (Principal)</option>
                   <option value="Mathematics">Mathematics</option>
-                  <option value="Electronics & Communication">EC</option>
+                  <option value="Electronics & Communication">Electronics & Communication</option>
                   <option value="Physics">Physics</option>
                   <option value="Chemistry">Chemistry</option>
                   <option value="Academics">Academics</option>
@@ -479,6 +485,7 @@ export const FacultyManagement: React.FC = () => {
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
         <div className="p-4 sm:p-5 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <h2 className="font-semibold text-gray-900 text-base sm:text-lg">Faculty Directory</h2>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
           <div className="relative w-full sm:w-64">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
@@ -489,7 +496,22 @@ export const FacultyManagement: React.FC = () => {
               className="pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 w-full"
             />
           </div>
+          <select
+            aria-label="Filter faculty by role"
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+            className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+          >
+            <option value="all">All roles</option>
+            <option value="teacher">Faculty</option>
+            <option value="hod">HOD</option>
+            <option value="dean">Dean</option>
+            <option value="principal">Principal</option>
+          </select>
+          </div>
         </div>
+
+        <div className="px-4 pt-3 text-xs font-medium text-gray-500 sm:px-5">{filteredFaculty.length} faculty member{filteredFaculty.length === 1 ? '' : 's'} shown</div>
 
         {filteredFaculty.length > 0 ? (
           <>
@@ -552,7 +574,7 @@ export const FacultyManagement: React.FC = () => {
             {/* Desktop Table View (>= md) */}
             <div className="hidden md:block overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-100">
-                <thead className="bg-gray-50/50">
+                <thead className="sticky top-0 z-10 bg-gray-50/95 shadow-[0_1px_0_0_#e5e7eb] backdrop-blur">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Faculty Details</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Department</th>
