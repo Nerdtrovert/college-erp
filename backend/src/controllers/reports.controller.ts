@@ -13,19 +13,25 @@ export const getVergeOfBacklogReport = async (req: AuthRequest, res: Response) =
     const semesterIdParam = req.query.semesterId;
     const departmentParam = req.query.department;
     const classGroupParam = req.query.classGroup;
-    const vergeThresholdParam = req.query.vergeThreshold;
+    const hasBacklogsParam = req.query.hasBacklogs;
 
     // Extract values (handle potential arrays from query string parsing)
     const semesterId = Array.isArray(semesterIdParam) ? semesterIdParam[0] : semesterIdParam;
     const department = Array.isArray(departmentParam) ? departmentParam[0] : departmentParam;
     const classGroup = Array.isArray(classGroupParam) ? classGroupParam[0] : classGroupParam;
-    const vergeThreshold = Array.isArray(vergeThresholdParam) ? vergeThresholdParam[0] : vergeThresholdParam;
+    const hasBacklogs = Array.isArray(hasBacklogsParam) ? hasBacklogsParam[0] : hasBacklogsParam;
 
     // Parse threshold (default 13 as per specs)
-    const threshold = parseInt(vergeThreshold as string) || 13;
+    const threshold = 13;
 
     // Build where clause for students
     const where: any = { role: 'student' };
+    
+    if (hasBacklogs === 'yes') {
+      where.numberOfBacklogs = { gt: 0 };
+    } else if (hasBacklogs === 'no') {
+      where.numberOfBacklogs = 0;
+    }
 
     // Add semester filter if provided
     if (semesterId && typeof semesterId === 'string') {

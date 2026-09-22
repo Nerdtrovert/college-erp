@@ -5,6 +5,7 @@ import { saveAs } from 'file-saver';
 import * as docx from 'docx';
 import { AlertTriangle, Download, FileText, RefreshCw } from 'lucide-react';
 import API from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface ReportStudent {
   id: string;
@@ -21,6 +22,7 @@ interface ReportStudent {
 }
 
 const ReportsDashboard: React.FC = () => {
+  const { user } = useAuth();
   const [data, setData] = useState<ReportStudent[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +30,7 @@ const ReportsDashboard: React.FC = () => {
     semesterId: '',
     department: '',
     classGroup: '',
-    vergeThreshold: '13'
+    hasBacklogs: 'all'
   });
   const [semesters, setSemesters] = useState<{ id: string; name: string }[]>([]);
 
@@ -41,7 +43,7 @@ const ReportsDashboard: React.FC = () => {
       if (filters.semesterId) queryParams.append('semesterId', filters.semesterId);
       if (filters.department) queryParams.append('department', filters.department);
       if (filters.classGroup) queryParams.append('classGroup', filters.classGroup);
-      if (filters.vergeThreshold) queryParams.append('vergeThreshold', filters.vergeThreshold);
+      if (filters.hasBacklogs !== 'all') queryParams.append('hasBacklogs', filters.hasBacklogs);
 
       const response = await API.get(`/reports/verge-of-backlog?${queryParams.toString()}`);
       setData(response.data);
@@ -352,20 +354,21 @@ const ReportsDashboard: React.FC = () => {
               className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500"
             />
           </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Verge Threshold</label>
-            <select
-              name="vergeThreshold"
-              value={filters.vergeThreshold}
-              onChange={handleFilterChange}
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500 appearance-none"
-            >
-              <option value="5">5+ Backlogs (Critical)</option>
-              <option value="10">10+ Backlogs</option>
-              <option value="13">13+ Backlogs (Year Back)</option>
-              <option value="15">15+ Backlogs</option>
-            </select>
-          </div>
+          {user?.role !== 'teacher' && (
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Include Backlogs</label>
+              <select
+                name="hasBacklogs"
+                value={filters.hasBacklogs}
+                onChange={handleFilterChange}
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500 appearance-none"
+              >
+                <option value="all">All Students</option>
+                <option value="yes">Yes (Has Backlogs)</option>
+                <option value="no">No (Clear Record)</option>
+              </select>
+            </div>
+          )}
         </div>
       </div>
 
