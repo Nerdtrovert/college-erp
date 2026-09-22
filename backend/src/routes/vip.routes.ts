@@ -13,17 +13,13 @@ import {
   getAPIUsageStats,
 } from '../controllers/vip.controller';
 import { authenticate } from '../middleware/auth';
-import { authorize } from '../middleware/auth';
-import { Role } from '@prisma/client';
+import { requireVIP } from '../middleware/role';
 
 const router = Router();
 
-// VIP roles: dean, principal, hod
-const VIP_ROLES: Role[] = ['dean', 'principal', 'hod'];
-
 // All VIP endpoints require authentication and VIP authorization
 router.use(authenticate);
-router.use(authorize(VIP_ROLES));
+router.use(requireVIP);
 
 // Student management
 router.get('/students', getAllStudents);

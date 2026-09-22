@@ -21,19 +21,19 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, defaultRole }) => {
   // Demo accounts
   const DEMO_ACCOUNTS = {
     student: {
-      id: 'CS21B042',
+      id: '1HC24CS001',
       password: 'student123',
-      name: 'Rehman Dakait',
+      name: 'Aakash Nair',
       department: 'Computer Science & Engineering',
     },
     teacher: {
-      id: 'FAC2018',
+      id: 'faculty@hnnce.in',
       password: 'teacher123',
       name: 'Dr. Priya Sharma',
       department: 'Computer Science & Engineering',
     },
     supervisor: {
-      id: 'DEAN123',
+      id: 'deanCSE@hnnce.in',
       password: 'dean123',
       name: 'Dr. Dean Administrator',
       department: 'Administration',
@@ -168,7 +168,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, defaultRole }) => {
                   type="text"
                   value={userId}
                   onChange={(e) => setUserId(e.target.value)}
-                  placeholder={role === 'student' ? 'e.g. CS21B042' : role === 'teacher' ? 'e.g. FAC2018' : 'e.g. DEAN123, PRINCIPAL456, or HOD2020'}
+                  placeholder={role === 'student' ? 'e.g. 1HC24CS001' : role === 'teacher' ? 'e.g. faculty@hnnce.in' : 'e.g. deanCSE@hnnce.in'}
                   className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 bg-gray-50"
                   required
                 />

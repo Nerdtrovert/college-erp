@@ -7,6 +7,7 @@ import { parse } from 'json2csv';
 import PDFDocument from 'pdfkit';
 import { Workbook } from 'exceljs';
 import crypto from 'crypto';
+import { semesterService } from '../services/SemesterService';
 
 /**
  * Get a single student by ID
@@ -310,10 +311,7 @@ const exportFacultyMarksAsJSON = async (rows: any[], res: Response, semesterName
  */
 const computeLeaderboard = async (groupBy: 'department' | 'classGroup' | null, markType: 'cie1' | 'cie2' | 'cie3' | 'total') => {
   // Get active semester
-  const activeSem = await prisma.semester.findFirst({
-    where: { status: 'ACTIVE' },
-    select: { id: true },
-  });
+  const activeSem = await semesterService.getActiveSemester();
 
   if (!activeSem) {
     throw new Error('No active semester found');
@@ -456,10 +454,7 @@ export const getLeaderboardBatch = async (req: AuthRequest, res: Response) => {
  * Helper to get active semester
  */
 const getActiveSemester = async () => {
-  return await prisma.semester.findFirst({
-    where: { status: 'ACTIVE' },
-    select: { id: true, name: true },
-  });
+  return await semesterService.getActiveSemester();
 };
 
 /**

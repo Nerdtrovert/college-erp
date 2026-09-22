@@ -1,11 +1,12 @@
 import { z } from 'zod';
+import { idSchema, stringField, commonStringFields } from './shared.validation';
 
 export const createAnnouncementSchema = z.object({
   body: z.object({
-    title: z.string().min(1, 'Title is required').max(100, 'Title cannot exceed 100 characters'),
-    body: z.string().min(1, 'Description/body is required'),
+    title: commonStringFields.title,
+    body: stringField({ minLength: 1, requiredMessage: 'Description/body is required' }),
     category: z.union([z.literal('exam'), z.literal('info'), z.literal('event')]),
-    target: z.string().min(1, 'Target audience (e.g. class group name or "all") is required'),
+    target: idSchema(1, 'Target audience (e.g. class group name or "all") is required'),
     pinned: z.boolean().optional().default(false),
   }),
 });

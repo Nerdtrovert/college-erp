@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, ChevronDown, Clock3, Plus, Save, X, XCircle } from 'lucide-react';
+import { CheckCircle2, Clock3, Plus, Save, X, XCircle } from 'lucide-react';
 import API from '../../services/api';
 
 type AttendanceStatus = 'present' | 'absent';
@@ -216,7 +216,7 @@ export const TeacherAttendance: React.FC = () => {
               <input type="time" value={classForm.endTime} onChange={(event) => setClassForm({ ...classForm, endTime: event.target.value })} className="px-3 py-2.5 rounded-lg border border-gray-200 bg-white text-sm" aria-label="Class end time" />
               <input type="text" value={classForm.room} onChange={(event) => setClassForm({ ...classForm, room: event.target.value })} placeholder="Room (optional)" className="px-3 py-2.5 rounded-lg border border-gray-200 bg-white text-sm" />
             </div>
-            <button type="button" onClick={addClass} disabled={!classForm.subjectCode || !classForm.startTime || !classForm.endTime} className="mt-3 px-4 py-2 rounded-lg bg-blue-700 text-white text-sm font-semibold disabled:opacity-50">
+            <button type="button" onClick={addClass} disabled={!classForm.subjectCode || !classForm.startTime || !classForm.endTime} className="mt-3 px-4 py-2 rounded-xl border border-blue-200 bg-blue-50 text-blue-800 text-sm font-semibold hover:bg-blue-100 disabled:opacity-50">
               Add and mark this class
             </button>
           </div>
@@ -282,7 +282,7 @@ export const TeacherAttendance: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
-            <button onClick={handleSave} disabled={saving || saved || students.length === 0} className={`flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm shadow-sm ${saved ? 'bg-green-600 text-white' : 'bg-blue-700 text-white hover:bg-blue-800 disabled:opacity-60'}`}>
+            <button onClick={handleSave} disabled={saving || saved || students.length === 0} className={`flex items-center justify-center gap-2 px-6 py-3 rounded-2xl border font-semibold text-sm transition-colors ${saved ? 'border-emerald-200 bg-emerald-100 text-emerald-800' : 'border-blue-200 bg-blue-100 text-blue-800 hover:bg-blue-200 disabled:opacity-60'}`}>
               <Save size={16} /> {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Attendance'}
             </button>
             {saved && <span className="text-sm text-green-700 font-medium"><CheckCircle2 size={14} className="inline mr-1" />Attendance saved for this class</span>}

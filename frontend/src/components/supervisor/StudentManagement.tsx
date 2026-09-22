@@ -51,6 +51,7 @@ export const StudentManagement: React.FC = () => {
   // Search and Filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [filterSemester, setFilterSemester] = useState('all');
+  const [filterDepartment, setFilterDepartment] = useState('all');
   const [filterSection, setFilterSection] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
@@ -58,6 +59,7 @@ export const StudentManagement: React.FC = () => {
   // Edit / Add state
   const [editingStudent, setEditingStudent] = useState<StudentUser | null>(null);
   const [newStudent, setNewStudent] = useState<{ id: string; name: string; department: string; classGroup: string; semesterId: string } | null>(null);
+  const [studentPassword, setStudentPassword] = useState('');
   const [showFormModal, setShowFormModal] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   // Report type state
@@ -155,8 +157,11 @@ export const StudentManagement: React.FC = () => {
     return students.filter(s => {
       const matchesSearch =
         s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.department.toLowerCase().includes(searchQuery.toLowerCase());
+        s.id.toLowerCase().includes(searchQuery.toLowerCase());
+
+      const matchesDepartment =
+        filterDepartment === 'all' ||
+        s.department === filterDepartment;
 
       const matchesSemester =
         filterSemester === 'all' ||
@@ -166,7 +171,7 @@ export const StudentManagement: React.FC = () => {
         filterSection === 'all' ||
         (s.classGroup && s.classGroup.toLowerCase() === filterSection.toLowerCase());
 
-      return matchesSearch && matchesSemester && matchesSection;
+      return matchesSearch && matchesDepartment && matchesSemester && matchesSection;
     });
   };
 
@@ -272,7 +277,8 @@ export const StudentManagement: React.FC = () => {
           name: editingStudent.name,
           department: editingStudent.department,
           classGroup: editingStudent.classGroup,
-          semesterId: editingStudent.semesterId || null
+          semesterId: editingStudent.semesterId || null,
+          ...(studentPassword ? { password: studentPassword } : {})
         });
         showToast(res.data.message || 'Student updated successfully', 'success');
       } else if (newStudent) {
@@ -280,7 +286,7 @@ export const StudentManagement: React.FC = () => {
         const res = await API.post('/auth/register', {
           id: newStudent.id,
           name: newStudent.name,
-          password: 'student123', // default password
+          password: studentPassword,
           role: 'student',
           department: newStudent.department,
           classGroup: newStudent.classGroup,
@@ -298,6 +304,7 @@ export const StudentManagement: React.FC = () => {
       setShowFormModal(false);
       setEditingStudent(null);
       setNewStudent(null);
+      setStudentPassword('');
       
       // Reload table
       const studRes = await API.get('/auth/users?role=student');
@@ -400,9 +407,10 @@ export const StudentManagement: React.FC = () => {
                 semesterId: selectedSemester || (semesters[0]?.id || '')
               });
               setEditingStudent(null);
+              setStudentPassword('');
               setShowFormModal(true);
             }}
-            className="flex items-center justify-center gap-2 bg-blue-700 hover:bg-blue-800 text-white font-semibold text-sm px-4 h-[42px] rounded-xl shadow-sm transition-colors duration-150 whitespace-nowrap"
+            className="flex items-center justify-center gap-2 border border-blue-200 bg-blue-100 hover:bg-blue-200 text-blue-800 font-semibold text-sm px-4 h-[42px] rounded-2xl transition-colors duration-150 whitespace-nowrap"
           >
             <Plus size={16} />
             Add Single Student
@@ -410,7 +418,7 @@ export const StudentManagement: React.FC = () => {
           <div className="flex items-center gap-2">
             <select
               value={reportType}
-              onChange={(e) => setReportType(e.target.value)}
+              onChange={(e) => setReportType(e.target.value as "students" | "faculty-marks")}
               className="px-3 h-[42px] rounded-xl border border-gray-200 bg-gray-50 text-gray-900 text-sm focus:outline-none focus:border-blue-500 cursor-pointer"
             >
               <option value="students">Student List</option>
@@ -420,7 +428,7 @@ export const StudentManagement: React.FC = () => {
           <div className="flex items-center gap-2">
             <select
               value={exportFormat}
-              onChange={(e) => setExportFormat(e.target.value)}
+              onChange={(e) => setExportFormat(e.target.value as "json" | "csv" | "excel" | "pdf")}
               className="px-3 h-[42px] rounded-xl border border-gray-200 bg-gray-50 text-gray-900 text-sm focus:outline-none focus:border-blue-500 cursor-pointer"
             >
               <option value="csv">CSV</option>
@@ -432,7 +440,7 @@ export const StudentManagement: React.FC = () => {
           <button
             onClick={handleDownloadReport}
             disabled={loading || uploading}
-            className="flex items-center justify-center gap-2 bg-green-700 hover:bg-green-800 text-white font-semibold text-sm px-4 h-[42px] rounded-xl shadow-sm transition-colors duration-150 whitespace-nowrap"
+            className="flex items-center justify-center gap-2 border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-semibold text-sm px-4 h-[42px] rounded-2xl transition-colors duration-150 whitespace-nowrap"
           >
             <Download size={16} />
             Export Report
@@ -522,7 +530,7 @@ export const StudentManagement: React.FC = () => {
             <button
               type="submit"
               disabled={uploading || !file || !selectedSemester}
-              className="w-full flex items-center justify-center gap-2 bg-blue-700 hover:bg-blue-800 disabled:bg-gray-200 disabled:text-gray-400 text-white font-semibold text-sm py-3 rounded-xl shadow-sm transition-colors duration-150"
+              className="w-full flex items-center justify-center gap-2 border border-blue-200 bg-blue-100 hover:bg-blue-200 disabled:border-gray-200 disabled:bg-gray-100 disabled:text-gray-400 text-blue-800 font-semibold text-sm py-3 rounded-2xl transition-colors duration-150"
             >
               {uploading ? (
                 <>
@@ -572,7 +580,7 @@ Section: CSE-B`}
 
             <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-xl p-3 flex gap-2">
               <ShieldCheck size={16} className="flex-shrink-0 text-amber-700" />
-              <p className="leading-normal">Default accounts are assigned password <code className="font-mono bg-white px-1 rounded border border-amber-300">student123</code>. If student already exists, their semester & section are updated.</p>
+              <p className="leading-normal">Uploaded accounts use the default password <code className="font-mono bg-white px-1 rounded border border-amber-300">student123</code>. Individual student accounts can be given a password by the supervisor.</p>
             </div>
           </div>
         </div>
@@ -659,6 +667,25 @@ Section: CSE-B`}
 
           <div className="flex flex-wrap items-center gap-3 text-sm">
             <span className="text-gray-500 font-medium">Filters:</span>
+            
+            {/* Department Filter */}
+            <div className="relative">
+              <select
+                value={filterDepartment}
+                onChange={(e) => { setFilterDepartment(e.target.value); setCurrentPage(1); }}
+                className="appearance-none bg-gray-50 border border-gray-200 rounded-xl px-4 py-1.5 pr-8 font-semibold text-xs text-gray-700 focus:outline-none focus:border-blue-500"
+              >
+                <option value="all">All Departments</option>
+                <option value="Computer Science & Engineering">CSE</option>
+                <option value="Information Science">ISE</option>
+                <option value="Artificial Intelligence">AI&DS</option>
+                <option value="Electronics & Communication">EC</option>
+                <option value="Mathematics">Mathematics</option>
+                <option value="Physics">Physics</option>
+                <option value="Chemistry">Chemistry</option>
+              </select>
+              <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+            </div>
             
             {/* Semester Filter */}
             <div className="relative">
@@ -814,6 +841,7 @@ Section: CSE-B`}
                   setShowFormModal(false);
                   setEditingStudent(null);
                   setNewStudent(null);
+                  setStudentPassword('');
                 }}
                 className="text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 p-1"
               >
@@ -834,7 +862,9 @@ Section: CSE-B`}
                       setNewStudent({ ...newStudent, id: e.target.value.trim().toUpperCase() });
                     }
                   }}
-                  placeholder="e.g. CS21B001"
+                  placeholder="e.g. 1HC24CS001"
+                  pattern="1HC[0-9]{2}[A-Za-z]{2}[0-9]{3}"
+                  title="Use the USN format 1HC24CS001"
                   className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500 disabled:opacity-60 disabled:cursor-not-allowed"
                 />
               </div>
@@ -859,8 +889,7 @@ Section: CSE-B`}
 
               <div>
                 <label className="block text-xs font-semibold text-gray-500 uppercase mb-2">Department</label>
-                <input
-                  type="text"
+                <select
                   required
                   value={editingStudent ? editingStudent.department : (newStudent?.department || '')}
                   onChange={(e) => {
@@ -870,7 +899,28 @@ Section: CSE-B`}
                       setNewStudent({ ...newStudent, department: e.target.value });
                     }
                   }}
-                  placeholder="e.g. Computer Science & Engineering"
+                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500"
+                >
+                  <option value="" disabled>Select Department</option>
+                  <option value="Computer Science & Engineering">CSE</option>
+                  <option value="Mathematics">Mathematics</option>
+                  <option value="Electronics & Communication">EC</option>
+                  <option value="Physics">Physics</option>
+                  <option value="Chemistry">Chemistry</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase mb-2">
+                  {editingStudent ? 'New Password (Optional)' : 'Initial Password'}
+                </label>
+                <input
+                  type="password"
+                  required={!editingStudent}
+                  minLength={6}
+                  value={studentPassword}
+                  onChange={(e) => setStudentPassword(e.target.value)}
+                  placeholder={editingStudent ? 'Leave blank to keep current' : 'Minimum 6 characters'}
                   className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500"
                 />
               </div>
@@ -920,7 +970,7 @@ Section: CSE-B`}
 
               {!editingStudent && (
                 <div className="bg-blue-50 text-blue-900 text-xs rounded-xl p-3 border border-blue-150 leading-relaxed">
-                  <strong>Initial Credentials:</strong> The student will log in using their Roll Number as ID and <code className="font-mono bg-white px-1 border border-blue-200 rounded">student123</code> as the default password.
+                  <strong>Initial Credentials:</strong> The student will log in using their USN and the password entered above.
                 </div>
               )}
 
@@ -931,6 +981,7 @@ Section: CSE-B`}
                     setShowFormModal(false);
                     setEditingStudent(null);
                     setNewStudent(null);
+                    setStudentPassword('');
                   }}
                   className="px-4 py-2.5 text-sm font-semibold rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50"
                 >
@@ -939,7 +990,7 @@ Section: CSE-B`}
                 <button
                   type="submit"
                   disabled={actionLoading}
-                  className="flex items-center gap-1.5 px-5 py-2.5 text-sm font-semibold rounded-xl bg-blue-700 text-white hover:bg-blue-800 disabled:opacity-60"
+                  className="flex items-center gap-1.5 px-5 py-2.5 text-sm font-semibold rounded-2xl border border-blue-200 bg-blue-100 text-blue-800 hover:bg-blue-200 disabled:opacity-60"
                 >
                   {actionLoading && <Loader2 className="animate-spin" size={14} />}
                   {editingStudent ? 'Save Changes' : 'Register Student'}

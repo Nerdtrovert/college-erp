@@ -5,9 +5,9 @@ const prisma = new PrismaClient();
 
 async function main() {
   const checks = [
-    { id: 'CS21B042', password: 'student123', role: 'student' },
-    { id: 'FAC2018',  password: 'teacher123', role: 'teacher' },
-    { id: 'DEAN123',  password: 'dean123',    role: 'dean'    },
+    { id: '1HC24CS042', password: 'student123', role: 'student' },
+    { id: 'faculty@hnnce.in', password: 'teacher123', role: 'teacher' },
+    { id: 'deanCSE@hnnce.in', password: 'dean123', role: 'dean' },
   ];
 
   for (const c of checks) {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BookOpen, Plus, Save, User, Tag, Layers, ClipboardList } from 'lucide-react';
+import { BookOpen, Plus, Save, User, ClipboardList } from 'lucide-react';
 import API from '../../services/api';
 
 export const SubjectManagement: React.FC = () => {
@@ -156,7 +156,7 @@ export const SubjectManagement: React.FC = () => {
 
             <button
               type="submit"
-              className="w-full flex items-center justify-center gap-2 bg-blue-700 hover:bg-blue-800 text-white font-semibold py-2.5 px-4 rounded-xl shadow-sm transition-colors mt-6"
+              className="w-full flex items-center justify-center gap-2 border border-blue-200 bg-blue-100 hover:bg-blue-200 text-blue-800 font-semibold py-2.5 px-4 rounded-2xl transition-colors mt-6"
             >
               <Save size={16} />
               <span>Create Subject</span>

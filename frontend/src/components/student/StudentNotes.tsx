@@ -45,9 +45,9 @@ export const StudentNotes: React.FC<{ user: User }> = ({ user }) => {
   }
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Notes & Study Materials</h2>
+    <div className="space-y-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-2xl font-bold text-gray-900">Notes & Study Materials</h1>
         {/* Teacher upload button only visible to teachers */}
         {user.role === 'teacher' && (
           <button
@@ -56,7 +56,7 @@ export const StudentNotes: React.FC<{ user: User }> = ({ user }) => {
               // Here we just alert that they need to go to teacher dashboard.
               alert('Please go to Teacher Dashboard to upload notes.');
             }}
-            className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition"
+            className="w-full sm:w-auto min-h-11 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition"
           >
             Upload New Note
           </button>
@@ -71,8 +71,8 @@ export const StudentNotes: React.FC<{ user: User }> = ({ user }) => {
         <div className="space-y-4">
           {notes.map((note: any) => (
             <div key={note.id} className="border rounded-xl p-4 bg-white shadow-sm">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
                   <h3 className="font-semibold text-gray-800">{note.title}</h3>
                   <p className="text-sm text-gray-500 mt-1">
                     Uploaded by <span className="font-medium">{note.uploadedBy}</span>{' '}
@@ -84,11 +84,11 @@ export const StudentNotes: React.FC<{ user: User }> = ({ user }) => {
                     <p className="mt-2 text-gray-700">{note.description}</p>
                   )}
                 </div>
-                <div className="ml-4 flex space-x-2">
+                <div className="flex flex-wrap gap-2 sm:ml-4 sm:justify-end">
                   {note.fileName && (
                     <button
                       onClick={() => downloadFile(note.fileBase64, note.fileName)}
-                      className="px-3 py-1 bg-green-600 text-xs text-white rounded hover:bg-green-700 transition"
+                      className="min-h-10 px-3 py-2 bg-green-600 text-xs text-white rounded hover:bg-green-700 transition"
                     >
                       Download
                     </button>
@@ -107,7 +107,7 @@ export const StudentNotes: React.FC<{ user: User }> = ({ user }) => {
                           }
                         }
                       }}
-                      className="px-3 py-1 bg-red-600 text-xs text-white rounded hover:bg-red-700 transition"
+                      className="min-h-10 px-3 py-2 bg-red-600 text-xs text-white rounded hover:bg-red-700 transition"
                     >
                       Delete
                     </button>
