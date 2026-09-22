@@ -4,14 +4,15 @@ import {
   createAnnouncement,
   deleteAnnouncement,
 } from '../controllers/announcement.controller';
-import { authenticate, authorize } from '../middleware/auth';
+import { authenticate } from '../middleware/auth';
+import { requireTeacher } from '../middleware/role';
 import { validate } from '../middleware/validate';
 import { createAnnouncementSchema } from '../validations/announcement.validation';
 
 const router = Router();
 
 router.get('/', authenticate, getAnnouncements);
-router.post('/', authenticate, authorize(['teacher']), validate(createAnnouncementSchema), createAnnouncement);
-router.delete('/:id', authenticate, authorize(['teacher']), deleteAnnouncement);
+router.post('/', authenticate, requireTeacher, validate(createAnnouncementSchema), createAnnouncement);
+router.delete('/:id', authenticate, requireTeacher, deleteAnnouncement);
 
 export default router;

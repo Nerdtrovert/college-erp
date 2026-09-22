@@ -6,8 +6,22 @@ import * as docx from 'docx';
 import { AlertTriangle, Download, FileText, RefreshCw } from 'lucide-react';
 import API from '../../services/api';
 
+interface ReportStudent {
+  id: string;
+  name: string;
+  department: string;
+  classGroup?: string;
+  numberOfBacklogs: number;
+  best2CieAvg: number;
+  cieScaled: number;
+  assignmentTotal: number;
+  labTotal: number;
+  totalScore: number;
+  vergeStatus: 'SAFE' | 'AT_RISK';
+}
+
 const ReportsDashboard: React.FC = () => {
-  const [data, setData] = useState<any[]>([]);
+  const [data, setData] = useState<ReportStudent[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState({
@@ -16,6 +30,7 @@ const ReportsDashboard: React.FC = () => {
     classGroup: '',
     vergeThreshold: '13'
   });
+  const [semesters, setSemesters] = useState<{ id: string; name: string }[]>([]);
 
   // Fetch verge of backlog report
   const fetchReport = async () => {
@@ -218,8 +233,21 @@ const ReportsDashboard: React.FC = () => {
 
   // Initial data load
   useEffect(() => {
+    const fetchSemesters = async () => {
+      try {
+        const response = await API.get('/semesters');
+        setSemesters(response.data || []);
+      } catch (err) {
+        console.error('Failed to fetch semesters', err);
+      }
+    };
+
+    fetchSemesters();
     fetchReport();
   }, []);
+
+  const atRiskCount = data.filter((student) => student.vergeStatus === 'AT_RISK').length;
+  const totalBacklogs = data.reduce((total, student) => total + student.numberOfBacklogs, 0);
 
   return (
     <div className="space-y-6">
@@ -256,6 +284,21 @@ const ReportsDashboard: React.FC = () => {
         </div>
       </div>
 
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Students reviewed</p>
+          <p className="mt-2 text-2xl font-bold text-gray-900">{data.length}</p>
+        </div>
+        <div className="rounded-2xl border border-red-100 bg-red-50 p-5 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-wide text-red-700">At risk</p>
+          <p className="mt-2 text-2xl font-bold text-red-900">{atRiskCount}</p>
+        </div>
+        <div className="rounded-2xl border border-amber-100 bg-amber-50 p-5 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Total backlogs</p>
+          <p className="mt-2 text-2xl font-bold text-amber-900">{totalBacklogs}</p>
+        </div>
+      </div>
+
       {/* Filters */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-6">
         <div className="flex items-center justify-between mb-5">
@@ -269,30 +312,41 @@ const ReportsDashboard: React.FC = () => {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Semester ID</label>
-            <input
-              type="text"
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Semester</label>
+            <select
               name="semesterId"
               value={filters.semesterId}
               onChange={handleFilterChange}
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500"
-            />
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500 appearance-none"
+            >
+              <option value="">All Semesters (Default Active)</option>
+              {semesters.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Department</label>
-            <input
-              type="text"
+            <select
               name="department"
               value={filters.department}
               onChange={handleFilterChange}
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500"
-            />
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500 appearance-none"
+            >
+              <option value="">All Departments</option>
+              <option value="Computer Science & Engineering">CSE</option>
+              <option value="Information Science">ISE</option>
+              <option value="Artificial Intelligence">AI&DS</option>
+              <option value="Electronics & Communication">EC</option>
+              <option value="Mathematics">Mathematics</option>
+              <option value="Physics">Physics</option>
+              <option value="Chemistry">Chemistry</option>
+            </select>
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Class Group</label>
             <input
               type="text"
               name="classGroup"
+              placeholder="e.g. CSE-A (Optional)"
               value={filters.classGroup}
               onChange={handleFilterChange}
               className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500"
@@ -300,13 +354,17 @@ const ReportsDashboard: React.FC = () => {
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Verge Threshold</label>
-            <input
-              type="number"
+            <select
               name="vergeThreshold"
               value={filters.vergeThreshold}
               onChange={handleFilterChange}
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500"
-            />
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500 appearance-none"
+            >
+              <option value="5">5+ Backlogs (Critical)</option>
+              <option value="10">10+ Backlogs</option>
+              <option value="13">13+ Backlogs (Year Back)</option>
+              <option value="15">15+ Backlogs</option>
+            </select>
           </div>
         </div>
       </div>
@@ -328,11 +386,14 @@ const ReportsDashboard: React.FC = () => {
           </div>
         ) : data.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-gray-500 text-sm">No data available. Try adjusting the filters and refresh.</p>
+            <FileText size={28} className="mx-auto mb-3 text-gray-300" aria-hidden="true" />
+            <p className="font-medium text-gray-700">No students match these filters</p>
+            <p className="mt-1 text-sm text-gray-500">Try broadening the department, class, or threshold.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
+              <caption className="sr-only">Students at risk of backlog</caption>
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
@@ -350,7 +411,7 @@ const ReportsDashboard: React.FC = () => {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {data.map((student, index) => (
-                  <tr key={index} className={index % 2 === 1 ? 'bg-gray-50' : ''}>
+                  <tr key={student.id} className={index % 2 === 1 ? 'bg-gray-50' : ''}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{student.id}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{student.name}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{student.department}</td>

@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Trophy,
+  
   MapPin,
   Square,
   Users,
   Loader2,
   AlertTriangle,
-  ArrowDown,
-  ArrowUp
+  
+  
 } from 'lucide-react';
 import API from '../../services/api';
 
@@ -79,13 +79,13 @@ export const Leaderboard: React.FC = () => {
     total: 'Total Internal Marks'
   };
 
-  const renderLeaderboard = (title: string, icon: React.ComponentType<any>, data: LeaderboardData) => {
+  const renderLeaderboard = (title: string, Icon: React.ComponentType<any>, data: LeaderboardData) => {
     return (
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-8">
         <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 bg-gray-50">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center">
-              <icon size={18} />
+              <Icon size={18} />
             </div>
             <h2 className="font-bold text-gray-900 text-lg">{title}</h2>
           </div>

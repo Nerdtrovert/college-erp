@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BookOpen, Plus, Save, User, Tag, Layers, ClipboardList } from 'lucide-react';
+import { BookOpen, Plus, Save, User, ClipboardList } from 'lucide-react';
 import API from '../../services/api';
 
 export const SubjectManagement: React.FC = () => {

@@ -2,6 +2,29 @@ import { Response } from 'express';
 import PDFDocument from 'pdfkit';
 import prisma from '../prisma/client';
 import { AuthRequest } from '../types';
+import { semesterService } from '../services/SemesterService';
+import * as fs from 'fs';
+import * as path from 'path';
+import { parseExcel, parseWord, parsePDF } from '../utils/fileParser';
+
+const removeUploadedFile = async (filePath: string): Promise<void> => {
+  try {
+    await fs.promises.unlink(filePath);
+  } catch (error: any) {
+    if (error.code !== 'ENOENT') {
+      console.error('Unable to remove uploaded file:', error);
+    }
+  }
+};
+
+const hasExpectedFileSignature = (buffer: Buffer, ext: string): boolean => {
+  if (ext === '.pdf') return buffer.subarray(0, 5).toString() === '%PDF-';
+  if (ext === '.xls') return buffer.subarray(0, 8).equals(Buffer.from('D0CF11E0A1B11AE1', 'hex'));
+  if (ext === '.xlsx' || ext === '.docx') return buffer.subarray(0, 2).toString() === 'PK';
+  if (ext === '.doc') return buffer.subarray(0, 8).equals(Buffer.from('D0CF11E0A1B11AE1', 'hex'));
+  return false;
+};
+
 
 export const getStudentMarks = async (req: AuthRequest, res: Response) => {
   const studentId = req.user?.id;
@@ -13,10 +36,7 @@ export const getStudentMarks = async (req: AuthRequest, res: Response) => {
 
   try {
     // Get active semester
-    const activeSem = await prisma.semester.findFirst({
-      where: { status: 'ACTIVE' },
-      select: { id: true },
-    });
+    const activeSem = await semesterService.getActiveSemester();
     if (!activeSem) {
       return res.status(400).json({ error: 'No active semester found' });
     }
@@ -119,10 +139,7 @@ export const getTeacherMarks = async (req: AuthRequest, res: Response) => {
     }
 
     // Get active semester
-    const activeSem = await prisma.semester.findFirst({
-      where: { status: 'ACTIVE' },
-      select: { id: true },
-    });
+    const activeSem = await semesterService.getActiveSemester();
     if (!activeSem) {
       return res.status(400).json({ error: 'No active semester found' });
     }
@@ -175,10 +192,7 @@ export const exportTeacherMarks = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: 'Subject code not found' });
     }
 
-    const activeSem = await prisma.semester.findFirst({
-      where: { status: 'ACTIVE' },
-      select: { id: true },
-    });
+    const activeSem = await semesterService.getActiveSemester();
     if (!activeSem) {
       return res.status(400).json({ error: 'No active semester found' });
     }
@@ -272,10 +286,7 @@ export const saveTeacherMarks = async (req: AuthRequest, res: Response) => {
     }
 
     // Get active semester
-    const activeSem = await prisma.semester.findFirst({
-      where: { status: 'ACTIVE' },
-      select: { id: true },
-    });
+    const activeSem = await semesterService.getActiveSemester();
     if (!activeSem) {
       return res.status(400).json({ error: 'No active semester found' });
     }

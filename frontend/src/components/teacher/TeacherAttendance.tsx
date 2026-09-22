@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, ChevronDown, Clock3, Plus, Save, X, XCircle } from 'lucide-react';
+import { CheckCircle2, Clock3, Plus, Save, X, XCircle } from 'lucide-react';
 import API from '../../services/api';
 
 type AttendanceStatus = 'present' | 'absent';

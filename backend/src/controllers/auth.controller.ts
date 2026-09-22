@@ -27,7 +27,10 @@ const hasExpectedFileSignature = (buffer: Buffer, ext: string): boolean => {
 };
 
 export const login = async (req: Request, res: Response) => {
-  const { id, password, role } = req.body;
+  const { password, role } = req.body;
+  const id = role === 'student'
+    ? String(req.body.id).toUpperCase()
+    : String(req.body.id).trim();
 
   try {
     // Find the user by ID (roll number or faculty ID)
@@ -80,7 +83,10 @@ export const login = async (req: Request, res: Response) => {
 };
 
 export const register = async (req: Request, res: Response) => {
-  const { id, name, password, role, department, classGroup } = req.body;
+  const { name, password, role, department, classGroup } = req.body;
+  const id = role === 'student'
+    ? String(req.body.id).toUpperCase()
+    : String(req.body.id).trim();
 
   try {
     // Check if user ID is already registered
@@ -348,7 +354,7 @@ export const uploadStudents = async (req: AuthRequest, res: Response) => {
             'CSE-B'
           ).trim(),
         }))
-        .filter((s: any) => s.id && s.name);
+        .filter((s: any) => s.id && s.name && /^1HC\d{2}[A-Z]{2}\d{3}$/.test(s.id));
     } else if (ext === '.docx' || ext === '.doc') {
       // Parse Word file
       const text = await parseWord(fileBuffer);
@@ -374,6 +380,10 @@ export const uploadStudents = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Unsupported file type. Please upload Excel (.xlsx/.xls), Word (.docx/.doc), or PDF (.pdf)' });
     }
 
+    parsedStudents = parsedStudents.filter(student =>
+      student.id && student.name && student.id.trim() !== '' && student.name.trim() !== ''
+    );
+
     // Clean up uploaded file
     await removeUploadedFile(req.file.path);
 
@@ -390,48 +400,149 @@ export const uploadStudents = async (req: AuthRequest, res: Response) => {
       errors: [],
     };
 
-    for (const student of parsedStudents) {
-      if (!student.id || !student.name) {
-        results.errors.push({ ...student, reason: 'Missing ID or Name' });
-        continue;
+    // Batch process students to fix N+1 query problem
+    try {
+      // Extract all student IDs
+      const studentIds = parsedStudents.map(s => s.id);
+
+      // Fetch all existing users in one query
+      const existingUsers = await prisma.user.findMany({
+        where: { id: { in: studentIds } },
+        select: { id: true, role: true }
+      });
+
+      // Create a map of existing users by ID for quick lookup
+      const existingUserMap = new Map(existingUsers.map(user => [user.id, user.role]));
+
+      // Split students into toCreate, toUpdate, and toSkip
+      const toCreate: typeof parsedStudents = [];
+      const toUpdate: typeof parsedStudents = [];
+      const toSkip: typeof parsedStudents = [];
+
+      for (const student of parsedStudents) {
+        if (!student.id || !student.name) {
+          results.errors.push({ ...student, reason: 'Missing ID or Name' });
+          continue;
+        }
+
+        const existingRole = existingUserMap.get(student.id);
+
+        if (existingRole !== undefined) {
+          // User exists
+          if (existingRole !== 'student') {
+            // Skip if user exists but is not a student
+            toSkip.push(student);
+            results.skipped.push({ ...student, reason: `User ${student.id} exists with role '${existingRole}' — skipped` });
+          } else {
+            // User exists and is a student - prepare for update
+            toUpdate.push(student);
+          }
+        } else {
+          // User doesn't exist - prepare for creation
+          toCreate.push(student);
+        }
       }
 
-      try {
-        // Check if user already exists
-        const existing = await prisma.user.findUnique({ where: { id: student.id } });
+      // Batch create new students
+      if (toCreate.length > 0) {
+        const createData = toCreate.map(student => ({
+          id: student.id,
+          name: student.name,
+          password: defaultPassword,
+          role: 'student' as any,
+          department: student.department,
+          classGroup: student.classGroup,
+          semesterId,
+        }));
 
-        if (existing) {
-          if (existing.role !== 'student') {
-            results.skipped.push({ ...student, reason: `User ${student.id} exists with role '${existing.role}' — skipped` });
-            continue;
+        await prisma.user.createMany({ data: createData });
+
+        // Add to success results
+        results.success.push(...toCreate.map(student => ({ id: student.id, name: student.name })));
+      }
+
+      // Batch update existing students (grouped by classGroup and department for efficiency)
+      if (toUpdate.length > 0) {
+        // Group students by classGroup and department for batch updates
+        const updateGroups = new Map<string, typeof parsedStudents>();
+
+        for (const student of toUpdate) {
+          const key = `${student.classGroup}|${student.department}`;
+          if (!updateGroups.has(key)) {
+            updateGroups.set(key, []);
           }
-          // Update existing student's semester, section, department
-          await prisma.user.update({
-            where: { id: student.id },
-            data: {
-              semesterId,
-              classGroup: student.classGroup,
-              department: student.department,
-            },
-          });
-          results.updated.push({ id: student.id, name: student.name });
-        } else {
-          // Create new student
-          await prisma.user.create({
-            data: {
-              id: student.id,
-              name: student.name,
-              password: defaultPassword,
-              role: 'student',
-              department: student.department,
-              classGroup: student.classGroup,
-              semesterId,
-            },
-          });
-          results.success.push({ id: student.id, name: student.name });
+          updateGroups.get(key)!.push(student);
         }
-      } catch (err: any) {
-        results.errors.push({ ...student, reason: err.message || 'Unknown error' });
+
+        // Update each group
+        for (const [key, students] of updateGroups.entries()) {
+          const [classGroup, department] = key.split('|');
+          const studentIds = students.map(s => s.id);
+
+          await prisma.user.updateMany({
+            where: {
+              id: { in: studentIds },
+              classGroup,
+              department
+            },
+            data: {
+              semesterId,
+              classGroup, // This will be the same for all in group
+              department   // This will be the same for all in group
+            }
+          });
+
+          // Add to updated results
+          results.updated.push(...students.map(student => ({ id: student.id, name: student.name })));
+        }
+      }
+
+    } catch (batchError: any) {
+      console.error('Error in batch processing:', batchError);
+      // Fall back to individual processing if batch fails
+      for (const student of parsedStudents) {
+        if (!student.id || !student.name) {
+          results.errors.push({ ...student, reason: 'Missing ID or Name' });
+          continue;
+        }
+
+        try {
+          // Check if user already exists
+          const existing = await prisma.user.findUnique({ where: { id: student.id } });
+
+          if (existing) {
+            if (existing.role !== 'student') {
+              results.skipped.push({ ...student, reason: `User ${student.id} exists with role '${existing.role}' — skipped` });
+              continue;
+            }
+            // Update existing student's semester, section, department
+            await prisma.user.update({
+              where: { id: student.id },
+              data: {
+                semesterId,
+                classGroup: student.classGroup,
+                department: student.department,
+              },
+            });
+            results.updated.push({ id: student.id, name: student.name });
+          } else {
+            // Create new student
+            await prisma.user.create({
+              data: {
+                id: student.id,
+                name: student.name,
+                password: defaultPassword,
+                role: 'student' as any,
+                department: student.department,
+                classGroup: student.classGroup,
+                semesterId,
+              },
+            });
+            results.success.push({ id: student.id, name: student.name });
+          }
+        } catch (err: any) {
+          results.errors.push({ ...student, reason: err.message || 'Unknown error' });
+        }
       }
     }
 

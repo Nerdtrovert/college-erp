@@ -5,18 +5,19 @@ import {
   getTeacherClasses,
   saveTeacherAttendance,
 } from '../controllers/attendance.controller';
-import { authenticate, authorize } from '../middleware/auth';
+import { authenticate } from '../middleware/auth';
+import { requireStudent } from '../middleware/role';
+import { requireTeacher } from '../middleware/role';
 import { validate } from '../middleware/validate';
 import { saveAttendanceSchema } from '../validations/attendance.validation';
 
 const router = Router();
 
 // Student routes
-router.get('/student', authenticate, authorize(['student']), getStudentAttendance);
+router.get('/student', authenticate, requireStudent, getStudentAttendance);
 
-// Teacher routes
-router.get('/teacher/:subjectCode', authenticate, authorize(['teacher']), getTeacherAttendance);
-router.get('/teacher-classes', authenticate, authorize(['teacher']), getTeacherClasses);
-router.post('/teacher', authenticate, authorize(['teacher']), validate(saveAttendanceSchema), saveTeacherAttendance);
+router.get('/teacher/:subjectCode', authenticate, requireTeacher, getTeacherAttendance);
+router.get('/teacher-classes', authenticate, requireTeacher, getTeacherClasses);
+router.post('/teacher', authenticate, requireTeacher, validate(saveAttendanceSchema), saveTeacherAttendance);
 
 export default router;

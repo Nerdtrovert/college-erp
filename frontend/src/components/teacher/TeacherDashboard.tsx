@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  LayoutDashboard, CalendarCheck, BarChart2, Bell, BookOpen, Menu, X
+  LayoutDashboard, CalendarCheck, BarChart2, Bell, BookOpen, Menu, X, FileText
 } from 'lucide-react';
 import type { User } from '../../types';
 import { Sidebar } from '../Sidebar';
@@ -10,6 +10,7 @@ import { TeacherMarks } from './TeacherMarks';
 import { TeacherAnnouncements } from './TeacherAnnouncements';
 import { TeacherNotes } from './TeacherNotes';
 import { TeacherTimetable } from './TeacherTimetable';
+import ReportsDashboard from '../supervisor/ReportsDashboard';
 
 const NAV_ITEMS = [
   { id: 'home', label: 'Overview', icon: <LayoutDashboard size={16} /> },
@@ -18,6 +19,7 @@ const NAV_ITEMS = [
   { id: 'marks', label: 'Update Marks', icon: <BarChart2 size={16} /> },
   { id: 'announcements', label: 'Announcements', icon: <Bell size={16} /> },
   { id: 'notes', label: 'Notes', icon: <BookOpen size={16} /> },
+  { id: 'reports', label: 'Consolidated Reports', icon: <FileText size={16} /> },
 ];
 
 interface Props {
@@ -37,6 +39,7 @@ export const TeacherDashboard: React.FC<Props> = ({ user, onLogout }) => {
       case 'marks': return <TeacherMarks />;
       case 'announcements': return <TeacherAnnouncements />;
       case 'notes': return <TeacherNotes user={user} />;
+      case 'reports': return <ReportsDashboard />;
       default: return null;
     }
   };

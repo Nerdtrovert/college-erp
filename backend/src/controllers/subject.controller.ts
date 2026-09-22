@@ -64,3 +64,38 @@ export const createSubject = async (req: AuthRequest, res: Response) => {
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
+
+export const updateSubject = async (req: AuthRequest, res: Response) => {
+  const { code } = req.params;
+  const { name, facultyId, classGroup, type } = req.body;
+
+  try {
+    const subject = await prisma.subject.update({
+      where: { code },
+      data: {
+        name,
+        facultyId,
+        classGroup,
+        type,
+      },
+    });
+    return res.status(200).json(subject);
+  } catch (error) {
+    console.error('Error updating subject:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const deleteSubject = async (req: AuthRequest, res: Response) => {
+  const { code } = req.params;
+
+  try {
+    await prisma.subject.delete({
+      where: { code },
+    });
+    return res.status(200).json({ message: 'Subject deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting subject:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};

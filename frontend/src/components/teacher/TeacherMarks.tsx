@@ -25,6 +25,7 @@ interface SubjectItem {
   code: string;
   name: string;
   classGroup: string;
+  type?: string;
 }
 
 interface StudentMarkItem {

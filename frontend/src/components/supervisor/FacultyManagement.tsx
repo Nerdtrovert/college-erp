@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UserPlus, Search, Building, Briefcase, GraduationCap, Shield, Edit2, Trash2, ShieldAlert } from 'lucide-react';
+import { UserPlus, BookOpen, Plus, Search, Building, Briefcase, GraduationCap, Shield, Edit2, Trash2, ShieldAlert } from 'lucide-react';
 import API from '../../services/api';
 
 export const FacultyManagement: React.FC = () => {
@@ -20,7 +20,7 @@ export const FacultyManagement: React.FC = () => {
     id: '',
     name: '',
     password: '',
-    role: 'teacher' as 'teacher' | 'dean' | 'principal',
+    role: 'teacher' as 'teacher' | 'dean' | 'principal' | 'hod',
     department: ''
   });
 
@@ -28,20 +28,75 @@ export const FacultyManagement: React.FC = () => {
     id: '',
     name: '',
     password: '',
-    role: 'teacher' as 'teacher' | 'dean' | 'principal',
+    role: 'teacher' as 'teacher' | 'dean' | 'principal' | 'hod',
     department: ''
   });
 
   const [deletingFaculty, setDeletingFaculty] = useState<any>(null);
 
+  // Subject Management Modal
+  const [showSubjectModal, setShowSubjectModal] = useState(false);
+  const [selectedFacultyForSubjects, setSelectedFacultyForSubjects] = useState<any>(null);
+  const [allSubjects, setAllSubjects] = useState<any[]>([]);
+  const [newSubject, setNewSubject] = useState({ code: '', name: '', classGroup: '', type: 'STANDALONE' });
+
+
   useEffect(() => {
     fetchFaculty();
   }, []);
 
+  const handleOpenSubjectModal = async (faculty: any) => {
+    setSelectedFacultyForSubjects(faculty);
+    setShowSubjectModal(true);
+    try {
+      const res = await API.get('/subjects');
+      setAllSubjects(res.data || []);
+    } catch (err) {
+      console.error('Failed to fetch subjects', err);
+    }
+  };
+
+  const handleAssignSubject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedFacultyForSubjects) return;
+    setLoading(true);
+    try {
+      await API.post('/subjects', { ...newSubject, facultyId: selectedFacultyForSubjects.id });
+      setSuccess('Class assigned successfully!');
+      setNewSubject({ code: '', name: '', classGroup: '', type: 'STANDALONE' });
+      const res = await API.get('/subjects');
+      setAllSubjects(res.data || []);
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to assign class');
+      setTimeout(() => setError(null), 3000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRemoveSubject = async (code: string) => {
+    if (!window.confirm('Are you sure you want to remove this class from this faculty?')) return;
+    setLoading(true);
+    try {
+      await API.delete(`/subjects/${code}`);
+      setSuccess('Class removed successfully!');
+      const res = await API.get('/subjects');
+      setAllSubjects(res.data || []);
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to remove class');
+      setTimeout(() => setError(null), 3000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
   const fetchFaculty = async () => {
     try {
       setLoading(true);
-      const response = await API.get(`/auth/users?role=teacher,dean,principal`);
+      const response = await API.get(`/auth/users?role=teacher,dean,principal,hod`);
       setFaculty(response.data || []);
     } catch (err: any) {
       console.error('Failed to fetch faculty:', err);
@@ -221,18 +276,34 @@ export const FacultyManagement: React.FC = () => {
                   <option value="teacher">Faculty (Instructor)</option>
                   <option value="dean">Supervisor — Dean</option>
                   <option value="principal">Supervisor — Principal</option>
+                  <option value="hod">Supervisor — HOD</option>
                 </select>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Department</label>
-                <input
-                  type="text"
+                <select
                   value={newFaculty.department}
                   onChange={(e) => setNewFaculty({...newFaculty, department: e.target.value})}
                   className="w-full px-3.5 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-gray-50 focus:bg-white transition-colors"
                   required
-                  placeholder="e.g., Computer Science"
-                />
+                >
+                                    <option value="" disabled>Select Department</option>
+                  <option value="Computer Science & Engineering">CSE</option>
+                  <option value="Mathematics">Mathematics</option>
+                  <option value="Electronics & Communication">EC</option>
+                  <option value="Physics">Physics</option>
+                  <option value="Chemistry">Chemistry</option>
+                  <option value="Academics">Academics (Dean)</option>
+                  <option value="Student Affairs">Student Affairs (Dean)</option>
+                  <option value="Administration">Administration (Principal)</option>
+                  <option value="Mathematics">Mathematics</option>
+                  <option value="Electronics & Communication">EC</option>
+                  <option value="Physics">Physics</option>
+                  <option value="Chemistry">Chemistry</option>
+                  <option value="Academics">Academics</option>
+                  <option value="Student Affairs">Student Affairs</option>
+                  <option value="Administration">Administration</option>
+                </select>
               </div>
             </div>
             
@@ -304,17 +375,34 @@ export const FacultyManagement: React.FC = () => {
                   <option value="teacher">Faculty (Instructor)</option>
                   <option value="dean">Supervisor — Dean</option>
                   <option value="principal">Supervisor — Principal</option>
+                  <option value="hod">Supervisor — HOD</option>
                 </select>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Department</label>
-                <input
-                  type="text"
+                <select
                   value={editingFaculty.department}
                   onChange={(e) => setEditingFaculty({...editingFaculty, department: e.target.value})}
                   className="w-full px-3.5 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-gray-50 focus:bg-white transition-colors"
                   required
-                />
+                >
+                                    <option value="" disabled>Select Department</option>
+                  <option value="Computer Science & Engineering">CSE</option>
+                  <option value="Mathematics">Mathematics</option>
+                  <option value="Electronics & Communication">EC</option>
+                  <option value="Physics">Physics</option>
+                  <option value="Chemistry">Chemistry</option>
+                  <option value="Academics">Academics (Dean)</option>
+                  <option value="Student Affairs">Student Affairs (Dean)</option>
+                  <option value="Administration">Administration (Principal)</option>
+                  <option value="Mathematics">Mathematics</option>
+                  <option value="Electronics & Communication">EC</option>
+                  <option value="Physics">Physics</option>
+                  <option value="Chemistry">Chemistry</option>
+                  <option value="Academics">Academics</option>
+                  <option value="Student Affairs">Student Affairs</option>
+                  <option value="Administration">Administration</option>
+                </select>
               </div>
             </div>
             
@@ -415,6 +503,13 @@ export const FacultyManagement: React.FC = () => {
 
                   <div className="flex items-center justify-end gap-2 pt-1 border-t border-gray-100">
                     <button
+                      onClick={() => handleOpenSubjectModal(fac)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors"
+                    >
+                      <BookOpen size={13} />
+                      <span>Classes</span>
+                    </button>
+                    <button
                       onClick={() => openEditModal(fac)}
                       className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
                     >
@@ -477,6 +572,13 @@ export const FacultyManagement: React.FC = () => {
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button
+                            onClick={() => handleOpenSubjectModal(fac)}
+                            className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                            title="Manage Classes"
+                          >
+                            <BookOpen size={16} />
+                          </button>
+                          <button
                             onClick={() => openEditModal(fac)}
                             className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                             title="Edit Account"
@@ -510,6 +612,83 @@ export const FacultyManagement: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Subject Assignment Modal */}
+      <div className={`fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 transition-opacity ${showSubjectModal ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+        <div className={`bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-xl transition-transform ${showSubjectModal ? 'scale-100' : 'scale-95'}`}>
+          <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-4">
+            <div>
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-1">Manage Classes</h2>
+              <p className="text-xs sm:text-sm text-gray-500">Assign or remove classes for {selectedFacultyForSubjects?.name}</p>
+            </div>
+            <button onClick={() => setShowSubjectModal(false)} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors">
+              ✕
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h3 className="font-semibold text-gray-800 mb-3 text-sm flex items-center gap-2">
+                <BookOpen size={16} className="text-blue-600" />
+                Currently Assigned
+              </h3>
+              <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+                {allSubjects.filter(s => s.facultyId === selectedFacultyForSubjects?.id).length === 0 ? (
+                  <p className="text-sm text-gray-500 italic p-3 bg-gray-50 rounded-xl border border-gray-100 text-center">No classes assigned yet.</p>
+                ) : (
+                  allSubjects.filter(s => s.facultyId === selectedFacultyForSubjects?.id).map(subject => (
+                    <div key={subject.code} className="bg-white border border-gray-200 rounded-xl p-3 flex justify-between items-center shadow-sm">
+                      <div>
+                        <div className="font-semibold text-gray-900 text-sm">{subject.name}</div>
+                        <div className="text-xs text-gray-500">{subject.code} • {subject.classGroup}</div>
+                      </div>
+                      <button
+                        onClick={() => handleRemoveSubject(subject.code)}
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded-lg transition-colors"
+                        title="Remove Class"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+              <h3 className="font-semibold text-gray-800 mb-4 text-sm flex items-center gap-2">
+                <Plus size={16} className="text-green-600" />
+                Assign New Class
+              </h3>
+              <form onSubmit={handleAssignSubject} className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Subject Code</label>
+                  <input type="text" required placeholder="e.g. CS2301" value={newSubject.code} onChange={e => setNewSubject({...newSubject, code: e.target.value})} className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Subject Name</label>
+                  <input type="text" required placeholder="e.g. Data Structures" value={newSubject.name} onChange={e => setNewSubject({...newSubject, name: e.target.value})} className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Class / Section</label>
+                  <input type="text" required placeholder="e.g. CSE-B" value={newSubject.classGroup} onChange={e => setNewSubject({...newSubject, classGroup: e.target.value})} className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Subject Type</label>
+                  <select value={newSubject.type} onChange={e => setNewSubject({...newSubject, type: e.target.value})} className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 bg-white">
+                    <option value="STANDALONE">Theory Only (50 Marks)</option>
+                    <option value="INTEGRATED">Theory + Lab (Integrated)</option>
+                  </select>
+                </div>
+                <button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg text-sm transition-colors mt-2">
+                  Assign Class
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
+
   );
 };

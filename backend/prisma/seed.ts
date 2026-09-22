@@ -27,19 +27,24 @@ async function main() {
 
   // 1. Seed Faculty Users (including Dean)
   const facultyData = [
-    { id: 'FAC2018', name: 'Dr. Priya Sharma', password: teacherPasswordHash, role: Role.teacher, department: 'Computer Science & Engineering' },
-    { id: 'FAC2019', name: 'Prof. Ramesh Iyer', password: teacherPasswordHash, role: Role.teacher, department: 'Computer Science & Engineering' },
-    { id: 'FAC2020', name: 'Dr. Anita Raj', password: teacherPasswordHash, role: Role.teacher, department: 'Computer Science & Engineering' },
-    { id: 'FAC2021', name: 'Mr. Vijay Kumar', password: teacherPasswordHash, role: Role.teacher, department: 'Computer Science & Engineering' },
-    { id: 'FAC2022', name: 'Dr. Meena Nair', password: teacherPasswordHash, role: Role.teacher, department: 'Computer Science & Engineering' },
+    { id: 'faculty@hnnce.in', name: 'Dr. Priya Sharma', password: teacherPasswordHash, role: Role.teacher, department: 'Computer Science & Engineering' },
+    { id: 'ramesh@hnnce.in', name: 'Prof. Ramesh Iyer', password: teacherPasswordHash, role: Role.teacher, department: 'Computer Science & Engineering' },
+    { id: 'anita@hnnce.in', name: 'Dr. Anita Raj', password: teacherPasswordHash, role: Role.teacher, department: 'Computer Science & Engineering' },
+    { id: 'vijay@hnnce.in', name: 'Mr. Vijay Kumar', password: teacherPasswordHash, role: Role.teacher, department: 'Computer Science & Engineering' },
+    { id: 'meena@hnnce.in', name: 'Dr. Meena Nair', password: teacherPasswordHash, role: Role.teacher, department: 'Computer Science & Engineering' },
     // Dean user
-    { id: 'DEAN123', name: 'Dr. Dean Administrator', password: deanPasswordHash, role: Role.dean, department: 'Administration' },
+    { id: 'deanCSE@hnnce.in', name: 'Dr. Dean Administrator', password: deanPasswordHash, role: Role.dean, department: 'Administration' },
   ];
 
   for (const f of facultyData) {
     await prisma.user.upsert({
       where: { id: f.id },
-      update: {},
+      update: {
+        name: f.name,
+        password: f.password,
+        role: f.role,
+        department: f.department,
+      },
       create: f,
     });
   }
@@ -47,31 +52,37 @@ async function main() {
 
   // 2. Seed Student Users
   const students = [
-    { id: 'CS21B042', name: 'Rehman Dakait', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
-    { id: 'CS21B001', name: 'Aakash Nair', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
-    { id: 'CS21B002', name: 'Aditi Rao', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
-    { id: 'CS21B003', name: 'Ajay Singh', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
-    { id: 'CS21B004', name: 'Amrita Das', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
-    { id: 'CS21B005', name: 'Ananya Krishnan', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
-    { id: 'CS21B006', name: 'Rehman Dakait (Duplicate Roll)', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
-    { id: 'CS21B007', name: 'Bhavna Pillai', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
-    { id: 'CS21B008', name: 'Deepak Verma', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
-    { id: 'CS21B009', name: 'Divya Sharma', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
-    { id: 'CS21B010', name: 'Ganesh Reddy', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
-    { id: 'CS21B011', name: 'Harish Kumar', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
-    { id: 'CS21B012', name: 'Ishita Bansal', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
-    { id: 'CS21B013', name: 'Jayant Patel', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
-    { id: 'CS21B014', name: 'Kavitha Mohan', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
-    { id: 'CS21B015', name: 'Kiran Menon', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
-    { id: 'CS21B016', name: 'Lavanya Subramanian', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
-    { id: 'CS21B017', name: 'Manish Gupta', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
-    { id: 'CS21B018', name: 'Rohit Sharma', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
+    { id: '1HC24CS042', name: 'Rehman Dakait', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
+    { id: '1HC24CS001', name: 'Aakash Nair', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
+    { id: '1HC24CS002', name: 'Aditi Rao', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
+    { id: '1HC24CS003', name: 'Ajay Singh', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
+    { id: '1HC24CS004', name: 'Amrita Das', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
+    { id: '1HC24CS005', name: 'Ananya Krishnan', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
+    { id: '1HC24CS006', name: 'Rehman Dakait (Duplicate Roll)', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
+    { id: '1HC24CS007', name: 'Bhavna Pillai', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
+    { id: '1HC24CS008', name: 'Deepak Verma', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
+    { id: '1HC24CS009', name: 'Divya Sharma', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
+    { id: '1HC24CS010', name: 'Ganesh Reddy', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
+    { id: '1HC24CS011', name: 'Harish Kumar', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
+    { id: '1HC24CS012', name: 'Ishita Bansal', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
+    { id: '1HC24CS013', name: 'Jayant Patel', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
+    { id: '1HC24CS014', name: 'Kavitha Mohan', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
+    { id: '1HC24CS015', name: 'Kiran Menon', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
+    { id: '1HC24CS016', name: 'Lavanya Subramanian', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
+    { id: '1HC24CS017', name: 'Manish Gupta', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
+    { id: '1HC24CS018', name: 'Rohit Sharma', password: studentPasswordHash, role: Role.student, department: 'Computer Science & Engineering', classGroup: 'CSE-B' },
   ];
 
   for (const s of students) {
     await prisma.user.upsert({
       where: { id: s.id },
-      update: {},
+      update: {
+        name: s.name,
+        password: s.password,
+        role: s.role,
+        department: s.department,
+        classGroup: s.classGroup,
+      },
       create: s,
     });
   }
@@ -79,15 +90,15 @@ async function main() {
 
   // 3. Seed Subjects
   const subjects = [
-    { code: 'CS2301', name: 'Data Structures & Algorithms', facultyId: 'FAC2018', classGroup: 'CSE-B', type: SubjectType.INTEGRATED },
-    { code: 'CS2302', name: 'Operating Systems', facultyId: 'FAC2019', classGroup: 'CSE-B', type: SubjectType.INTEGRATED },
-    { code: 'CS2303', name: 'Computer Networks', facultyId: 'FAC2020', classGroup: 'CSE-B', type: SubjectType.INTEGRATED },
-    { code: 'CS2304', name: 'Database Systems', facultyId: 'FAC2021', classGroup: 'CSE-B', type: SubjectType.INTEGRATED },
-    { code: 'CS2305', name: 'Software Engineering', facultyId: 'FAC2022', classGroup: 'CSE-B', type: SubjectType.STANDALONE },
+    { code: 'CS2301', name: 'Data Structures & Algorithms', facultyId: 'faculty@hnnce.in', classGroup: 'CSE-B', type: SubjectType.INTEGRATED },
+    { code: 'CS2302', name: 'Operating Systems', facultyId: 'ramesh@hnnce.in', classGroup: 'CSE-B', type: SubjectType.INTEGRATED },
+    { code: 'CS2303', name: 'Computer Networks', facultyId: 'anita@hnnce.in', classGroup: 'CSE-B', type: SubjectType.INTEGRATED },
+    { code: 'CS2304', name: 'Database Systems', facultyId: 'vijay@hnnce.in', classGroup: 'CSE-B', type: SubjectType.INTEGRATED },
+    { code: 'CS2305', name: 'Software Engineering', facultyId: 'meena@hnnce.in', classGroup: 'CSE-B', type: SubjectType.STANDALONE },
     // Labs
-    { code: 'CS2301L', name: 'DS Lab', facultyId: 'FAC2018', classGroup: 'CSE-B', type: SubjectType.INTEGRATED },
-    { code: 'CS2302L', name: 'OS Lab', facultyId: 'FAC2019', classGroup: 'CSE-B', type: SubjectType.INTEGRATED },
-    { code: 'CS2303L', name: 'Networks Lab', facultyId: 'FAC2020', classGroup: 'CSE-B', type: SubjectType.INTEGRATED },
+    { code: 'CS2301L', name: 'DS Lab', facultyId: 'faculty@hnnce.in', classGroup: 'CSE-B', type: SubjectType.INTEGRATED },
+    { code: 'CS2302L', name: 'OS Lab', facultyId: 'ramesh@hnnce.in', classGroup: 'CSE-B', type: SubjectType.INTEGRATED },
+    { code: 'CS2303L', name: 'Networks Lab', facultyId: 'anita@hnnce.in', classGroup: 'CSE-B', type: SubjectType.INTEGRATED },
   ];
 
   for (const sub of subjects) {
@@ -106,7 +117,7 @@ async function main() {
       body: 'All students are notified that mid-semester examinations will commence from November 18, 2024. The exam schedule has been posted on the notice board and college website.',
       category: 'exam',
       date: 'Nov 10, 2024',
-      authorId: 'FAC2021', // Mr. Vijay Kumar (Exam Cell / Academic)
+      authorId: 'vijay@hnnce.in', // Mr. Vijay Kumar (Exam Cell / Academic)
       target: 'all',
       pinned: true,
     },
@@ -115,7 +126,7 @@ async function main() {
       body: 'Due to technical issues in some labs, the deadline for submission of laboratory records has been extended to November 15, 2024. Please ensure your records are complete and signed by the respective lab instructors.',
       category: 'info',
       date: 'Nov 8, 2024',
-      authorId: 'FAC2022', // Academic Office
+      authorId: 'meena@hnnce.in', // Academic Office
       target: 'all',
       pinned: false,
     },
@@ -124,7 +135,7 @@ async function main() {
       body: 'The Computer Science Department is organizing a guest lecture on Artificial Intelligence and Machine Learning by Dr. Rajesh Kumar from IIT Delhi. All interested students are invited to attend the session on November 14, 2024 at 2:00 PM in the Seminar Hall.',
       category: 'event',
       date: 'Nov 7, 2024',
-      authorId: 'FAC2018', // Dr. Priya Sharma
+      authorId: 'faculty@hnnce.in', // Dr. Priya Sharma
       target: 'all',
       pinned: false,
     },
@@ -142,46 +153,46 @@ async function main() {
   // We populate for CSE-B
   const timetable = [
     // Monday
-    { day: 'Monday', slotIndex: 0, subjectCode: 'CS2301', room: 'LH-3', classGroup: 'CSE-B', teacherId: 'FAC2018' },
-    { day: 'Monday', slotIndex: 1, subjectCode: 'CS2302', room: 'LH-3', classGroup: 'CSE-B', teacherId: 'FAC2019' },
+    { day: 'Monday', slotIndex: 0, subjectCode: 'CS2301', room: 'LH-3', classGroup: 'CSE-B', teacherId: 'faculty@hnnce.in' },
+    { day: 'Monday', slotIndex: 1, subjectCode: 'CS2302', room: 'LH-3', classGroup: 'CSE-B', teacherId: 'ramesh@hnnce.in' },
     { day: 'Monday', slotIndex: 2, subjectCode: null, room: null, classGroup: 'CSE-B', teacherId: '' }, // Break
-    { day: 'Monday', slotIndex: 3, subjectCode: 'CS2303', room: 'LH-5', classGroup: 'CSE-B', teacherId: 'FAC2020' },
+    { day: 'Monday', slotIndex: 3, subjectCode: 'CS2303', room: 'LH-5', classGroup: 'CSE-B', teacherId: 'anita@hnnce.in' },
     { day: 'Monday', slotIndex: 4, subjectCode: null, room: null, classGroup: 'CSE-B', teacherId: '' },
     { day: 'Monday', slotIndex: 5, subjectCode: null, room: null, classGroup: 'CSE-B', teacherId: '' }, // Lunch
-    { day: 'Monday', slotIndex: 6, subjectCode: 'CS2301L', room: 'Lab-2', classGroup: 'CSE-B', teacherId: 'FAC2018' },
-    { day: 'Monday', slotIndex: 7, subjectCode: 'CS2301L', room: 'Lab-2', classGroup: 'CSE-B', teacherId: 'FAC2018' },
+    { day: 'Monday', slotIndex: 6, subjectCode: 'CS2301L', room: 'Lab-2', classGroup: 'CSE-B', teacherId: 'faculty@hnnce.in' },
+    { day: 'Monday', slotIndex: 7, subjectCode: 'CS2301L', room: 'Lab-2', classGroup: 'CSE-B', teacherId: 'faculty@hnnce.in' },
 
     // Tuesday
-    { day: 'Tuesday', slotIndex: 0, subjectCode: 'CS2304', room: 'LH-2', classGroup: 'CSE-B', teacherId: 'FAC2021' },
-    { day: 'Tuesday', slotIndex: 1, subjectCode: 'CS2305', room: 'LH-2', classGroup: 'CSE-B', teacherId: 'FAC2022' },
+    { day: 'Tuesday', slotIndex: 0, subjectCode: 'CS2304', room: 'LH-2', classGroup: 'CSE-B', teacherId: 'vijay@hnnce.in' },
+    { day: 'Tuesday', slotIndex: 1, subjectCode: 'CS2305', room: 'LH-2', classGroup: 'CSE-B', teacherId: 'meena@hnnce.in' },
     { day: 'Tuesday', slotIndex: 2, subjectCode: null, room: null, classGroup: 'CSE-B', teacherId: '' },
-    { day: 'Tuesday', slotIndex: 3, subjectCode: 'CS2301', room: 'LH-3', classGroup: 'CSE-B', teacherId: 'FAC2018' },
+    { day: 'Tuesday', slotIndex: 3, subjectCode: 'CS2301', room: 'LH-3', classGroup: 'CSE-B', teacherId: 'faculty@hnnce.in' },
     { day: 'Tuesday', slotIndex: 4, subjectCode: null, room: null, classGroup: 'CSE-B', teacherId: '' },
     { day: 'Tuesday', slotIndex: 5, subjectCode: null, room: null, classGroup: 'CSE-B', teacherId: '' },
-    { day: 'Tuesday', slotIndex: 6, subjectCode: 'CS2303L', room: 'Lab-4', classGroup: 'CSE-B', teacherId: 'FAC2020' },
-    { day: 'Tuesday', slotIndex: 7, subjectCode: 'CS2303L', room: 'Lab-4', classGroup: 'CSE-B', teacherId: 'FAC2020' },
+    { day: 'Tuesday', slotIndex: 6, subjectCode: 'CS2303L', room: 'Lab-4', classGroup: 'CSE-B', teacherId: 'anita@hnnce.in' },
+    { day: 'Tuesday', slotIndex: 7, subjectCode: 'CS2303L', room: 'Lab-4', classGroup: 'CSE-B', teacherId: 'anita@hnnce.in' },
 
     // Wednesday
-    { day: 'Wednesday', slotIndex: 0, subjectCode: 'CS2303', room: 'LH-5', classGroup: 'CSE-B', teacherId: 'FAC2020' },
-    { day: 'Wednesday', slotIndex: 1, subjectCode: 'CS2302', room: 'LH-5', classGroup: 'CSE-B', teacherId: 'FAC2019' },
+    { day: 'Wednesday', slotIndex: 0, subjectCode: 'CS2303', room: 'LH-5', classGroup: 'CSE-B', teacherId: 'anita@hnnce.in' },
+    { day: 'Wednesday', slotIndex: 1, subjectCode: 'CS2302', room: 'LH-5', classGroup: 'CSE-B', teacherId: 'ramesh@hnnce.in' },
     { day: 'Wednesday', slotIndex: 2, subjectCode: null, room: null, classGroup: 'CSE-B', teacherId: '' },
-    { day: 'Wednesday', slotIndex: 3, subjectCode: 'CS2304', room: 'LH-2', classGroup: 'CSE-B', teacherId: 'FAC2021' },
+    { day: 'Wednesday', slotIndex: 3, subjectCode: 'CS2304', room: 'LH-2', classGroup: 'CSE-B', teacherId: 'vijay@hnnce.in' },
 
     // Thursday
-    { day: 'Thursday', slotIndex: 0, subjectCode: 'CS2305', room: 'LH-4', classGroup: 'CSE-B', teacherId: 'FAC2022' },
-    { day: 'Thursday', slotIndex: 1, subjectCode: 'CS2301', room: 'LH-3', classGroup: 'CSE-B', teacherId: 'FAC2018' },
+    { day: 'Thursday', slotIndex: 0, subjectCode: 'CS2305', room: 'LH-4', classGroup: 'CSE-B', teacherId: 'meena@hnnce.in' },
+    { day: 'Thursday', slotIndex: 1, subjectCode: 'CS2301', room: 'LH-3', classGroup: 'CSE-B', teacherId: 'faculty@hnnce.in' },
     { day: 'Thursday', slotIndex: 2, subjectCode: null, room: null, classGroup: 'CSE-B', teacherId: '' },
-    { day: 'Thursday', slotIndex: 3, subjectCode: 'CS2302', room: 'LH-5', classGroup: 'CSE-B', teacherId: 'FAC2019' },
+    { day: 'Thursday', slotIndex: 3, subjectCode: 'CS2302', room: 'LH-5', classGroup: 'CSE-B', teacherId: 'ramesh@hnnce.in' },
     { day: 'Thursday', slotIndex: 4, subjectCode: null, room: null, classGroup: 'CSE-B', teacherId: '' },
     { day: 'Thursday', slotIndex: 5, subjectCode: null, room: null, classGroup: 'CSE-B', teacherId: '' },
-    { day: 'Thursday', slotIndex: 6, subjectCode: 'CS2302L', room: 'Lab-1', classGroup: 'CSE-B', teacherId: 'FAC2019' },
-    { day: 'Thursday', slotIndex: 7, subjectCode: 'CS2302L', room: 'Lab-1', classGroup: 'CSE-B', teacherId: 'FAC2019' },
+    { day: 'Thursday', slotIndex: 6, subjectCode: 'CS2302L', room: 'Lab-1', classGroup: 'CSE-B', teacherId: 'ramesh@hnnce.in' },
+    { day: 'Thursday', slotIndex: 7, subjectCode: 'CS2302L', room: 'Lab-1', classGroup: 'CSE-B', teacherId: 'ramesh@hnnce.in' },
 
     // Friday
-    { day: 'Friday', slotIndex: 0, subjectCode: 'CS2303', room: 'LH-5', classGroup: 'CSE-B', teacherId: 'FAC2020' },
-    { day: 'Friday', slotIndex: 1, subjectCode: 'CS2304', room: 'LH-2', classGroup: 'CSE-B', teacherId: 'FAC2021' },
+    { day: 'Friday', slotIndex: 0, subjectCode: 'CS2303', room: 'LH-5', classGroup: 'CSE-B', teacherId: 'anita@hnnce.in' },
+    { day: 'Friday', slotIndex: 1, subjectCode: 'CS2304', room: 'LH-2', classGroup: 'CSE-B', teacherId: 'vijay@hnnce.in' },
     { day: 'Friday', slotIndex: 2, subjectCode: null, room: null, classGroup: 'CSE-B', teacherId: '' },
-    { day: 'Friday', slotIndex: 3, subjectCode: 'CS2305', room: 'LH-4', classGroup: 'CSE-B', teacherId: 'FAC2022' },
+    { day: 'Friday', slotIndex: 3, subjectCode: 'CS2305', room: 'LH-4', classGroup: 'CSE-B', teacherId: 'meena@hnnce.in' },
   ];
 
   for (const t of timetable) {
@@ -213,7 +224,7 @@ async function main() {
   console.log('Timetable seeded.');
 
   // 7. Seed mock Marks for the demo students
-  const activeStudents = ['CS21B042', 'CS21B001', 'CS21B002', 'CS21B003', 'CS21B004', 'CS21B005'];
+  const activeStudents = ['1HC24CS042', '1HC24CS001', '1HC24CS002', '1HC24CS003', '1HC24CS004', '1HC24CS005'];
   const testSubjects = ['CS2301', 'CS2302', 'CS2303', 'CS2304', 'CS2305', 'CS2301L', 'CS2302L', 'CS2303L'];
 
   for (const sId of activeStudents) {
@@ -246,7 +257,7 @@ async function main() {
         let score: number | null = Math.floor(Math.random() * (ass.max - ass.max * 0.5) + ass.max * 0.5);
         
         // Let's create some pending marks for the demo student Rehman Dakait (CS21B042)
-        if (sId === 'CS21B042') {
+        if (sId === '1HC24CS042') {
           // Software Engineering (CS2305 - Theory) is missing cie3
           if (subCode === 'CS2305' && ass.type === 'cie3') {
             score = null;
@@ -322,19 +333,19 @@ async function main() {
         where: {
           sessionId_studentId: {
             sessionId: session.id,
-            studentId: 'CS21B042',
+            studentId: '1HC24CS042',
           },
         },
         update: {},
         create: {
           sessionId: session.id,
-          studentId: 'CS21B042',
+          studentId: '1HC24CS042',
           status,
         },
       });
 
       // For other students, mark them mostly present
-      for (const sId of activeStudents.filter(id => id !== 'CS21B042')) {
+      for (const sId of activeStudents.filter(id => id !== '1HC24CS042')) {
         const otherStatus = Math.random() > 0.15 ? 'present' : 'absent';
         await prisma.attendanceRecord.upsert({
           where: {

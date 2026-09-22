@@ -81,7 +81,7 @@ export const StudentAttendance: React.FC = () => {
       {/* Subject cards */}
       <div className="grid md:grid-cols-2 gap-4">
         {subjects.map((s) => {
-          const pct = Math.round((s.present / s.total) * 100);
+          const pct = s.total > 0 ? Math.round((s.present / s.total) * 100) : 0;
           const status = pct >= 85 ? 'good' : pct >= 75 ? 'moderate' : 'low';
           return (
             <div key={s.code} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-5">

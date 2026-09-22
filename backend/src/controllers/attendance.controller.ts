@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import prisma from '../prisma/client';
 import { AuthRequest } from '../types';
+import { semesterService } from '../services/SemesterService';
 
 const PERIOD_TIMES = [
   ['08:30', '09:30'],
@@ -78,10 +79,7 @@ export const getStudentAttendance = async (req: AuthRequest, res: Response) => {
 
   try {
     // Get active semester
-    const activeSem = await prisma.semester.findFirst({
-      where: { status: 'ACTIVE' },
-      select: { id: true },
-    });
+    const activeSem = await semesterService.getActiveSemester();
     if (!activeSem) {
       return res.status(400).json({ error: 'No active semester found' });
     }
@@ -160,10 +158,7 @@ export const getTeacherAttendance = async (req: AuthRequest, res: Response) => {
     }
 
     // Get active semester
-    const activeSem = await prisma.semester.findFirst({
-      where: { status: 'ACTIVE' },
-      select: { id: true },
-    });
+    const activeSem = await semesterService.getActiveSemester();
     if (!activeSem) {
       return res.status(400).json({ error: 'No active semester found' });
     }
@@ -226,10 +221,7 @@ export const saveTeacherAttendance = async (req: AuthRequest, res: Response) => 
     }
 
     // Get active semester
-    const activeSem = await prisma.semester.findFirst({
-      where: { status: 'ACTIVE' },
-      select: { id: true },
-    });
+    const activeSem = await semesterService.getActiveSemester();
     if (!activeSem) {
       return res.status(400).json({ error: 'No active semester found' });
     }

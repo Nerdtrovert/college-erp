@@ -47,6 +47,10 @@ model User {
   notes             Note[]
   semesterId        String?
   semester          Semester?          @relation(fields: [semesterId], references: [id])
+
+  @@index([classGroup])
+  @@index([role])
+  @@index([role, classGroup])
 }
 
 model Subject {
@@ -65,6 +69,8 @@ model Subject {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([classGroup])
 }
 
 model Semester {
@@ -103,6 +109,8 @@ model AttendanceSession {
   updatedAt DateTime @updatedAt
 
   @@unique([subjectCode, date, classGroup, semesterId, startTime, endTime])
+  @@index([subjectCode, semesterId])
+  @@index([date, semesterId])
 }
 
 model AttendanceRecord {
@@ -139,6 +147,8 @@ model Mark {
   updatedAt DateTime @updatedAt
 
   @@unique([studentId, subjectCode, type, semesterId])
+  @@index([subjectCode, semesterId])
+  @@index([studentId, semesterId])
 }
 
 model Announcement {
@@ -174,6 +184,8 @@ model TimetableSlot {
   updatedAt DateTime @updatedAt
 
   @@unique([classGroup, day, slotIndex, semesterId])
+  @@index([teacherId, semesterId])
+  @@index([classGroup, semesterId])
 }
 
 model Note {

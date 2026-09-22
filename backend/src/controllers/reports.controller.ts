@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import prisma from '../prisma/client';
 import { AuthRequest } from '../types';
+import { semesterService } from '../services/SemesterService';
 
 /**
  * Get verge of backlog report for students
@@ -41,27 +42,32 @@ export const getVergeOfBacklogReport = async (req: AuthRequest, res: Response) =
       where.classGroup = classGroup;
     }
 
-    // Role-based filtering: teachers can only see their subjects/classes
-    // For now, we'll implement basic role checking - this can be enhanced based on teacher-subject relations
+    // Role-based scoping
     if (req.user?.role === 'teacher') {
-      // Teachers can only see students in their department/classGroup
-      // This assumes teacher's department/classGroup is stored in their user record
-      // In a more complete implementation, we'd join with taughtSubjects
+      // Teachers can only see students in the classes they teach
+      const taughtSubjects = await prisma.subject.findMany({
+        where: { facultyId: req.user.id },
+        select: { classGroup: true }
+      });
+      const teacherClassGroups = Array.from(new Set(taughtSubjects.map(s => s.classGroup)));
+      
+      if (teacherClassGroups.length > 0) {
+        where.classGroup = { in: teacherClassGroups };
+      } else {
+        // Teacher has no classes, return empty results by matching an impossible condition
+        where.id = 'NO_CLASSES_ASSIGNED';
+      }
+    } else if (req.user?.role === 'hod') {
+      // HODs can only see students in their own department
       if (req.user.department) {
         where.department = req.user.department;
-      }
-      if (req.user.classGroup) {
-        where.classGroup = req.user.classGroup;
       }
     }
 
     // Get active semester if none specified
     let activeSemesterId = semesterId;
     if (!activeSemesterId) {
-      const activeSemester = await prisma.semester.findFirst({
-        where: { status: 'ACTIVE' },
-        select: { id: true }
-      });
+      const activeSemester = await semesterService.getActiveSemester();
       activeSemesterId = activeSemester?.id;
     }
 
@@ -236,7 +242,7 @@ export const updateBacklogs = async (req: AuthRequest, res: Response) => {
     }
 
     const updatedUser = await prisma.user.update({
-      where: { id: studentId },
+      where: { id: studentId as string },
       data: dataToUpdate
     });
 
