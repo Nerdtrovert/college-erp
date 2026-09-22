@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, CalendarCheck, BarChart2, Bell, BookOpen, Menu, X, FileText
 } from 'lucide-react';
@@ -28,8 +29,23 @@ interface Props {
 }
 
 export const TeacherDashboard: React.FC<Props> = ({ user, onLogout }) => {
-  const [active, setActive] = useState('home');
+  const location = useLocation();
+  const navigate = useNavigate();
+  const pathSection = location.pathname.split('/')[2];
+  const active = pathSection === 'dashboard' || !pathSection || !NAV_ITEMS.some((item) => item.id === pathSection)
+    ? 'home'
+    : pathSection;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const navigateTo = (id: string) => {
+    navigate(`/teacher/${id === 'home' ? 'dashboard' : id}`);
+    setMobileMenuOpen(false);
+  };
+
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => event.key === 'Escape' && setMobileMenuOpen(false);
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, []);
 
   const renderContent = () => {
     switch (active) {
@@ -50,7 +66,7 @@ export const TeacherDashboard: React.FC<Props> = ({ user, onLogout }) => {
         user={user}
         items={NAV_ITEMS}
         active={active}
-        onNavigate={(id) => { setActive(id); setMobileMenuOpen(false) }}
+        onNavigate={navigateTo}
         onLogout={onLogout}
       />
 
@@ -65,12 +81,12 @@ export const TeacherDashboard: React.FC<Props> = ({ user, onLogout }) => {
             user={user}
             items={NAV_ITEMS}
             active={active}
-            onNavigate={(id) => { setActive(id); setMobileMenuOpen(false) }}
+            onNavigate={navigateTo}
             onLogout={onLogout}
             className="flex h-dvh max-h-dvh w-full flex-col overflow-y-auto"
           />
         </div>
-        <div className="flex-1 bg-black/40" onClick={() => setMobileMenuOpen(false)} />
+        <button type="button" aria-label="Close navigation menu" className="flex-1 bg-black/40" onClick={() => setMobileMenuOpen(false)} />
       </div>
 
       <main className="flex-1 flex min-h-0 min-w-0 w-full flex-col overflow-hidden">
@@ -79,9 +95,14 @@ export const TeacherDashboard: React.FC<Props> = ({ user, onLogout }) => {
             <div className="w-8 h-8 rounded-lg bg-blue-700 flex items-center justify-center">
               <BookOpen size={15} className="text-white" />
             </div>
-            <span className="font-semibold text-gray-900">EduPortal</span>
+            <div className="min-w-0">
+              <span className="block font-semibold text-gray-900">EduPortal</span>
+              <span className="block text-xs text-gray-500 truncate">{NAV_ITEMS.find((item) => item.id === active)?.label}</span>
+            </div>
           </div>
           <button 
+            aria-label="Open navigation menu"
+            aria-expanded={mobileMenuOpen}
             onClick={() => setMobileMenuOpen(true)} 
             className="text-gray-600 active:scale-90 transition-transform duration-150 p-2 rounded-xl hover:bg-gray-50 active:bg-gray-100"
           >
