@@ -4,6 +4,7 @@ import {
   getTeacherTimetable,
   getTeacherSubjects,
   getTimetableBySemester,
+  getTimetableClassGroups,
   saveTimetableSlot,
 } from '../controllers/timetable.controller';
 import { authenticate, authorize } from '../middleware/auth';
@@ -14,6 +15,7 @@ router.get('/student', authenticate, authorize(['student']), getStudentTimetable
 router.get('/teacher', authenticate, authorize(['teacher']), getTeacherTimetable);
 router.get('/teacher-subjects', authenticate, authorize(['teacher']), getTeacherSubjects);
 router.get('/semester/:semesterId', authenticate, authorize(['teacher', 'dean', 'principal']), getTimetableBySemester);
+router.get('/semester/:semesterId/classes', authenticate, authorize(['dean', 'principal']), getTimetableClassGroups);
 router.put('/slot', authenticate, authorize(['dean', 'principal']), saveTimetableSlot);
 
 export default router;

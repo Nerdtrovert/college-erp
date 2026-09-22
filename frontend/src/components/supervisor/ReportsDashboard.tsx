@@ -3,6 +3,8 @@ import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import { saveAs } from 'file-saver';
 import * as docx from 'docx';
+import { AlertTriangle, Download, FileText, RefreshCw } from 'lucide-react';
+import API from '../../services/api';
 
 const ReportsDashboard: React.FC = () => {
   const [data, setData] = useState<any[]>([]);
@@ -26,7 +28,9 @@ const ReportsDashboard: React.FC = () => {
       if (filters.classGroup) queryParams.append('classGroup', filters.classGroup);
       if (filters.vergeThreshold) queryParams.append('vergeThreshold', filters.vergeThreshold);
 
-      const response = await fetch(`/api/reports/verge-of-backlog?${queryParams.toString()}`, {
+      const response = await API.get(`/reports/verge-of-backlog?${queryParams.toString()}`);
+      setData(response.data);
+      /*
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
         }
@@ -37,7 +41,7 @@ const ReportsDashboard: React.FC = () => {
       }
 
       const result = await response.json();
-      setData(result);
+      */
     } catch (err) {
       console.error('Error fetching report:', err);
       setError('Failed to load report data');
@@ -54,6 +58,8 @@ const ReportsDashboard: React.FC = () => {
     setData(prev => prev.map(s => s.id === studentId ? { ...s, numberOfBacklogs: newCount } : s));
 
     try {
+      await API.put(`/reports/backlogs/${studentId}`, { numberOfBacklogs: newCount });
+      /*
       const response = await fetch(`http://localhost:5001/api/reports/backlogs/${studentId}`, {
         method: 'PUT',
         headers: {
@@ -65,7 +71,7 @@ const ReportsDashboard: React.FC = () => {
 
       if (!response.ok) {
         throw new Error('Failed to update backlog');
-      }
+      }*/
     } catch (err) {
       console.error('Error updating backlog:', err);
       // Revert if error
@@ -216,82 +222,90 @@ const ReportsDashboard: React.FC = () => {
   }, []);
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Verge of Backlog Report</h1>
-        <div className="flex space-x-3">
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Verge of Backlog Report</h1>
+          <p className="text-gray-500 text-sm mt-1">Review students at risk based on academic performance.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={exportToPDF}
-            className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded flex items-center space-x-1"
+            className="inline-flex items-center gap-2 rounded-xl bg-blue-700 px-4 h-[42px] text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
             disabled={loading || data.length === 0}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
+            <Download size={16} strokeWidth={2} aria-hidden="true" />
             Export PDF
           </button>
           <button
             onClick={exportToWord}
-            className="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded flex items-center space-x-1"
+            className="inline-flex items-center gap-2 rounded-xl bg-green-700 px-4 h-[42px] text-sm font-semibold text-white shadow-sm transition-colors hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-50"
             disabled={loading || data.length === 0}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
+            <FileText size={16} strokeWidth={2} aria-hidden="true" />
             Export Word
           </button>
           <button
             onClick={fetchReport}
-            className="bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded flex items-center space-x-1"
+            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 h-[42px] text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:border-gray-300 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
             disabled={loading}
           >
+            <RefreshCw size={16} strokeWidth={2} className={loading ? 'animate-spin' : ''} aria-hidden="true" />
             {loading ? 'Loading...' : 'Refresh'}
           </button>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <h2 className="text-xl font-semibold mb-4">Filters</h2>
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-6">
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h2 className="font-semibold text-gray-900">Report filters</h2>
+            <p className="text-xs text-gray-500 mt-1">Narrow the report by semester, department, or class.</p>
+          </div>
+          <div className="hidden sm:flex w-9 h-9 rounded-xl bg-blue-50 text-blue-700 items-center justify-center">
+            <FileText size={18} />
+          </div>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Semester ID</label>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Semester ID</label>
             <input
               type="text"
               name="semesterId"
               value={filters.semesterId}
               onChange={handleFilterChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Department</label>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Department</label>
             <input
               type="text"
               name="department"
               value={filters.department}
               onChange={handleFilterChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Class Group</label>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Class Group</label>
             <input
               type="text"
               name="classGroup"
               value={filters.classGroup}
               onChange={handleFilterChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Verge Threshold</label>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Verge Threshold</label>
             <input
               type="number"
               name="vergeThreshold"
               value={filters.vergeThreshold}
               onChange={handleFilterChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500"
             />
           </div>
         </div>
@@ -299,21 +313,22 @@ const ReportsDashboard: React.FC = () => {
 
       {/* Error Message */}
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
+        <div className="flex items-start gap-3 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertTriangle size={17} className="mt-0.5 flex-shrink-0" />
           {error}
         </div>
       )}
 
       {/* Data Table */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         {loading ? (
           <div className="text-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading report data...</p>
+            <p className="text-gray-500 text-sm">Loading report data...</p>
           </div>
         ) : data.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-gray-600">No data available. Please check your filters or try again later.</p>
+            <p className="text-gray-500 text-sm">No data available. Try adjusting the filters and refresh.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">

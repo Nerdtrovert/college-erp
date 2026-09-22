@@ -98,6 +98,9 @@ export const copySemester = async (req: AuthRequest, res: Response) => {
           date: sess.date,
           classGroup: sess.classGroup,
           semesterId: newSem.id,
+          startTime: sess.startTime,
+          endTime: sess.endTime,
+          room: sess.room,
         },
       });
       // copy records

@@ -89,6 +89,9 @@ model AttendanceSession {
   date        String // Stored as "YYYY-MM-DD"
   classGroup  String // e.g. "CSE-B"
   semesterId  String
+  startTime   String // Stored as "HH:mm"
+  endTime     String // Stored as "HH:mm"
+  room        String?
 
   subject  Subject  @relation(fields: [subjectCode], references: [code], onDelete: Cascade)
   semester Semester @relation(fields: [semesterId], references: [id])
@@ -99,7 +102,7 @@ model AttendanceSession {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([subjectCode, date, classGroup, semesterId])
+  @@unique([subjectCode, date, classGroup, semesterId, startTime, endTime])
 }
 
 model AttendanceRecord {

@@ -2,6 +2,72 @@ import { Response } from 'express';
 import prisma from '../prisma/client';
 import { AuthRequest } from '../types';
 
+const PERIOD_TIMES = [
+  ['08:30', '09:30'],
+  ['09:30', '10:30'],
+  [null, null],
+  ['11:00', '12:00'],
+  ['12:00', '13:00'],
+  [null, null],
+  ['13:45', '14:45'],
+  ['14:45', '15:45'],
+] as const;
+
+const getDayName = (date: string) =>
+  new Date(`${date}T00:00:00`).toLocaleDateString('en-US', { weekday: 'long' });
+
+export const getTeacherClasses = async (req: AuthRequest, res: Response) => {
+  const teacherId = req.user?.id;
+  const date = String(req.query.date || new Date().toISOString().slice(0, 10));
+
+  if (!teacherId) return res.status(400).json({ error: 'Teacher ID not found' });
+
+  try {
+    const slots = await prisma.timetableSlot.findMany({
+      where: {
+        teacherId,
+        day: getDayName(date),
+        subjectCode: { not: null },
+        semester: { status: 'ACTIVE' },
+      },
+      include: { subject: true },
+      orderBy: { slotIndex: 'asc' },
+    });
+
+    const classes = await Promise.all(slots.map(async (slot) => {
+      const [startTime, endTime] = PERIOD_TIMES[slot.slotIndex] || [null, null];
+      if (!slot.subjectCode || !startTime || !endTime || !slot.subject) return null;
+      const session = await prisma.attendanceSession.findFirst({
+        where: {
+          subjectCode: slot.subjectCode,
+          date,
+          classGroup: slot.classGroup,
+          startTime,
+          endTime,
+          semester: { status: 'ACTIVE' },
+        },
+        select: { id: true },
+      });
+      return {
+        id: `timetable-${slot.id}`,
+        subjectCode: slot.subjectCode,
+        subjectName: slot.subject.name,
+        classGroup: slot.classGroup,
+        startTime,
+        endTime,
+        room: slot.room,
+        source: 'timetable' as const,
+        attendanceMarked: Boolean(session),
+      };
+    }));
+
+    return res.json(classes.filter(Boolean));
+  } catch (error) {
+    console.error('Error fetching teacher classes:', error);
+    return res.status(500).json({ error: 'Internal server error while fetching teacher classes' });
+  }
+};
+
 export const getStudentAttendance = async (req: AuthRequest, res: Response) => {
   const studentId = req.user?.id;
   const classGroup = req.user?.classGroup;
@@ -31,9 +97,11 @@ export const getStudentAttendance = async (req: AuthRequest, res: Response) => {
           where: {
             semesterId: activeSem.id,
           },
-          include: {
+          select: {
+            date: true,
             records: {
               where: { studentId },
+              select: { status: true },
             },
           },
         },
@@ -76,6 +144,8 @@ export const getStudentAttendance = async (req: AuthRequest, res: Response) => {
 export const getTeacherAttendance = async (req: AuthRequest, res: Response) => {
   const { subjectCode } = req.params as { subjectCode: string };
   const date = String(req.query.date || new Date().toISOString().slice(0, 10));
+  const startTime = String(req.query.startTime || '');
+  const endTime = String(req.query.endTime || '');
 
   try {
     const subject = await prisma.subject.findUnique({
@@ -84,6 +154,9 @@ export const getTeacherAttendance = async (req: AuthRequest, res: Response) => {
 
     if (!subject) {
       return res.status(404).json({ error: 'Subject code not found' });
+    }
+    if (subject.facultyId !== req.user?.id) {
+      return res.status(403).json({ error: 'You can only mark attendance for your own subjects' });
     }
 
     // Get active semester
@@ -108,6 +181,7 @@ export const getTeacherAttendance = async (req: AuthRequest, res: Response) => {
         date,
         classGroup: subject.classGroup,
         semesterId: activeSem.id,
+        ...(startTime && endTime ? { startTime, endTime } : {}),
       },
       include: {
         records: true,
@@ -128,6 +202,8 @@ export const getTeacherAttendance = async (req: AuthRequest, res: Response) => {
       subjectCode,
       classGroup: subject.classGroup,
       date,
+      startTime,
+      endTime,
       students: studentList,
     });
   } catch (error) {
@@ -137,13 +213,16 @@ export const getTeacherAttendance = async (req: AuthRequest, res: Response) => {
 };
 
 export const saveTeacherAttendance = async (req: AuthRequest, res: Response) => {
-  const { subjectCode, date, classGroup, records } = req.body;
+  const { subjectCode, date, classGroup, startTime, endTime, room, records } = req.body;
 
   try {
     // 1. Verify subject
     const subject = await prisma.subject.findUnique({ where: { code: subjectCode } });
     if (!subject) {
       return res.status(404).json({ error: 'Subject code not found' });
+    }
+    if (subject.facultyId !== req.user?.id || subject.classGroup !== classGroup) {
+      return res.status(403).json({ error: 'You can only mark attendance for your assigned class' });
     }
 
     // Get active semester
@@ -158,19 +237,24 @@ export const saveTeacherAttendance = async (req: AuthRequest, res: Response) => 
     // 2. Upsert the session for the given subject, date, classGroup, and active semester
     const session = await prisma.attendanceSession.upsert({
       where: {
-        subjectCode_date_classGroup_semesterId: {
+        subjectCode_date_classGroup_semesterId_startTime_endTime: {
           subjectCode,
           date,
           classGroup,
           semesterId: activeSem.id,
+          startTime,
+          endTime,
         },
       },
-      update: {},
+      update: { room: room || null },
       create: {
         subjectCode,
         date,
         classGroup,
         semesterId: activeSem.id,
+        startTime,
+        endTime,
+        room: room || null,
       },
     });
 

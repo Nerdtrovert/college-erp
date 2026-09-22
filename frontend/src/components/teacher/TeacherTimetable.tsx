@@ -20,6 +20,7 @@ interface ScheduleSlot {
   subject: string;
   room: string;
   class: string;
+  teacherId?: string;
 }
 
 interface DaySchedule {
@@ -137,7 +138,7 @@ export const TeacherTimetable: React.FC = () => {
       {/* Page heading */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Timetable</h1>
-        <p className="text-gray-500 text-sm mt-1">Dr. Priya Sharma &middot; Semester 5 &middot; Even weeks schedule</p>
+        <p className="text-gray-500 text-sm mt-1">Your weekly teaching schedule · Classes and sections assigned to you</p>
       </div>
 
       {/* ── Today's Schedule Section ── */}
@@ -189,7 +190,7 @@ export const TeacherTimetable: React.FC = () => {
                 >
                   <span className={`text-[11px] font-semibold ${timeColor}`}>{timeRanges[idx]}</span>
                   <span className="text-sm font-bold text-gray-800 mt-1.5 leading-tight">{slot.subject}</span>
-                  <span className="text-xs text-gray-400 mt-1.5">{slot.room} · {slot.class}</span>
+                  <span className="text-xs text-gray-400 mt-1.5">Room {slot.room} · {slot.class}</span>
                 </div>
               );
             }
@@ -305,7 +306,7 @@ export const TeacherTimetable: React.FC = () => {
                                 {slot.subject}
                               </div>
                               <div className="text-xs text-gray-400 mt-1">
-                                {slot.room} · {slot.class}
+                                Room {slot.room} · Class {slot.class}
                               </div>
                             </div>
                           </td>

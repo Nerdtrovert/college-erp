@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   getStudentAttendance,
   getTeacherAttendance,
+  getTeacherClasses,
   saveTeacherAttendance,
 } from '../controllers/attendance.controller';
 import { authenticate, authorize } from '../middleware/auth';
@@ -15,6 +16,7 @@ router.get('/student', authenticate, authorize(['student']), getStudentAttendanc
 
 // Teacher routes
 router.get('/teacher/:subjectCode', authenticate, authorize(['teacher']), getTeacherAttendance);
+router.get('/teacher-classes', authenticate, authorize(['teacher']), getTeacherClasses);
 router.post('/teacher', authenticate, authorize(['teacher']), validate(saveAttendanceSchema), saveTeacherAttendance);
 
 export default router;

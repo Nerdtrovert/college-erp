@@ -1,332 +1,306 @@
-import React, { useState, useEffect } from 'react';
-import { ClipboardList, Plus, Save, Clock, CalendarDays, BookOpen, User, MapPin } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { CalendarDays, Check, Clock3, Pencil, Plus, Save } from 'lucide-react';
 import API from '../../services/api';
 
+const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+const PERIODS = [
+  { label: '8:30–9:30', kind: 'class' },
+  { label: '9:30–10:30', kind: 'class' },
+  { label: '10:30–11:00', kind: 'break' },
+  { label: '11:00–12:00', kind: 'class' },
+  { label: '12:00–1:00', kind: 'class' },
+  { label: '1:00–1:45', kind: 'lunch' },
+  { label: '1:45–2:45', kind: 'class' },
+  { label: '2:45–3:45', kind: 'class' },
+] as const;
+
+const subjectColors = [
+  ['bg-blue-50', 'border-blue-200', 'text-blue-700'],
+  ['bg-orange-50', 'border-orange-200', 'text-orange-700'],
+  ['bg-green-50', 'border-green-200', 'text-green-700'],
+  ['bg-purple-50', 'border-purple-200', 'text-purple-700'],
+  ['bg-rose-50', 'border-rose-200', 'text-rose-700'],
+];
+
+interface SlotForm {
+  day: string;
+  slotIndex: string;
+  classGroup: string;
+  subjectCode: string;
+  room: string;
+  teacherId: string;
+}
+
+const emptyForm: SlotForm = {
+  day: 'Monday',
+  slotIndex: '0',
+  classGroup: '',
+  subjectCode: '',
+  room: '',
+  teacherId: '',
+};
+
 export const TimetableManagement: React.FC = () => {
-  const [timetable, setTimetable] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedSemester, setSelectedSemester] = useState('');
   const [semesters, setSemesters] = useState<any[]>([]);
   const [faculty, setFaculty] = useState<any[]>([]);
-  const [saveMessage, setSaveMessage] = useState<string | null>(null);
-  const [saveMessageType, setSaveMessageType] = useState<'success' | 'error' | null>(null);
-  const [slotForm, setSlotForm] = useState({
-    day: 'Monday',
-    slotIndex: '0',
-    classGroup: '',
-    subjectCode: '',
-    room: '',
-    teacherId: ''
-  });
+  const [timetable, setTimetable] = useState<any[]>([]);
+  const [classGroups, setClassGroups] = useState<string[]>([]);
+  const [selectedSemester, setSelectedSemester] = useState('');
+  const [selectedClassGroup, setSelectedClassGroup] = useState('');
+  const [selectedCell, setSelectedCell] = useState<{ day: string; slotIndex: number } | null>(null);
+  const [slotForm, setSlotForm] = useState<SlotForm>(emptyForm);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   useEffect(() => {
-    fetchSemesters();
-    API.get('/auth/users?role=teacher')
-      .then((response) => setFaculty(response.data || []))
-      .catch(() => setFaculty([]));
+    Promise.all([
+      API.get('/semesters'),
+      API.get('/auth/users?role=teacher'),
+    ]).then(([semesterResponse, facultyResponse]) => {
+      setSemesters(semesterResponse.data || []);
+      setFaculty(facultyResponse.data || []);
+    }).catch((error) => {
+      console.error('Failed to load timetable setup:', error);
+      setMessage({ text: 'Unable to load timetable setup.', type: 'error' });
+    }).finally(() => setLoading(false));
   }, []);
 
-  const fetchSemesters = async () => {
-    try {
-      setLoading(true);
-      const response = await API.get('/semesters');
-      setSemesters(response.data || []);
-    } catch (err: any) {
-      console.error('Failed to fetch semesters:', err);
-    } finally {
-      setLoading(false);
+  const fetchTimetable = async (semesterId: string, classGroup: string) => {
+    if (!semesterId || !classGroup) {
+      setTimetable([]);
+      return;
     }
-  };
-
-  const fetchTimetable = async (semesterId: string) => {
     try {
       setLoading(true);
-      const response = await API.get(`/timetable/semester/${semesterId}`);
+      const response = await API.get(`/timetable/semester/${semesterId}?classGroup=${encodeURIComponent(classGroup)}`);
       setTimetable(response.data || []);
-    } catch (err: any) {
-      console.error('Failed to fetch timetable:', err);
+    } catch (error) {
+      console.error('Failed to fetch timetable:', error);
+      setTimetable([]);
+      setMessage({ text: 'Unable to load this class timetable.', type: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const selectSemester = async (semesterId: string) => {
+    setSelectedSemester(semesterId);
+    setSelectedCell(null);
+    setSlotForm(emptyForm);
+    if (!semesterId) {
+      setClassGroups([]);
+      setSelectedClassGroup('');
+      setTimetable([]);
+      return;
+    }
+    try {
+      setLoading(true);
+      const response = await API.get(`/timetable/semester/${semesterId}/classes`);
+      const groups = response.data || [];
+      setClassGroups(groups);
+      setSelectedClassGroup(groups[0] || '');
+      await fetchTimetable(semesterId, groups[0] || '');
+    } catch (error) {
+      console.error('Failed to load class groups:', error);
+      setClassGroups([]);
+      setSelectedClassGroup('');
       setTimetable([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSemesterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const semesterId = e.target.value;
-    setSelectedSemester(semesterId);
-    if (semesterId) {
-      fetchTimetable(semesterId);
-    } else {
-      setTimetable([]);
-    }
+  const selectClassGroup = (classGroup: string) => {
+    setSelectedClassGroup(classGroup);
+    setSelectedCell(null);
+    setSlotForm((current) => ({ ...current, classGroup }));
+    fetchTimetable(selectedSemester, classGroup);
   };
 
-  const saveSlot = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedSemester) return;
-    setSaveMessage(null);
-    setSaveMessageType(null);
+  const getSlot = (day: string, slotIndex: number) => {
+    const row = timetable.find((item) => item.day === day);
+    return row?.slots?.[slotIndex] || null;
+  };
+
+  const selectCell = (day: string, slotIndex: number) => {
+    if (PERIODS[slotIndex].kind !== 'class') return;
+    const slot = getSlot(day, slotIndex);
+    setSelectedCell({ day, slotIndex });
+    setSlotForm({
+      day,
+      slotIndex: String(slotIndex),
+      classGroup: selectedClassGroup,
+      subjectCode: slot?.subjectCode || '',
+      room: slot?.room === 'LH-N/A' ? '' : slot?.room || '',
+      teacherId: slot?.teacherId || '',
+    });
+    setMessage(null);
+  };
+
+  const saveSlot = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!selectedSemester || !selectedClassGroup || !slotForm.subjectCode || !slotForm.teacherId) return;
+    setSaving(true);
+    setMessage(null);
     try {
       await API.put('/timetable/slot', {
         ...slotForm,
+        classGroup: selectedClassGroup,
         semesterId: selectedSemester,
-        slotIndex: Number(slotForm.slotIndex)
+        slotIndex: Number(slotForm.slotIndex),
       });
-      setSaveMessage('Timetable slot saved successfully.');
-      setSaveMessageType('success');
-      fetchTimetable(selectedSemester);
-      // Optional form reset/keep classGroup
-      setSlotForm(prev => ({
-        ...prev,
-        subjectCode: '',
-        room: '',
-        teacherId: ''
-      }));
-      setTimeout(() => {
-        setSaveMessage(null);
-        setSaveMessageType(null);
-      }, 4000);
-    } catch (err: any) {
-      setSaveMessage(err.response?.data?.error || 'Unable to save timetable slot.');
-      setSaveMessageType('error');
+      await fetchTimetable(selectedSemester, selectedClassGroup);
+      setMessage({ text: 'Timetable updated successfully.', type: 'success' });
+    } catch (error: any) {
+      setMessage({ text: error.response?.data?.error || 'Unable to save timetable slot.', type: 'error' });
+    } finally {
+      setSaving(false);
     }
   };
 
-  const getSlotTime = (index: number) => {
-    const times = [
-      '08:30 - 09:30',
-      '09:30 - 10:30',
-      '11:00 - 12:00 (Break)',
-      '12:00 - 01:00',
-      '01:45 - 02:45 (Lunch)',
-      '02:45 - 03:45',
-      '03:45 - 04:45',
-      '04:45 - 05:45'
-    ];
-    return times[index] || `Period ${index + 1}`;
-  };
+  const currentSemester = useMemo(
+    () => semesters.find((semester) => semester.id === selectedSemester),
+    [semesters, selectedSemester],
+  );
 
   if (loading && semesters.length === 0) {
-    return <div className="text-center py-12 text-gray-500 font-medium animate-pulse">Loading semesters...</div>;
+    return <div className="p-6 text-center text-gray-500 font-medium">Loading timetables...</div>;
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Timetable Management</h1>
-        <p className="text-gray-500 text-sm mt-1">Configure class schedules and allocate instructors to periods.</p>
+        <h1 className="text-2xl font-bold text-gray-900">Timetables</h1>
+        <p className="text-gray-500 text-sm mt-1">Select a class and click a period to view or edit its allocation.</p>
       </div>
 
-      {/* Select Semester Card */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-        <div>
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Academic Semester</label>
-          <select
-            value={selectedSemester}
-            onChange={handleSemesterChange}
-            className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-gray-50 focus:bg-white transition-colors"
-          >
-            <option value="">Select a semester to configure timetable...</option>
-            {semesters.map((sem: any) => (
-              <option key={sem.id} value={sem.id}>
-                {sem.name} ({sem.status})
-              </option>
-            ))}
-          </select>
+        <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Semester</label>
+            <select
+              value={selectedSemester}
+              onChange={(event) => selectSemester(event.target.value)}
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-blue-500"
+            >
+              <option value="">Select semester</option>
+              {semesters.map((semester) => <option key={semester.id} value={semester.id}>{semester.name} ({semester.status})</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Class group</label>
+            <select
+              value={selectedClassGroup}
+              onChange={(event) => selectClassGroup(event.target.value)}
+              disabled={!selectedSemester}
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-blue-500 disabled:opacity-50"
+            >
+              <option value="">Select class group</option>
+              {classGroups.map((group) => <option key={group} value={group}>{group}</option>)}
+            </select>
+          </div>
         </div>
       </div>
 
-      {selectedSemester ? (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-          {/* Allocation Form */}
-          <div className="lg:col-span-1 bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-            <h2 className="font-semibold text-gray-900 mb-1 flex items-center gap-2">
-              <Plus size={18} className="text-blue-600" />
-              Set Timetable Slot
-            </h2>
-            <p className="text-xs text-gray-500 mb-6">Assign a subject, room, and faculty to a day and period slot.</p>
-
-            <form onSubmit={saveSlot} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Day of Week</label>
-                <select
-                  value={slotForm.day}
-                  onChange={(e) => setSlotForm({ ...slotForm, day: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-gray-50 focus:bg-white transition-colors"
-                >
-                  {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map((day) => (
-                    <option key={day}>{day}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Time Period</label>
-                <select
-                  value={slotForm.slotIndex}
-                  onChange={(e) => setSlotForm({ ...slotForm, slotIndex: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-gray-50 focus:bg-white transition-colors"
-                >
-                  {[0, 1, 2, 3, 4, 5, 6, 7].map((slot) => (
-                    <option key={slot} value={slot}>
-                      Period {slot + 1} ({getSlotTime(slot)})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Class Group</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g., CSE-B"
-                  value={slotForm.classGroup}
-                  onChange={(e) => setSlotForm({ ...slotForm, classGroup: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-gray-50 focus:bg-white transition-colors"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Subject Code</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g., CS2301"
-                  value={slotForm.subjectCode}
-                  onChange={(e) => setSlotForm({ ...slotForm, subjectCode: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-gray-50 focus:bg-white transition-colors"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Room / Lab (Optional)</label>
-                <input
-                  type="text"
-                  placeholder="e.g., LH-3"
-                  value={slotForm.room}
-                  onChange={(e) => setSlotForm({ ...slotForm, room: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-gray-50 focus:bg-white transition-colors"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Faculty Member</label>
-                <select
-                  required
-                  value={slotForm.teacherId}
-                  onChange={(e) => setSlotForm({ ...slotForm, teacherId: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-gray-50 focus:bg-white transition-colors"
-                >
-                  <option value="">Select Faculty...</option>
-                  {faculty.map((member) => (
-                    <option key={member.id} value={member.id}>
-                      {member.name} ({member.id})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <button
-                type="submit"
-                className="w-full flex items-center justify-center gap-2 bg-blue-700 hover:bg-blue-800 text-white font-semibold py-2.5 px-4 rounded-xl shadow-sm transition-colors mt-6"
-              >
-                <Save size={16} />
-                <span>Save Allocation</span>
-              </button>
-
-              {saveMessage && (
-                <div className={`p-3 text-xs font-semibold rounded-xl text-center mt-3 border ${
-                  saveMessageType === 'success' ? 'bg-green-50 text-green-700 border-green-100' : 'bg-red-50 text-red-700 border-red-100'
-                }`}>
-                  {saveMessage}
-                </div>
-              )}
-            </form>
-          </div>
-
-          {/* Schedule Table */}
-          <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
-            <div className="p-4 sm:p-5 border-b border-gray-100 flex items-center justify-between">
-              <h2 className="font-semibold text-gray-900 flex items-center gap-2">
-                <ClipboardList size={18} className="text-gray-400" />
-                Semester Class Timetable
-              </h2>
-            </div>
-
-            {timetable.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-100">
-                  <thead className="bg-gray-50/50">
-                    <tr>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Day</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Period & Time</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Class & Subject</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Room</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Teacher ID</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-100">
-                    {timetable.map((slot: any, index: number) => (
-                      <tr key={slot.id || index} className="hover:bg-gray-50/50 transition-colors">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                          <div className="flex items-center gap-2">
-                            <CalendarDays size={14} className="text-gray-400" />
-                            {slot.day}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center gap-2 text-sm text-gray-600 font-medium">
-                            <Clock size={14} className="text-gray-400" />
-                            <div>
-                              <div className="font-bold text-gray-800">Period {slot.slotIndex + 1}</div>
-                              <div className="text-[11px] text-gray-400">{getSlotTime(slot.slotIndex)}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center gap-2 text-sm">
-                            <BookOpen size={14} className="text-blue-500" />
-                            <div>
-                              <div className="font-bold text-gray-900">{slot.subjectCode || 'N/A'}</div>
-                              <div className="text-xs text-gray-500">Group: {slot.classGroup}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center gap-1 text-sm text-gray-600 font-medium">
-                            <MapPin size={14} className="text-gray-400" />
-                            {slot.room || 'TBD'}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center gap-2 text-sm text-gray-600 font-semibold font-mono">
-                            <User size={13} className="text-gray-400" />
-                            {slot.teacherId || 'TBD'}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="text-center py-16 px-4">
-                <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <ClipboardList size={24} className="text-gray-400" />
-                </div>
-                <p className="text-gray-900 font-medium">No timetable allocations</p>
-                <p className="mt-1 text-sm text-gray-500 max-w-xs mx-auto">
-                  Add the first period slot allocation to configure this semester's schedule.
-                </p>
-              </div>
-            )}
-          </div>
+      {!selectedSemester || !selectedClassGroup ? (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center text-gray-500">
+          Select a semester and class group to view the weekly timetable.
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center text-gray-500 font-medium">
-          Please select a semester above to manage and view the timetable schedule.
-        </div>
+        <>
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h2 className="font-semibold text-gray-900">{selectedClassGroup} weekly timetable</h2>
+                <p className="text-xs text-gray-500 mt-1">{currentSemester?.name || 'Selected semester'} · Click any class period to edit</p>
+              </div>
+              <CalendarDays size={19} className="text-blue-600" />
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[980px] border-collapse">
+                <thead>
+                  <tr className="bg-gray-50/70">
+                    <th className="w-[120px] px-5 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Day</th>
+                    {PERIODS.map((period) => (
+                      <th key={period.label} className={`px-2 py-4 text-center text-xs font-semibold uppercase tracking-wide whitespace-nowrap ${period.kind === 'class' ? 'text-gray-500' : 'text-gray-300'}`}>
+                        {period.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {DAYS.map((day) => (
+                    <tr key={day} className="border-t border-gray-100">
+                      <td className="px-5 py-4 text-sm font-semibold text-gray-800">{day}</td>
+                      {PERIODS.map((period, slotIndex) => {
+                        if (period.kind !== 'class') {
+                          return <td key={period.label} className="px-2 py-3 text-center text-xs text-gray-300">{period.kind === 'break' ? 'Break' : 'Lunch'}</td>;
+                        }
+                        const slot = getSlot(day, slotIndex);
+                        const color = subjectColors[(day.length + slotIndex) % subjectColors.length];
+                        const selected = selectedCell?.day === day && selectedCell.slotIndex === slotIndex;
+                        return (
+                          <td key={period.label} className="px-2 py-2 align-middle">
+                            <button
+                              type="button"
+                              onClick={() => selectCell(day, slotIndex)}
+                              className={`w-full min-h-[76px] rounded-xl border px-3 py-3 text-left transition-all ${slot ? `${color[0]} ${color[1]}` : 'bg-gray-50 border-dashed border-gray-200'} ${selected ? 'ring-2 ring-blue-500 ring-offset-1' : 'hover:border-blue-300 hover:shadow-sm'}`}
+                            >
+                              {slot ? (
+                                <>
+                                  <span className={`block text-sm font-semibold leading-tight ${color[2]}`}>{slot.subjectCode}</span>
+                                  <span className="block text-[11px] text-gray-500 mt-1 truncate">{slot.room || 'Room TBD'}</span>
+                                  <span className="block text-[11px] text-gray-400 mt-1 truncate">{slot.teacherId}</span>
+                                </>
+                              ) : (
+                                <span className="flex h-full min-h-[50px] items-center justify-center text-gray-300"><Plus size={17} /></span>
+                              )}
+                            </button>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {selectedCell && (
+            <div className="bg-white rounded-2xl border border-blue-100 shadow-sm p-5 sm:p-6">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center"><Pencil size={17} /></div>
+                <div>
+                  <h2 className="font-semibold text-gray-900">Edit period</h2>
+                  <p className="text-xs text-gray-500">{slotForm.day} · {PERIODS[Number(slotForm.slotIndex)].label}</p>
+                </div>
+              </div>
+              <form onSubmit={saveSlot} className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Subject code</label>
+                  <input required value={slotForm.subjectCode} onChange={(event) => setSlotForm({ ...slotForm, subjectCode: event.target.value })} placeholder="e.g. CS2301" className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Faculty</label>
+                  <select required value={slotForm.teacherId} onChange={(event) => setSlotForm({ ...slotForm, teacherId: event.target.value })} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-blue-500">
+                    <option value="">Select faculty</option>
+                    {faculty.map((member) => <option key={member.id} value={member.id}>{member.name} ({member.id})</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Room</label>
+                  <input value={slotForm.room} onChange={(event) => setSlotForm({ ...slotForm, room: event.target.value })} placeholder="Optional" className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-blue-500" />
+                </div>
+                <button type="submit" disabled={saving} className="h-[42px] inline-flex items-center justify-center gap-2 rounded-xl bg-blue-700 px-4 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-60">
+                  {saving ? <Clock3 size={16} className="animate-spin" /> : <Save size={16} />}
+                  {saving ? 'Saving...' : 'Save period'}
+                </button>
+              </form>
+              {message && <div className={`mt-4 inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>{message.type === 'success' && <Check size={15} />}{message.text}</div>}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

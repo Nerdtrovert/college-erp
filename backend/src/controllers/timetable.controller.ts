@@ -104,7 +104,7 @@ export const getTeacherTimetable = async (req: AuthRequest, res: Response) => {
 };
 
 export const getTimetableBySemester = async (req: AuthRequest, res: Response) => {
-  const { semesterId } = req.params;
+  const semesterId = String(req.params.semesterId);
   const { classGroup, teacherId } = req.query;
 
   // Validate that either classGroup or teacherId is provided
@@ -145,6 +145,8 @@ export const getTimetableBySemester = async (req: AuthRequest, res: Response) =>
         if (slot.slotIndex >= 0 && slot.slotIndex < 8) {
           if (slot.subjectCode) {
             slotsArray[slot.slotIndex] = {
+              id: slot.id,
+              subjectCode: slot.subjectCode,
               subject: slot.subject ? slot.subject.name : slot.subjectCode,
               room: slot.room || 'LH-N/A',
               class: slot.classGroup, // e.g. "CSE-B" for timetable
@@ -164,6 +166,23 @@ export const getTimetableBySemester = async (req: AuthRequest, res: Response) =>
   } catch (error) {
     console.error('Error fetching timetable by semester:', error);
     return res.status(500).json({ error: 'Internal server error while fetching timetable' });
+  }
+};
+
+export const getTimetableClassGroups = async (req: AuthRequest, res: Response) => {
+  const semesterId = String(req.params.semesterId);
+
+  try {
+    const slots = await prisma.timetableSlot.findMany({
+      where: { semesterId },
+      select: { classGroup: true },
+      distinct: ['classGroup'],
+      orderBy: { classGroup: 'asc' },
+    });
+    return res.json(slots.map((slot) => slot.classGroup));
+  } catch (error) {
+    console.error('Error fetching timetable class groups:', error);
+    return res.status(500).json({ error: 'Unable to fetch timetable class groups' });
   }
 };
 

@@ -138,9 +138,9 @@ export const getVergeOfBacklogReport = async (req: AuthRequest, res: Response) =
         const labMark = marks.find((m: any) => m.type === 'lab');
 
         let cieScores: number[] = [];
-        if (ia1Mark?.score !== null) cieScores.push(ia1Mark.score);
-        if (ia2Mark?.score !== null) cieScores.push(ia2Mark.score);
-        if (ia3Mark?.score !== null) cieScores.push(ia3Mark.score);
+        if (ia1Mark?.score != null) cieScores.push(ia1Mark.score);
+        if (ia2Mark?.score != null) cieScores.push(ia2Mark.score);
+        if (ia3Mark?.score != null) cieScores.push(ia3Mark.score);
 
         // Calculate best 2 CIE average
         if (cieScores.length >= 2) {
@@ -224,7 +224,7 @@ export const getVergeOfBacklogReport = async (req: AuthRequest, res: Response) =
  */
 export const updateBacklogs = async (req: AuthRequest, res: Response) => {
   try {
-    const { studentId } = req.params;
+    const studentId = String(req.params.studentId);
     const { numberOfBacklogs, backlogSubjects } = req.body;
 
     const dataToUpdate: any = {};

@@ -9,10 +9,12 @@ import { TeacherAttendance } from './TeacherAttendance';
 import { TeacherMarks } from './TeacherMarks';
 import { TeacherAnnouncements } from './TeacherAnnouncements';
 import { TeacherNotes } from './TeacherNotes';
+import { TeacherTimetable } from './TeacherTimetable';
 
 const NAV_ITEMS = [
   { id: 'home', label: 'Overview', icon: <LayoutDashboard size={16} /> },
   { id: 'attendance', label: 'Mark Attendance', icon: <CalendarCheck size={16} /> },
+  { id: 'timetable', label: 'My Timetable', icon: <CalendarCheck size={16} /> },
   { id: 'marks', label: 'Update Marks', icon: <BarChart2 size={16} /> },
   { id: 'announcements', label: 'Announcements', icon: <Bell size={16} /> },
   { id: 'notes', label: 'Notes', icon: <BookOpen size={16} /> },
@@ -31,6 +33,7 @@ export const TeacherDashboard: React.FC<Props> = ({ user, onLogout }) => {
     switch (active) {
       case 'home': return <TeacherHome user={user} />;
       case 'attendance': return <TeacherAttendance />;
+      case 'timetable': return <TeacherTimetable />;
       case 'marks': return <TeacherMarks />;
       case 'announcements': return <TeacherAnnouncements />;
       case 'notes': return <TeacherNotes user={user} />;

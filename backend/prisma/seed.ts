@@ -290,11 +290,13 @@ async function main() {
     for (const date of dates) {
       const session = await prisma.attendanceSession.upsert({
         where: {
-          subjectCode_date_classGroup_semesterId: {
+          subjectCode_date_classGroup_semesterId_startTime_endTime: {
             subjectCode: subCode,
             date: date,
             classGroup: 'CSE-B',
             semesterId: defaultSemester.id,
+            startTime: '08:30',
+            endTime: '09:30',
           },
         },
         update: {},
@@ -303,6 +305,8 @@ async function main() {
           date: date,
           classGroup: 'CSE-B',
           semesterId: defaultSemester.id,
+          startTime: '08:30',
+          endTime: '09:30',
         },
       });
 
