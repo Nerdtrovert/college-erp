@@ -25,33 +25,33 @@ export const TeacherHome: React.FC<{ user: any }> = ({ user }) => {
     : 'text-red-600 bg-red-50';
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-5 sm:space-y-7">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Good morning, {user.name} 👋</h1>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900">Good morning, {user.name} 👋</h1>
         <p className="text-gray-500 text-sm mt-1">{user.department} Department</p>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {[
           { label: 'My Classes', value: MY_CLASSES.length, icon: <Users size={18} />, color: 'text-blue-600 bg-blue-50' },
           { label: 'Total Students', value: totalStudents, icon: <Users size={18} />, color: 'text-green-600 bg-green-50' },
           { label: 'Classes Today', value: '3', icon: <CalendarCheck size={18} />, color: 'text-purple-600 bg-purple-50' },
           { label: 'Avg Attendance', value: `${avgAttendance}%`, icon: <BarChart2 size={18} />, color: avgColor },
         ].map((stat) => (
-          <div key={stat.label} className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-gray-100">
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center mb-3 ${stat.color}`}>
+          <div key={stat.label} className="bg-white rounded-xl sm:rounded-2xl p-3.5 sm:p-5 shadow-sm border border-gray-100">
+            <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl flex items-center justify-center mb-2.5 sm:mb-3 ${stat.color}`}>
               {stat.icon}
             </div>
-            <div className="text-2xl font-bold text-gray-900">{stat.value}</div>
-            <div className="text-xs text-gray-500 mt-1">{stat.label}</div>
+            <div className="text-xl sm:text-2xl font-bold text-gray-900">{stat.value}</div>
+            <div className="text-[11px] sm:text-xs leading-tight text-gray-500 mt-1">{stat.label}</div>
           </div>
         ))}
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="grid md:grid-cols-2 gap-4 sm:gap-6">
         {/* Class cards */}
-        <div className="md:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
+        <div className="md:col-span-2 bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
           <h2 className="font-semibold text-gray-900 mb-4">
             My Classes
           </h2>
@@ -80,7 +80,7 @@ export const TeacherHome: React.FC<{ user: any }> = ({ user }) => {
         </div>
 
         {/* Low attendance students */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
+        <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
           <h2 className="font-semibold text-gray-900 mb-4">
             Low Attendance Students
           </h2>

@@ -110,7 +110,50 @@ export const StudentMarks: React.FC = () => {
         <div className="px-4 sm:px-6 py-4 border-b border-gray-100">
           <h2 className="font-semibold text-gray-900">Marks Breakdown</h2>
         </div>
-        <div className="overflow-x-auto">
+        <div className="grid gap-3 p-3 md:hidden">
+          {subjects.map((s) => {
+            const scored = s.assessments.reduce((acc: number, a: any) => acc + (a.max > 0 ? (a.marks ?? 0) : 0), 0);
+            const maxScored = s.assessments.reduce((acc: number, a: any) => acc + (a.max > 0 && a.marks !== null ? a.max : 0), 0);
+            const fullMax = s.assessments.reduce((acc: number, a: any) => acc + a.max, 0);
+            const pct = maxScored > 0 ? Math.round((scored / maxScored) * 100) : 0;
+            const g = grade(pct);
+
+            return (
+              <article key={s.code} className="rounded-xl border border-gray-100 bg-gray-50/60 p-3.5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="font-semibold leading-snug text-gray-900">{s.name}</h3>
+                    <p className="mt-1 text-xs text-gray-500">{s.code} · {s.faculty}</p>
+                  </div>
+                  <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${g.color}`}>{g.label}</span>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  {s.assessments.map((a: any) => (
+                    <div key={a.name} className="rounded-lg border border-gray-100 bg-white px-3 py-2">
+                      <p className="text-[11px] uppercase tracking-wide text-gray-400">{a.name}</p>
+                      <p className={`mt-1 text-sm font-semibold ${
+                        a.max === 0 || a.marks === null
+                          ? 'text-gray-400'
+                          : a.marks / a.max >= 0.8
+                            ? 'text-green-700'
+                            : a.marks / a.max >= 0.6
+                              ? 'text-amber-700'
+                              : 'text-red-700'
+                      }`}>
+                        {a.max === 0 ? '—' : a.marks !== null ? `${a.marks}/${a.max}` : 'Pending'}
+                      </p>
+                    </div>
+                  ))}
+                  <div className="rounded-lg border border-blue-100 bg-blue-50/70 px-3 py-2">
+                    <p className="text-[11px] uppercase tracking-wide text-blue-600">Total</p>
+                    <p className="mt-1 text-sm font-bold text-gray-900">{scored}/{fullMax}</p>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full min-w-[760px] text-sm">
             <thead>
               <tr className="bg-gray-50">

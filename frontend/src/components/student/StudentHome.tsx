@@ -31,16 +31,16 @@ export const StudentHome: React.FC<Props> = ({ user, onNavigate }) => {
   const lowCount = SUBJECT_ATTENDANCE.filter(a => a.percent < 75).length;
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-5 sm:space-y-7">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Good morning, {user.name.split(' ')[0]} 👋</h1>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900">Good morning, {user.name.split(' ')[0]} 👋</h1>
         <p className="text-gray-500 text-sm mt-1">{user.department} &middot; {user.id} &middot; 3rd Year, Semester 5</p>
       </div>
 
       {/* Alert */}
       {lowCount > 0 && (
-        <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-2xl">
+        <div className="flex items-start gap-3 p-3.5 sm:p-4 bg-red-50 border border-red-200 rounded-xl sm:rounded-2xl">
           <AlertTriangle size={18} className="text-red-600 mt-0.5 flex-shrink-0" />
           <div>
             <p className="text-sm font-semibold text-red-800">Attendance warning</p>
@@ -52,27 +52,27 @@ export const StudentHome: React.FC<Props> = ({ user, onNavigate }) => {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {[
           { label: 'Overall Attendance', value: `${overall}%`, icon: <CalendarDays size={18} />, color: overall >= 85 ? 'text-green-600 bg-green-50' : overall >= 75 ? 'text-amber-600 bg-amber-50' : 'text-red-600 bg-red-50' },
           { label: 'CGPA (Current)', value: '8.4', icon: <TrendingUp size={18} />, color: 'text-blue-600 bg-blue-50' },
           { label: 'Subjects', value: '5', icon: <BarChart2 size={18} />, color: 'text-purple-600 bg-purple-50' },
           { label: 'Announcements', value: '3', icon: <Bell size={18} />, color: 'text-orange-600 bg-orange-50' },
         ].map((s) => (
-          <div key={s.label} className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-gray-100">
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center mb-3 ${s.color}`}>
+          <div key={s.label} className="bg-white rounded-xl sm:rounded-2xl p-3.5 sm:p-5 shadow-sm border border-gray-100">
+            <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl flex items-center justify-center mb-2.5 sm:mb-3 ${s.color}`}>
               {s.icon}
             </div>
-            <div className="text-2xl font-bold text-gray-900">{s.value}</div>
-            <div className="text-xs text-gray-500 mt-1">{s.label}</div>
+            <div className="text-xl sm:text-2xl font-bold text-gray-900">{s.value}</div>
+            <div className="text-[11px] sm:text-xs leading-tight text-gray-500 mt-1">{s.label}</div>
           </div>
         ))}
       </div>
 
-      <div className="grid md:grid-cols-3 gap-6">
+      <div className="grid md:grid-cols-3 gap-4 sm:gap-6">
         {/* Attendance breakdown */}
-        <div className="md:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
-          <div className="flex items-center justify-between gap-3 mb-5">
+        <div className="md:col-span-2 bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
+          <div className="flex items-center justify-between gap-3 mb-4 sm:mb-5">
             <h2 className="font-semibold text-gray-900">Attendance by Subject</h2>
             <button onClick={() => onNavigate('attendance')} className="text-xs text-blue-600 hover:underline">View all</button>
           </div>
@@ -105,8 +105,8 @@ export const StudentHome: React.FC<Props> = ({ user, onNavigate }) => {
         </div>
 
         {/* Announcements */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
-          <div className="flex items-center justify-between gap-3 mb-5">
+        <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
+          <div className="flex items-center justify-between gap-3 mb-4 sm:mb-5">
             <h2 className="font-semibold text-gray-900">Announcements</h2>
             <button onClick={() => onNavigate('announcements')} className="text-xs text-blue-600 hover:underline">All</button>
           </div>

@@ -14,30 +14,30 @@ export const SupervisorHome: React.FC<Props> = ({ user, onNavigate }) => {
   ];
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-5 sm:space-y-7">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Good morning, {user.name} 👋</h1>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900">Good morning, {user.name} 👋</h1>
         <p className="text-gray-500 text-sm mt-1">{user.role === 'dean' ? 'Dean Portal' : 'Principal Portal'} &middot; {user.department}</p>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         {[
           { label: 'Active Semesters', value: '1', icon: <CalendarRange size={18} />, color: 'text-blue-600 bg-blue-50' },
           { label: 'Total Faculty', value: '6', icon: <Users size={18} />, color: 'text-green-600 bg-green-50' },
           { label: 'Platform Status', value: 'Healthy', icon: <Shield size={18} />, color: 'text-purple-600 bg-purple-50' },
         ].map((stat) => (
-          <div key={stat.label} className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-gray-100">
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center mb-3 ${stat.color}`}>
+          <div key={stat.label} className="bg-white rounded-xl sm:rounded-2xl p-3.5 sm:p-5 shadow-sm border border-gray-100">
+            <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl flex items-center justify-center mb-2.5 sm:mb-3 ${stat.color}`}>
               {stat.icon}
             </div>
-            <div className="text-2xl font-bold text-gray-900">{stat.value}</div>
-            <div className="text-xs text-gray-500 mt-1">{stat.label}</div>
+            <div className="text-xl sm:text-2xl font-bold text-gray-900">{stat.value}</div>
+            <div className="text-[11px] sm:text-xs leading-tight text-gray-500 mt-1">{stat.label}</div>
           </div>
         ))}
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
+      <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
         <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
           <LayoutDashboard size={18} className="text-gray-400" />
           Quick Actions
@@ -47,7 +47,7 @@ export const SupervisorHome: React.FC<Props> = ({ user, onNavigate }) => {
             <button
               key={action.id}
               onClick={() => onNavigate(action.id)}
-              className="flex flex-col text-left p-5 rounded-xl border border-gray-100 hover:border-blue-500 hover:shadow-md transition-all group"
+              className="flex flex-col text-left p-4 sm:p-5 rounded-xl border border-gray-100 hover:border-blue-500 hover:shadow-md transition-all group"
             >
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-4 ${action.color} group-hover:scale-110 transition-transform`}>
                 {action.icon}

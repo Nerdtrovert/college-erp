@@ -391,7 +391,67 @@ const ReportsDashboard: React.FC = () => {
             <p className="mt-1 text-sm text-gray-500">Try broadening the department, class, or threshold.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          <div className="grid gap-3 p-4 md:hidden">
+            {data.map((student) => (
+              <article key={student.id} className="rounded-xl border border-gray-100 bg-gray-50/60 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-gray-900 break-words">{student.name}</p>
+                    <p className="mt-0.5 font-mono text-xs text-gray-500">{student.id}</p>
+                  </div>
+                  <span className={student.vergeStatus === 'AT_RISK'
+                    ? 'shrink-0 rounded-full bg-red-100 px-2.5 py-1 text-[11px] font-semibold text-red-800'
+                    : 'shrink-0 rounded-full bg-green-100 px-2.5 py-1 text-[11px] font-semibold text-green-800'}
+                  >
+                    {student.vergeStatus}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs text-gray-500 break-words">
+                  {student.department} · {student.classGroup || 'No class group'}
+                </p>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                  <div className="rounded-lg border border-gray-100 bg-white px-3 py-2">
+                    <p className="text-gray-400">Backlogs</p>
+                    <input
+                      type="number"
+                      min="0"
+                      defaultValue={student.numberOfBacklogs}
+                      onBlur={(event) => {
+                        if (event.target.value !== String(student.numberOfBacklogs)) {
+                          handleUpdateBacklog(student.id, event.target.value);
+                        }
+                      }}
+                      className={`mt-1 w-16 rounded border px-2 py-1 text-center font-semibold focus:outline-none focus:ring-2 ${
+                        student.numberOfBacklogs === 0
+                          ? 'border-green-300 bg-green-100 text-green-800 focus:ring-green-500'
+                          : student.numberOfBacklogs >= 5
+                            ? 'border-red-900 bg-red-700 text-white focus:ring-red-500'
+                            : 'border-red-300 bg-red-100 text-red-800 focus:ring-red-500'
+                      }`}
+                    />
+                  </div>
+                  <div className="rounded-lg border border-gray-100 bg-white px-3 py-2">
+                    <p className="text-gray-400">Total score</p>
+                    <p className="mt-1 font-semibold text-gray-800">{student.totalScore}</p>
+                  </div>
+                  <div className="rounded-lg border border-gray-100 bg-white px-3 py-2">
+                    <p className="text-gray-400">Best 2 CIE avg</p>
+                    <p className="mt-1 font-semibold text-gray-800">{student.best2CieAvg}</p>
+                  </div>
+                  <div className="rounded-lg border border-gray-100 bg-white px-3 py-2">
+                    <p className="text-gray-400">CIE scaled</p>
+                    <p className="mt-1 font-semibold text-gray-800">{student.cieScaled}</p>
+                  </div>
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-gray-500">
+                  <span>Assignment: <strong className="text-gray-700">{student.assignmentTotal}</strong></span>
+                  <span>Lab: <strong className="text-gray-700">{student.labTotal}</strong></span>
+                </div>
+              </article>
+            ))}
+          </div>
+          <div className="hidden md:block overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <caption className="sr-only">Students at risk of backlog</caption>
               <thead className="bg-gray-50">
@@ -450,6 +510,7 @@ const ReportsDashboard: React.FC = () => {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
     </div>

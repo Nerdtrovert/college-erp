@@ -45,12 +45,25 @@ body,
   min-height: 100%;
 }
 
+html {
+  background: #f0f4f8;
+}
+
 body {
   font-family: var(--font-sans);
   background-color: #f0f4f8;
   color: #0f1e3c;
   margin: 0;
   overflow-x: hidden;
+}
+
+.dashboard-scroll {
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  scrollbar-gutter: stable;
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
 }
 
 button,
@@ -61,15 +74,63 @@ textarea {
 }
 
 @media (max-width: 640px) {
+  .dashboard-scroll {
+    scrollbar-width: none;
+  }
+
+  .dashboard-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  .dashboard-scroll h1,
+  .dashboard-scroll .text-2xl {
+    font-size: 1.25rem;
+    line-height: 1.3;
+  }
+
+  .dashboard-scroll h2,
+  .dashboard-scroll .text-xl {
+    font-size: 1.0625rem;
+    line-height: 1.35;
+  }
+
+  .dashboard-scroll h3,
+  .dashboard-scroll .text-lg {
+    font-size: 0.9375rem;
+    line-height: 1.4;
+  }
+
+  .dashboard-scroll .text-3xl {
+    font-size: 1.5rem;
+    line-height: 1.25;
+  }
+
+  .dashboard-scroll .text-4xl,
+  .dashboard-scroll .text-5xl {
+    font-size: 1.75rem;
+    line-height: 1.2;
+  }
+
+  .dashboard-scroll p,
+  .dashboard-scroll span,
+  .dashboard-scroll td,
+  .dashboard-scroll th {
+    overflow-wrap: anywhere;
+  }
+
   input,
   select,
-  textarea,
-  button {
+  textarea {
     font-size: 16px;
   }
 
   .overflow-x-auto {
     -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .overflow-x-auto::-webkit-scrollbar {
+    display: none;
   }
 }
 

@@ -125,15 +125,15 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, defaultRole }) => {
       {/* Right panel */}
       <div className="flex-1 flex items-center justify-center p-4 sm:p-8">
         <div className="w-full max-w-md">
-          <div className="bg-white rounded-3xl shadow-2xl p-6 sm:p-10">
-            <div className="mb-8">
-              <div className="flex items-center gap-3 mb-8 lg:hidden">
+          <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl p-5 sm:p-10">
+            <div className="mb-6 sm:mb-8">
+              <div className="flex items-center gap-3 mb-6 sm:mb-8 lg:hidden">
                 <div className="w-9 h-9 rounded-xl bg-blue-700 flex items-center justify-center">
                   <BookOpen size={18} className="text-white" />
                 </div>
                 <span className="text-lg font-semibold text-navy">EduPortal</span>
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-1">Sign in</h2>
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1">Sign in</h2>
               <p className="text-gray-500 text-sm">Choose your role and enter your credentials</p>
             </div>
 

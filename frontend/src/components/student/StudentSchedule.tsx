@@ -99,7 +99,7 @@ export const StudentSchedule: React.FC = () => {
       </div>
 
       {/* ── Today's Schedule Section ── */}
-      <div className="bg-white rounded-2xl border border-dashed border-blue-200 shadow-sm p-5 pb-4">
+      <div className="hidden md:block bg-white rounded-2xl border border-dashed border-blue-200 shadow-sm p-5 pb-4">
         <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">
           Today — {todayName}
         </p>
@@ -187,8 +187,52 @@ export const StudentSchedule: React.FC = () => {
         </div>
       </div>
 
+      {/* Compact mobile agenda: one readable card per class instead of a wide table. */}
+      <div className="md:hidden space-y-3">
+        {schedule.map((row, dayIdx) => {
+          const classes = row.slots
+            .map((slot, slotIdx) => ({ slot, slotIdx }))
+            .filter(({ slot }) => slot);
+          const isToday = dayIdx === todayIndex;
+
+          return (
+            <section
+              key={row.day}
+              className={`overflow-hidden rounded-2xl border bg-white shadow-sm ${
+                isToday ? 'border-blue-200 ring-1 ring-blue-100' : 'border-gray-100'
+              }`}
+            >
+              <div className={`flex items-center justify-between px-4 py-3 ${
+                isToday ? 'bg-blue-50/70' : 'bg-gray-50/70'
+              }`}>
+                <h2 className="text-sm font-bold text-gray-900">{row.day}</h2>
+                {isToday && <span className="text-[11px] font-semibold text-blue-600">Today</span>}
+              </div>
+              <div className="divide-y divide-gray-100">
+                {classes.length > 0 ? classes.map(({ slot, slotIdx }) => {
+                  const color = subjectColors[slot!.subject] || defaultColor;
+                  return (
+                    <div key={slotIdx} className="flex items-start gap-3 px-4 py-3.5">
+                      <span className="w-[4.25rem] shrink-0 pt-0.5 text-[11px] font-semibold text-gray-400">
+                        {timeRanges[slotIdx]}
+                      </span>
+                      <div className={`${color.bg} border ${color.border} min-w-0 flex-1 rounded-xl px-3 py-2.5`}>
+                        <p className={`text-sm font-semibold leading-snug ${color.text}`}>{slot!.subject}</p>
+                        <p className="mt-1 text-xs text-gray-500">Room {slot!.room}</p>
+                      </div>
+                    </div>
+                  );
+                }) : (
+                  <p className="px-4 py-4 text-xs text-gray-400">No classes scheduled</p>
+                )}
+              </div>
+            </section>
+          );
+        })}
+      </div>
+
       {/* ── Weekly Schedule Table ── */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="hidden md:block bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[900px] border-collapse">
             {/* Header Row */}

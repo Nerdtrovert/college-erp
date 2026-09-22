@@ -26,7 +26,7 @@ export const Sidebar: React.FC<Props> = ({ user, items, active, onNavigate, onLo
       style={{ background: '#0f1e3c' }}
     >
       {/* Logo */}
-      <div className="flex items-center gap-3 px-6 py-6 border-b border-white/10">
+      <div className="flex items-center gap-3 px-5 sm:px-6 py-5 sm:py-6 border-b border-white/10">
         <div className="w-9 h-9 rounded-xl bg-blue-500 flex items-center justify-center flex-shrink-0">
           <BookOpen size={18} className="text-white" />
         </div>
@@ -37,12 +37,12 @@ export const Sidebar: React.FC<Props> = ({ user, items, active, onNavigate, onLo
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-6 space-y-1">
+      <nav className="flex-1 px-3 py-4 sm:py-6 space-y-1">
         {items.map((item) => (
           <button
             key={item.id}
             onClick={() => onNavigate(item.id)}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-left group ${
+            className={`w-full min-h-11 flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-left group ${
               active === item.id
                 ? 'bg-blue-600 text-white'
                 : 'text-white/60 hover:bg-white/10 hover:text-white'

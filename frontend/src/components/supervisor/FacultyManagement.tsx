@@ -522,27 +522,27 @@ export const FacultyManagement: React.FC = () => {
                     <span className="truncate">{fac.department}</span>
                   </div>
 
-                  <div className="flex items-center justify-end gap-2 pt-1 border-t border-gray-100">
+                  <div className="grid grid-cols-3 gap-2 pt-1 border-t border-gray-100">
                     <button
                       onClick={() => handleOpenSubjectModal(fac)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors"
+                      className="flex min-h-10 min-w-0 items-center justify-center gap-1 px-2 py-1.5 text-[11px] font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors"
                     >
                       <BookOpen size={13} />
-                      <span>Classes</span>
+                      <span className="truncate">Classes</span>
                     </button>
                     <button
                       onClick={() => openEditModal(fac)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                      className="flex min-h-10 min-w-0 items-center justify-center gap-1 px-2 py-1.5 text-[11px] font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
                     >
                       <Edit2 size={13} />
-                      <span>Edit Account</span>
+                      <span className="truncate">Edit</span>
                     </button>
                     <button
                       onClick={() => openDeleteModal(fac)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
+                      className="flex min-h-10 min-w-0 items-center justify-center gap-1 px-2 py-1.5 text-[11px] font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
                     >
                       <Trash2 size={13} />
-                      <span>Remove</span>
+                      <span className="truncate">Remove</span>
                     </button>
                   </div>
                 </div>

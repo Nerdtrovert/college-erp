@@ -217,7 +217,51 @@ export const TimetableManagement: React.FC = () => {
               </div>
               <CalendarDays size={19} className="text-blue-600" />
             </div>
-            <div className="overflow-x-auto">
+            <div className="grid gap-3 p-4 md:hidden">
+              {DAYS.map((day) => (
+                <section key={day} className="overflow-hidden rounded-xl border border-gray-100 bg-gray-50/60">
+                  <div className="border-b border-gray-100 bg-white px-4 py-3">
+                    <h3 className="text-sm font-bold text-gray-900">{day}</h3>
+                  </div>
+                  <div className="divide-y divide-gray-100">
+                    {PERIODS.map((period, slotIndex) => {
+                      if (period.kind !== 'class') {
+                        return (
+                          <div key={period.label} className="flex items-center justify-between px-4 py-2.5 text-xs text-gray-400">
+                            <span>{period.label}</span>
+                            <span>{period.kind === 'break' ? 'Break' : 'Lunch'}</span>
+                          </div>
+                        );
+                      }
+                      const slot = getSlot(day, slotIndex);
+                      const color = subjectColors[(day.length + slotIndex) % subjectColors.length];
+                      const selected = selectedCell?.day === day && selectedCell.slotIndex === slotIndex;
+                      return (
+                        <button
+                          key={period.label}
+                          type="button"
+                          onClick={() => selectCell(day, slotIndex)}
+                          className={`flex w-full items-center gap-3 px-4 py-3 text-left ${selected ? 'bg-blue-50' : 'bg-white'}`}
+                        >
+                          <span className="w-[4.5rem] shrink-0 text-[11px] font-semibold text-gray-400">{period.label}</span>
+                          {slot ? (
+                            <span className={`min-w-0 flex-1 rounded-lg border px-3 py-2 ${color[0]} ${color[1]}`}>
+                              <span className={`block text-sm font-semibold ${color[2]}`}>{slot.subjectCode}</span>
+                              <span className="mt-0.5 block truncate text-xs text-gray-500">{slot.room || 'Room TBD'} · {slot.teacherId}</span>
+                            </span>
+                          ) : (
+                            <span className="flex min-h-10 min-w-0 flex-1 items-center justify-center rounded-lg border border-dashed border-gray-200 bg-gray-50 text-xs text-gray-400">
+                              <Plus size={14} className="mr-1" /> Add class
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+              ))}
+            </div>
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full min-w-[980px] border-collapse">
                 <thead>
                   <tr className="bg-gray-50/70">

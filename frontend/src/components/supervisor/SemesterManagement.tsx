@@ -414,7 +414,36 @@ export const SemesterManagement: React.FC = () => {
           <h2 className="font-semibold text-gray-900">Current Semesters</h2>
         </div>
         {semesters.length > 0 ? (
-          <div className="overflow-x-auto">
+          <>
+          <div className="grid gap-3 p-4 md:hidden">
+            {semesters.map((sem: any) => (
+              <div key={sem.id} className="rounded-xl border border-gray-100 bg-gray-50/60 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-gray-900 break-words">{sem.name}</p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      {sem.startDate || 'No start date'} - {sem.endDate || 'No end date'}
+                    </p>
+                  </div>
+                  <span className={`shrink-0 inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold
+                    ${sem.status === 'ACTIVE' ? 'bg-green-50 text-green-700 border border-green-100' :
+                      sem.status === 'UPCOMING' ? 'bg-blue-50 text-blue-700 border border-blue-100' :
+                      'bg-gray-50 text-gray-700 border border-gray-200'}`}
+                  >
+                    {sem.status}
+                  </span>
+                </div>
+                <button
+                  onClick={() => openEditModal(sem)}
+                  className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-1.5 rounded-lg bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700"
+                >
+                  <Edit2 size={13} />
+                  Configure semester
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="hidden md:block overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-100">
               <thead className="bg-gray-50/50">
                 <tr>
@@ -454,6 +483,7 @@ export const SemesterManagement: React.FC = () => {
               </tbody>
             </table>
           </div>
+          </>
         ) : (
           <div className="text-center py-12 px-4">
             <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">

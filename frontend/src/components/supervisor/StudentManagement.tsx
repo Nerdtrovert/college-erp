@@ -717,8 +717,55 @@ Section: CSE-B`}
           </div>
         </div>
 
-        {/* Directory Table Grid */}
-        <div className="overflow-x-auto">
+        {/* Mobile directory cards */}
+        <div className="grid gap-3 p-4 md:hidden">
+          {paginatedStudents.length > 0 ? paginatedStudents.map((stud) => (
+            <div key={stud.id} className="rounded-xl border border-gray-100 bg-gray-50/60 p-4">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 shrink-0 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">
+                  {stud.name.split(' ').map(n => n[0]).slice(0, 2).join('')}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-gray-900 break-words">{stud.name}</p>
+                  <p className="mt-0.5 font-mono text-xs text-gray-500">{stud.id}</p>
+                </div>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                <div className="rounded-lg bg-white border border-gray-100 px-3 py-2">
+                  <p className="text-gray-400">Department</p>
+                  <p className="mt-0.5 font-medium text-gray-700 break-words">{stud.department}</p>
+                </div>
+                <div className="rounded-lg bg-white border border-gray-100 px-3 py-2">
+                  <p className="text-gray-400">Semester / Class</p>
+                  <p className="mt-0.5 font-medium text-gray-700 break-words">{stud.semester?.name || 'No Semester'} · {stud.classGroup || 'N/A'}</p>
+                </div>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => {
+                    setEditingStudent(stud);
+                    setNewStudent(null);
+                    setShowFormModal(true);
+                  }}
+                  className="min-h-10 rounded-lg bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700"
+                >
+                  <Edit2 size={13} className="mr-1 inline" /> Edit
+                </button>
+                <button
+                  onClick={() => handleDeleteStudent(stud.id)}
+                  className="min-h-10 rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-700"
+                >
+                  <Trash2 size={13} className="mr-1 inline" /> Delete
+                </button>
+              </div>
+            </div>
+          )) : (
+            <p className="py-8 text-center text-sm text-gray-400">No students matching active query or filters found.</p>
+          )}
+        </div>
+
+        {/* Desktop directory table */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-gray-55/50 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase">
@@ -791,15 +838,15 @@ Section: CSE-B`}
 
         {/* Table Pagination */}
         {totalPages > 1 && (
-          <div className="p-4 border-t border-gray-100 flex items-center justify-between">
+          <div className="p-4 border-t border-gray-100 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <span className="text-xs text-gray-500 font-medium">
               Showing {(currentPage-1)*itemsPerPage+1} - {Math.min(currentPage*itemsPerPage, filteredStudents.length)} of {filteredStudents.length} Students
             </span>
-            <div className="flex items-center gap-1.5">
+            <div className="flex max-w-full items-center gap-1.5 overflow-x-auto pb-1 sm:justify-end">
               <button
                 disabled={currentPage === 1}
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 disabled:opacity-50 hover:bg-gray-50"
+                className="shrink-0 px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 disabled:opacity-50 hover:bg-gray-50"
               >
                 Previous
               </button>
@@ -807,7 +854,7 @@ Section: CSE-B`}
                 <button
                   key={p}
                   onClick={() => setCurrentPage(p)}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg border ${
+                  className={`shrink-0 px-3 py-1.5 text-xs font-semibold rounded-lg border ${
                     currentPage === p
                       ? 'bg-blue-700 text-white border-blue-700'
                       : 'border-gray-200 text-gray-600 hover:bg-gray-50'
@@ -819,7 +866,7 @@ Section: CSE-B`}
               <button
                 disabled={currentPage === totalPages}
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 disabled:opacity-50 hover:bg-gray-50"
+                className="shrink-0 px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 disabled:opacity-50 hover:bg-gray-50"
               >
                 Next
               </button>
