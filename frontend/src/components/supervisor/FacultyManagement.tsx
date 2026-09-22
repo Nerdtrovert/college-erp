@@ -1,6 +1,27 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { UserPlus, BookOpen, Plus, Search, Building, Briefcase, GraduationCap, Shield, Edit2, Trash2, ShieldAlert } from 'lucide-react';
 import API from '../../services/api';
+
+interface ModalLayerProps {
+  open: boolean;
+  children: React.ReactNode;
+}
+
+const ModalLayer: React.FC<ModalLayerProps> = ({ open, children }) => {
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
+    <div
+      className={`fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-[100] transition-opacity ${
+        open ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+      }`}
+    >
+      {children}
+    </div>,
+    document.body
+  );
+};
 
 export const FacultyManagement: React.FC = () => {
   const [faculty, setFaculty] = useState<any[]>([]);
@@ -225,7 +246,7 @@ export const FacultyManagement: React.FC = () => {
       )}
 
       {/* Add Faculty Modal */}
-      <div className={`fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 transition-opacity ${showAddModal ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+      <ModalLayer open={showAddModal}>
         <div className={`bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-xl transition-transform ${showAddModal ? 'scale-100' : 'scale-95'}`}>
           <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-1">Add New Faculty</h2>
           <p className="text-xs sm:text-sm text-gray-500 mb-5">Create a new academic or supervisory account.</p>
@@ -325,10 +346,10 @@ export const FacultyManagement: React.FC = () => {
             </div>
           </form>
         </div>
-      </div>
+      </ModalLayer>
 
       {/* Edit Faculty Modal */}
-      <div className={`fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 transition-opacity ${showEditModal ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+      <ModalLayer open={showEditModal}>
         <div className={`bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-xl transition-transform ${showEditModal ? 'scale-100' : 'scale-95'}`}>
           <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-1">Edit Faculty Member</h2>
           <p className="text-xs sm:text-sm text-gray-500 mb-5">Modify account privileges and details.</p>
@@ -424,10 +445,10 @@ export const FacultyManagement: React.FC = () => {
             </div>
           </form>
         </div>
-      </div>
+      </ModalLayer>
 
       {/* Delete Faculty Modal */}
-      <div className={`fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 transition-opacity ${showDeleteModal ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+      <ModalLayer open={showDeleteModal}>
         <div className={`bg-white rounded-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-xl transition-transform ${showDeleteModal ? 'scale-100' : 'scale-95'}`}>
           <div className="flex items-center gap-3 text-red-600 mb-3">
             <ShieldAlert size={24} className="shrink-0" />
@@ -453,7 +474,7 @@ export const FacultyManagement: React.FC = () => {
             </button>
           </div>
         </div>
-      </div>
+      </ModalLayer>
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
         <div className="p-4 sm:p-5 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -614,7 +635,7 @@ export const FacultyManagement: React.FC = () => {
       </div>
 
       {/* Subject Assignment Modal */}
-      <div className={`fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 transition-opacity ${showSubjectModal ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+      <ModalLayer open={showSubjectModal}>
         <div className={`bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-xl transition-transform ${showSubjectModal ? 'scale-100' : 'scale-95'}`}>
           <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-4">
             <div>
@@ -687,7 +708,7 @@ export const FacultyManagement: React.FC = () => {
             </div>
           </div>
         </div>
-      </div>
+      </ModalLayer>
     </div>
 
   );

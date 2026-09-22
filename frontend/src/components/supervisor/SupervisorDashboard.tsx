@@ -91,7 +91,7 @@ export const SupervisorDashboard: React.FC<Props> = ({ user, onLogout }) => {
           </button>
         </div>
 
-        <div key={active} className="flex-1 min-h-0 p-4 sm:p-6 md:p-8 overflow-y-auto overscroll-contain animate-slide-up" style={{ scrollbarGutter: 'stable' }}>
+        <div key={active} className="flex-1 min-h-0 p-4 sm:p-6 md:p-8 overflow-y-auto overscroll-contain animate-fade-in" style={{ scrollbarGutter: 'stable' }}>
           {renderContent()}
         </div>
       </main>
