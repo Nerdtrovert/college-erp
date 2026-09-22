@@ -767,7 +767,7 @@ Section: CSE-B`}
         {/* Desktop directory table */}
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left border-collapse">
-            <thead>
+            <thead className="sticky top-0 z-10 shadow-[0_1px_0_0_#e5e7eb]">
               <tr className="bg-gray-55/50 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase">
                 <th className="py-3 px-5">Student Details</th>
                 <th className="py-3 px-5">Roll Number</th>

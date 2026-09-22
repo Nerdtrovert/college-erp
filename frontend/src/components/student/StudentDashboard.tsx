@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   LayoutDashboard, CalendarDays, BarChart2, ClipboardList,
   Bell, BookOpen, Menu
 } from 'lucide-react';
 import type { User } from '../../types';
 import { Sidebar } from '../Sidebar';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { StudentHome } from './StudentHome';
 import { StudentAttendance } from './StudentAttendance';
 import { StudentMarks } from './StudentMarks';
@@ -27,12 +28,27 @@ interface Props {
 }
 
 export const StudentDashboard: React.FC<Props> = ({ user, onLogout }) => {
-  const [active, setActive] = useState('home');
+  const location = useLocation();
+  const navigate = useNavigate();
+  const pathSection = location.pathname.split('/')[2];
+  const active = pathSection === 'dashboard' || !pathSection || !NAV_ITEMS.some((item) => item.id === pathSection)
+    ? 'home'
+    : pathSection;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const navigateTo = (id: string) => {
+    navigate(`/student/${id === 'home' ? 'dashboard' : id}`);
+    setMobileMenuOpen(false);
+  };
+
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => event.key === 'Escape' && setMobileMenuOpen(false);
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, []);
 
   const renderContent = () => {
     switch (active) {
-      case 'home': return <StudentHome user={user} onNavigate={setActive} />;
+      case 'home': return <StudentHome user={user} onNavigate={navigateTo} />;
       case 'attendance': return <StudentAttendance />;
       case 'marks': return <StudentMarks />;
       case 'schedule': return <StudentSchedule />;
@@ -48,7 +64,7 @@ export const StudentDashboard: React.FC<Props> = ({ user, onLogout }) => {
         user={user}
         items={NAV_ITEMS}
         active={active}
-        onNavigate={(id) => { setActive(id); setMobileMenuOpen(false) }}
+        onNavigate={navigateTo}
         onLogout={onLogout}
       />
 
@@ -63,7 +79,7 @@ export const StudentDashboard: React.FC<Props> = ({ user, onLogout }) => {
             user={user}
             items={NAV_ITEMS}
             active={active}
-            onNavigate={(id) => { setActive(id); setMobileMenuOpen(false) }}
+            onNavigate={navigateTo}
             onLogout={onLogout}
             className="flex h-dvh max-h-dvh w-full flex-col overflow-y-auto"
           />
@@ -93,7 +109,8 @@ export const StudentDashboard: React.FC<Props> = ({ user, onLogout }) => {
           </div>
           <button 
             type="button"
-            aria-label="Open navigation menu"
+          aria-label="Open navigation menu"
+          aria-expanded={mobileMenuOpen}
             onClick={() => setMobileMenuOpen(true)} 
             className="text-gray-600 active:scale-90 transition-transform duration-150 p-2 rounded-xl hover:bg-gray-50 active:bg-gray-100"
           >
