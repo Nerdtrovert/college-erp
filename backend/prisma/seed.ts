@@ -27,11 +27,11 @@ async function main() {
 
   // 1. Seed Faculty Users (including Dean)
   const facultyData = [
-    { id: 'faculty@hnnce.in', name: 'Dr. Priya Sharma', password: teacherPasswordHash, role: Role.teacher, department: 'Computer Science and Engineering (CSE)' },
-    { id: 'ramesh@hnnce.in', name: 'Prof. Ramesh Iyer', password: teacherPasswordHash, role: Role.teacher, department: 'Computer Science and Engineering (CSE)' },
-    { id: 'anita@hnnce.in', name: 'Dr. Anita Raj', password: teacherPasswordHash, role: Role.teacher, department: 'Computer Science and Engineering (CSE)' },
-    { id: 'vijay@hnnce.in', name: 'Mr. Vijay Kumar', password: teacherPasswordHash, role: Role.teacher, department: 'Computer Science and Engineering (CSE)' },
-    { id: 'meena@hnnce.in', name: 'Dr. Meena Nair', password: teacherPasswordHash, role: Role.teacher, department: 'Computer Science and Engineering (CSE)' },
+    { id: 'faculty@hnnce.in', name: 'Dr. Priya Sharma', password: teacherPasswordHash, role: Role.teacher, department: 'Computer Science & Engineering' },
+    { id: 'ramesh@hnnce.in', name: 'Prof. Ramesh Iyer', password: teacherPasswordHash, role: Role.teacher, department: 'Computer Science & Engineering' },
+    { id: 'anita@hnnce.in', name: 'Dr. Anita Raj', password: teacherPasswordHash, role: Role.teacher, department: 'Computer Science & Engineering' },
+    { id: 'vijay@hnnce.in', name: 'Mr. Vijay Kumar', password: teacherPasswordHash, role: Role.teacher, department: 'Computer Science & Engineering' },
+    { id: 'meena@hnnce.in', name: 'Dr. Meena Nair', password: teacherPasswordHash, role: Role.teacher, department: 'Computer Science & Engineering' },
     // Dean user
     { id: 'deanCSE@hnnce.in', name: 'Dr. Dean Administrator', password: deanPasswordHash, role: Role.dean, department: 'Administration' },
   ];
