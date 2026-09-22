@@ -402,7 +402,7 @@ export const StudentManagement: React.FC = () => {
               setEditingStudent(null);
               setShowFormModal(true);
             }}
-            className="flex items-center justify-center gap-2 bg-blue-700 hover:bg-blue-800 text-white font-semibold text-sm px-4 h-[42px] rounded-xl shadow-sm transition-colors duration-150 whitespace-nowrap"
+            className="flex items-center justify-center gap-2 border border-blue-200 bg-blue-100 hover:bg-blue-200 text-blue-800 font-semibold text-sm px-4 h-[42px] rounded-2xl transition-colors duration-150 whitespace-nowrap"
           >
             <Plus size={16} />
             Add Single Student
@@ -432,7 +432,7 @@ export const StudentManagement: React.FC = () => {
           <button
             onClick={handleDownloadReport}
             disabled={loading || uploading}
-            className="flex items-center justify-center gap-2 bg-green-700 hover:bg-green-800 text-white font-semibold text-sm px-4 h-[42px] rounded-xl shadow-sm transition-colors duration-150 whitespace-nowrap"
+            className="flex items-center justify-center gap-2 border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-semibold text-sm px-4 h-[42px] rounded-2xl transition-colors duration-150 whitespace-nowrap"
           >
             <Download size={16} />
             Export Report
@@ -522,7 +522,7 @@ export const StudentManagement: React.FC = () => {
             <button
               type="submit"
               disabled={uploading || !file || !selectedSemester}
-              className="w-full flex items-center justify-center gap-2 bg-blue-700 hover:bg-blue-800 disabled:bg-gray-200 disabled:text-gray-400 text-white font-semibold text-sm py-3 rounded-xl shadow-sm transition-colors duration-150"
+              className="w-full flex items-center justify-center gap-2 border border-blue-200 bg-blue-100 hover:bg-blue-200 disabled:border-gray-200 disabled:bg-gray-100 disabled:text-gray-400 text-blue-800 font-semibold text-sm py-3 rounded-2xl transition-colors duration-150"
             >
               {uploading ? (
                 <>
@@ -939,7 +939,7 @@ Section: CSE-B`}
                 <button
                   type="submit"
                   disabled={actionLoading}
-                  className="flex items-center gap-1.5 px-5 py-2.5 text-sm font-semibold rounded-xl bg-blue-700 text-white hover:bg-blue-800 disabled:opacity-60"
+                  className="flex items-center gap-1.5 px-5 py-2.5 text-sm font-semibold rounded-2xl border border-blue-200 bg-blue-100 text-blue-800 hover:bg-blue-200 disabled:opacity-60"
                 >
                   {actionLoading && <Loader2 className="animate-spin" size={14} />}
                   {editingStudent ? 'Save Changes' : 'Register Student'}

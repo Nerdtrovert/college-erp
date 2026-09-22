@@ -335,13 +335,13 @@ export const TeacherMarks: React.FC = () => {
           onClick={handleSave}
           disabled={saving || saved}
           className={`flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm shadow-sm ${
-            saved ? 'bg-green-600 text-white' : 'bg-blue-700 text-white hover:bg-blue-800 disabled:opacity-60'
+            saved ? 'border border-emerald-200 bg-emerald-100 text-emerald-800' : 'border border-blue-200 bg-blue-100 text-blue-800 hover:bg-blue-200 disabled:opacity-60'
           }`}
         >
           <Save size={16} />
           {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Marks'}
         </button>
-        <label className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm shadow-sm bg-amber-600 text-white hover:bg-amber-700 cursor-pointer transition-colors duration-150">
+        <label className="flex items-center justify-center gap-2 px-6 py-3 rounded-2xl border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 cursor-pointer transition-colors duration-150">
           <Upload size={16} />
           Upload Marks Excel
           <input
@@ -354,7 +354,7 @@ export const TeacherMarks: React.FC = () => {
         <button
           onClick={handleExport}
           disabled={exporting || !selectedClass}
-          className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm shadow-sm bg-slate-700 text-white hover:bg-slate-800 disabled:opacity-60"
+          className="flex items-center justify-center gap-2 px-6 py-3 rounded-2xl border border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200 disabled:opacity-60"
         >
           <Download size={16} />
           {exporting ? 'Exporting...' : 'Export Marks PDF'}

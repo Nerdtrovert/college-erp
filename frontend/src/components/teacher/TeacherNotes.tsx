@@ -180,7 +180,7 @@ export const TeacherNotes: React.FC<{ user: User }> = ({ user }) => {
           <button
             type="submit"
             disabled={uploading || !form.file}
-            className="w-full px-6 py-3 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="w-full px-6 py-3 border border-blue-200 bg-blue-100 text-blue-800 font-semibold rounded-2xl hover:bg-blue-200 transition disabled:border-blue-100 disabled:bg-blue-100 disabled:text-blue-400 disabled:opacity-100 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {uploading ? (
               <>

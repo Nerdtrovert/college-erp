@@ -149,7 +149,7 @@ export const FacultyManagement: React.FC = () => {
         </div>
         <button
           onClick={() => setShowAddModal(true)}
-          className="w-full sm:w-auto flex items-center justify-center gap-2 bg-blue-700 hover:bg-blue-800 text-white font-semibold py-2.5 px-4 rounded-xl shadow-sm transition-colors active:scale-95 text-sm"
+          className="w-full sm:w-auto flex items-center justify-center gap-2 border border-blue-200 bg-blue-100 hover:bg-blue-200 text-blue-800 font-semibold py-2.5 px-4 rounded-2xl transition-colors active:scale-95 text-sm"
         >
           <UserPlus size={18} />
           <span>Add Faculty</span>
@@ -247,7 +247,7 @@ export const FacultyManagement: React.FC = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="px-4 py-2 text-sm font-semibold text-white bg-blue-700 hover:bg-blue-800 rounded-xl transition-colors disabled:opacity-50"
+                className="px-4 py-2 text-sm font-semibold text-blue-800 bg-blue-100 border border-blue-200 hover:bg-blue-200 rounded-2xl transition-colors disabled:opacity-50"
               >
                 Add Faculty
               </button>

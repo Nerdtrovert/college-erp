@@ -146,7 +146,7 @@ export const SemesterManagement: React.FC = () => {
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white font-semibold py-2.5 px-4 rounded-xl shadow-sm transition-colors"
+            className="flex items-center gap-2 border border-blue-200 bg-blue-100 hover:bg-blue-200 text-blue-800 font-semibold py-2.5 px-4 rounded-2xl transition-colors"
           >
             <Plus size={18} />
             <span>New Semester</span>

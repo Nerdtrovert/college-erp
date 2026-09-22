@@ -231,7 +231,7 @@ const ReportsDashboard: React.FC = () => {
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={exportToPDF}
-            className="inline-flex items-center gap-2 rounded-xl bg-blue-700 px-4 h-[42px] text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-2xl border border-blue-200 bg-blue-100 px-4 h-[42px] text-sm font-semibold text-blue-800 transition-colors hover:bg-blue-200 disabled:cursor-not-allowed disabled:opacity-50"
             disabled={loading || data.length === 0}
           >
             <Download size={16} strokeWidth={2} aria-hidden="true" />
@@ -239,7 +239,7 @@ const ReportsDashboard: React.FC = () => {
           </button>
           <button
             onClick={exportToWord}
-            className="inline-flex items-center gap-2 rounded-xl bg-green-700 px-4 h-[42px] text-sm font-semibold text-white shadow-sm transition-colors hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-100 px-4 h-[42px] text-sm font-semibold text-emerald-800 transition-colors hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-50"
             disabled={loading || data.length === 0}
           >
             <FileText size={16} strokeWidth={2} aria-hidden="true" />
