@@ -1,9 +1,9 @@
   ### 1. A Brand New Developer
 
-  Command: npm run db:setup
+  Command: npm run db:setup (or npm run db:setup:dev)
 
-  • Why: They have absolutely nothing on their machine. This command starts the Docker database for them, builds the schema from
-  scratch, and injects all the mock data so they can log in immediately.
+  • Why: They have absolutely nothing on their machine. This command starts the Docker database for them and builds the schema from
+  scratch. If they use the :dev variant, it also injects all the mock data so they can log in immediately.
   • When: On their very first day cloning the repo.
 
   ### 2. A Developer with Existing Mock Data & an Older DB
