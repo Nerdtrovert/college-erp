@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  LayoutDashboard, CalendarDays, BarChart2, ClipboardList,
+  LayoutDashboard, CalendarDays, CalendarRange, BarChart2, ClipboardList,
   Bell, BookOpen, Menu
 } from 'lucide-react';
 import type { User } from '../../types';
@@ -12,12 +12,14 @@ import { StudentMarks } from './StudentMarks';
 import { StudentSchedule } from './StudentSchedule';
 import { StudentAnnouncements } from './StudentAnnouncements';
 import { StudentNotes } from './StudentNotes';
+import { AcademicCalendar } from '../AcademicCalendar';
 
 const NAV_ITEMS = [
   { id: 'home', label: 'Dashboard', icon: <LayoutDashboard size={16} /> },
   { id: 'attendance', label: 'Attendance', icon: <CalendarDays size={16} /> },
   { id: 'marks', label: 'Internal Marks', icon: <BarChart2 size={16} /> },
   { id: 'schedule', label: 'Timetable', icon: <ClipboardList size={16} /> },
+  { id: 'academic-calendar', label: 'Academic Calendar', icon: <CalendarRange size={16} /> },
   { id: 'announcements', label: 'Announcements', icon: <Bell size={16} /> },
   { id: 'notes', label: 'Notes', icon: <BookOpen size={16} /> },
 ];
@@ -52,6 +54,7 @@ export const StudentDashboard: React.FC<Props> = ({ user, onLogout }) => {
       case 'attendance': return <StudentAttendance />;
       case 'marks': return <StudentMarks />;
       case 'schedule': return <StudentSchedule />;
+      case 'academic-calendar': return <AcademicCalendar />;
       case 'announcements': return <StudentAnnouncements />;
       case 'notes': return <StudentNotes user={user} />;
       default: return null;
