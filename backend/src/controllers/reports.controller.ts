@@ -144,16 +144,16 @@ export const getVergeOfBacklogReport = async (req: AuthRequest, res: Response) =
         const subjectType = subject.type; // STANDALONE or INTEGRATED
         const subjectName = subject.name;
 
-        const ia1Mark = marks.find((m: any) => m.type === 'ia1')?.score ?? null;
-        const ia2Mark = marks.find((m: any) => m.type === 'ia2')?.score ?? null;
-        const ia3Mark = marks.find((m: any) => m.type === 'ia3')?.score ?? null;
+        const cie1Mark = marks.find((m: any) => m.type === 'cie1')?.score ?? null;
+        const cie2Mark = marks.find((m: any) => m.type === 'cie2')?.score ?? null;
+        const cie3Mark = marks.find((m: any) => m.type === 'cie3')?.score ?? null;
         const assignmentMark = marks.find((m: any) => m.type === 'assignment')?.score ?? null;
         const labMark = marks.find((m: any) => m.type === 'lab')?.score ?? null;
 
         let cieScores: number[] = [];
-        if (ia1Mark != null) cieScores.push(ia1Mark);
-        if (ia2Mark != null) cieScores.push(ia2Mark);
-        if (ia3Mark != null) cieScores.push(ia3Mark);
+        if (cie1Mark != null) cieScores.push(cie1Mark);
+        if (cie2Mark != null) cieScores.push(cie2Mark);
+        if (cie3Mark != null) cieScores.push(cie3Mark);
 
         let best2CieAvg = 0;
         if (cieScores.length >= 2) {
@@ -192,9 +192,9 @@ export const getVergeOfBacklogReport = async (req: AuthRequest, res: Response) =
         subjectsDetail.push({
           subjectCode,
           subjectName,
-          ia1: ia1Mark,
-          ia2: ia2Mark,
-          ia3: ia3Mark,
+          cie1: cie1Mark,
+          cie2: cie2Mark,
+          cie3: cie3Mark,
           assignment: assignmentMark,
           lab: labMark,
           total: parseFloat(subjectTotal.toFixed(2)),
@@ -246,6 +246,144 @@ export const updateBacklogs = async (req: AuthRequest, res: Response) => {
     return res.status(200).json({ success: true, user: { id: updatedUser.id, numberOfBacklogs: updatedUser.numberOfBacklogs } });
   } catch (error) {
     console.error('Error updating backlogs:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const getAttendanceAndAssignmentReport = async (req: AuthRequest, res: Response) => {
+  const reportType = req.query.type === 'missing_assignments' ? 'missing_assignments' : 'low_attendance';
+  const threshold = Math.max(0, Math.min(100, Number(req.query.threshold) || 75));
+  const semesterId = typeof req.query.semesterId === 'string'
+    ? req.query.semesterId
+    : (await semesterService.getActiveSemester())?.id;
+  const department = typeof req.query.department === 'string' ? req.query.department : undefined;
+  const classGroup = typeof req.query.classGroup === 'string' ? req.query.classGroup : undefined;
+
+  if (!semesterId) return res.status(400).json({ error: 'No active semester found and none specified' });
+
+  try {
+    const studentWhere: any = {
+      role: 'student',
+      ...(department ? { department } : {}),
+      ...(classGroup ? { classGroup } : {}),
+    };
+
+    if (req.user?.role === 'teacher') {
+      const taught = await prisma.subject.findMany({
+        where: { facultyId: req.user.id },
+        select: { classGroup: true },
+      });
+      studentWhere.classGroup = { in: Array.from(new Set(taught.map((item) => item.classGroup))) };
+    } else if (req.user?.role === 'hod' && req.user.department) {
+      studentWhere.department = req.user.department;
+    }
+
+    const students = await prisma.user.findMany({
+      where: studentWhere,
+      select: {
+        id: true,
+        name: true,
+        department: true,
+        classGroup: true,
+        marks: {
+          where: { semesterId },
+          select: {
+            subjectCode: true,
+            type: true,
+            score: true,
+            assign1Submitted: true,
+            assign2Submitted: true,
+            subject: { select: { code: true, name: true, classGroup: true } },
+          },
+        },
+      },
+      orderBy: { id: 'asc' },
+    });
+
+    if (reportType === 'missing_assignments') {
+      const subjects = await prisma.subject.findMany({
+        where: {
+          ...(classGroup ? { classGroup } : {}),
+          ...(req.user?.role === 'teacher' ? { facultyId: req.user.id } : {}),
+        },
+        select: { code: true, name: true, classGroup: true, type: true },
+      });
+      const report = students.flatMap((student) => {
+        return subjects
+          .filter((subject) => subject.classGroup === student.classGroup)
+          .flatMap((subject) => {
+            const assignmentMarks = student.marks.filter((mark) =>
+              mark.subjectCode === subject.code && ['assignment', 'assignment1', 'assignment2'].includes(mark.type)
+            );
+            const assignment1 = assignmentMarks.find((mark) => mark.type === 'assignment' || mark.type === 'assignment1');
+            const assignment2 = assignmentMarks.find((mark) => mark.type === 'assignment2');
+            const missingAssignment1 = !assignment1 || assignment1.score === null;
+            const missingAssignment2 = subject.type === 'INTEGRATED' && (!assignment2 || assignment2.score === null);
+            return (missingAssignment1 || missingAssignment2) ? [{
+            studentId: student.id,
+            studentName: student.name,
+            department: student.department,
+            classGroup: student.classGroup,
+            subjectCode: subject.code,
+            subjectName: subject.name,
+            missingAssignment1,
+            missingAssignment2,
+            score: assignment1?.score ?? null,
+          }] : [];
+          });
+      });
+      return res.json(report);
+    }
+
+    const sessions = await prisma.attendanceSession.findMany({
+      where: { semesterId, ...(classGroup ? { classGroup } : {}) },
+      select: {
+        classGroup: true,
+        subjectCode: true,
+        subject: { select: { name: true, facultyId: true } },
+        records: { select: { studentId: true, status: true } },
+      },
+    });
+    const taughtCodes = req.user?.role === 'teacher'
+      ? new Set((await prisma.subject.findMany({ where: { facultyId: req.user.id }, select: { code: true } })).map((s) => s.code))
+      : null;
+    const scopedSessions = taughtCodes
+      ? sessions.filter((session) => taughtCodes.has(session.subjectCode))
+      : sessions;
+    const totals = new Map<string, { present: number; total: number; subjects: Map<string, { present: number; total: number; name: string }> }>();
+    scopedSessions.forEach((session) => session.records.forEach((record) => {
+      const current = totals.get(record.studentId) || { present: 0, total: 0, subjects: new Map() };
+      current.total += 1;
+      if (record.status === 'present') current.present += 1;
+      const subject = current.subjects.get(session.subjectCode) || { present: 0, total: 0, name: session.subject.name };
+      subject.total += 1;
+      if (record.status === 'present') subject.present += 1;
+      current.subjects.set(session.subjectCode, subject);
+      totals.set(record.studentId, current);
+    }));
+    const report = students.flatMap((student) => {
+      const total = totals.get(student.id);
+      if (!total) return [];
+      const percentage = Math.round((total.present / total.total) * 100);
+      if (percentage >= threshold) return [];
+      return Array.from(total.subjects.entries()).map(([subjectCode, subject]) => ({
+        studentId: student.id,
+        studentName: student.name,
+        department: student.department,
+        classGroup: student.classGroup,
+        subjectCode,
+        subjectName: subject.name,
+        present: subject.present,
+        total: subject.total,
+        percentage: Math.round((subject.present / subject.total) * 100),
+        overallPresent: total.present,
+        overallTotal: total.total,
+        overallPercentage: percentage,
+      }));
+    });
+    return res.json(report);
+  } catch (error) {
+    console.error('Error generating attendance/assignment report:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 };

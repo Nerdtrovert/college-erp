@@ -32,6 +32,8 @@ export const registerSchema = z.object({
     role: roleSchemas.all, // student or teacher
     department: commonStringFields.department,
     classGroup: z.string().optional(),
+    numberOfBacklogs: z.number().int().min(0).optional(),
+    backlogSubjects: z.array(z.string()).optional(),
   }).superRefine((value, ctx) => {
     const isStudent = value.role === 'student';
     const validIdentifier = isStudent

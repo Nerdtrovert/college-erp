@@ -90,6 +90,32 @@ export const deleteSubject = async (req: AuthRequest, res: Response) => {
   const code = req.params.code as string;
 
   try {
+    const subject = await prisma.subject.findUnique({
+      where: { code },
+      include: {
+        _count: {
+          select: {
+            attendanceSessions: true,
+            marks: true,
+            timetableSlots: true,
+          },
+        },
+      },
+    });
+
+    if (!subject) {
+      return res.status(404).json({ error: 'Subject not found' });
+    }
+
+    const hasHistory = subject._count.attendanceSessions > 0
+      || subject._count.marks > 0
+      || subject._count.timetableSlots > 0;
+    if (hasHistory) {
+      return res.status(409).json({
+        error: 'This class has attendance, marks, or timetable history and cannot be deleted.',
+      });
+    }
+
     await prisma.subject.delete({
       where: { code },
     });

@@ -14,8 +14,7 @@ const INTEGRATED_ASSESSMENTS = [
   { id: 'cie1', label: 'CIE-1', max: 50 },
   { id: 'cie2', label: 'CIE-2', max: 50 },
   { id: 'cie3', label: 'CIE-3', max: 50 },
-  { id: 'assignment1', label: 'Assignment 1', max: 10 },
-  { id: 'assignment2', label: 'Assignment 2', max: 10 },
+  { id: 'assignment', label: 'Assignment', max: 10 },
   { id: 'lab', label: 'Lab', max: 25 },
 ];
 
@@ -126,7 +125,7 @@ export const TeacherMarks: React.FC = () => {
             /^(roll|id|usn|student\s*id|roll\s*no|roll\s*number|rollno)$/i.test(k)
           );
           const scoreKey = Object.keys(row).find((k) =>
-            /^(mark|marks|score|cie|cie1|cie2|cie3|assignment|lab)$/i.test(k) ||
+            /^(mark|marks|score|cie|cie1|cie2|cie3|ia1|ia2|ia3|ia-1|ia-2|ia-3|assignment|lab)$/i.test(k) ||
             k.toLowerCase() === selectedAssessment.toLowerCase()
           );
 

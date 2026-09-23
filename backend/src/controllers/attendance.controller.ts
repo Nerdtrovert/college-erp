@@ -276,3 +276,64 @@ export const saveTeacherAttendance = async (req: AuthRequest, res: Response) => 
     return res.status(500).json({ error: 'Internal server error while saving attendance records' });
   }
 };
+
+export const getCorrectionSessions = async (req: AuthRequest, res: Response) => {
+  const date = typeof req.query.date === 'string' ? req.query.date : undefined;
+  const subjectCode = typeof req.query.subjectCode === 'string' ? req.query.subjectCode : undefined;
+  const classGroup = typeof req.query.classGroup === 'string' ? req.query.classGroup : undefined;
+  const isTeacher = req.user?.role === 'teacher';
+
+  try {
+    const sessions = await prisma.attendanceSession.findMany({
+      where: {
+        ...(date ? { date } : {}),
+        ...(subjectCode ? { subjectCode } : {}),
+        ...(classGroup ? { classGroup } : {}),
+        ...(isTeacher ? { subject: { facultyId: req.user?.id } } : {}),
+      },
+      include: {
+        subject: { select: { code: true, name: true, facultyId: true } },
+        records: {
+          include: { student: { select: { id: true, name: true } } },
+          orderBy: { studentId: 'asc' },
+        },
+      },
+      orderBy: [{ date: 'desc' }, { startTime: 'desc' }],
+      take: 100,
+    });
+
+    return res.json(sessions);
+  } catch (error) {
+    console.error('Error fetching attendance correction sessions:', error);
+    return res.status(500).json({ error: 'Internal server error while fetching attendance sessions' });
+  }
+};
+
+export const updateAttendanceRecord = async (req: AuthRequest, res: Response) => {
+  const { recordId } = req.params;
+  const { status } = req.body;
+
+  if (status !== 'present' && status !== 'absent') {
+    return res.status(400).json({ error: 'Attendance status must be present or absent' });
+  }
+
+  try {
+    const record = await prisma.attendanceRecord.findUnique({
+      where: { id: String(recordId) },
+      include: { session: { include: { subject: { select: { facultyId: true } } } } },
+    });
+    if (!record) return res.status(404).json({ error: 'Attendance record not found' });
+
+    const canEdit = req.user?.role !== 'teacher' || record.session.subject.facultyId === req.user.id;
+    if (!canEdit) return res.status(403).json({ error: 'You can only correct attendance for your assigned subjects' });
+
+    const updated = await prisma.attendanceRecord.update({
+      where: { id: String(recordId) },
+      data: { status },
+    });
+    return res.json(updated);
+  } catch (error) {
+    console.error('Error updating attendance record:', error);
+    return res.status(500).json({ error: 'Internal server error while updating attendance' });
+  }
+};
