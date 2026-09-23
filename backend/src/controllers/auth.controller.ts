@@ -83,7 +83,7 @@ export const login = async (req: Request, res: Response) => {
 };
 
 export const register = async (req: Request, res: Response) => {
-  const { name, password, role, department, classGroup } = req.body;
+  const { name, password, role, department, classGroup, numberOfBacklogs, backlogSubjects } = req.body;
   const id = role === 'student'
     ? String(req.body.id).toUpperCase()
     : String(req.body.id).trim();
@@ -353,6 +353,8 @@ export const uploadStudents = async (req: AuthRequest, res: Response) => {
             defaultClassGroup ||
             'CSE-B'
           ).trim(),
+          numberOfBacklogs: parseInt(row['Backlogs'] || row['Number of Backlogs'] || row['numberOfBacklogs'] || '0') || 0,
+          backlogSubjects: (row['Backlog Subjects'] || row['backlogSubjects'] || '').split(',').map((s: string) => s.trim()).filter(Boolean)
         }))
         .filter((s: any) => s.id && s.name && /^1HC\d{2}[A-Z]{2}\d{3}$/.test(s.id));
     } else if (ext === '.docx' || ext === '.doc') {
@@ -360,20 +362,24 @@ export const uploadStudents = async (req: AuthRequest, res: Response) => {
       const text = await parseWord(fileBuffer);
       parsedStudents = extractStudentsFromText(text);
       // Apply defaults where missing
-      parsedStudents = parsedStudents.map(s => ({
+      parsedStudents = parsedStudents.map((s: any) => ({
         ...s,
         department: s.department || defaultDepartment || 'Computer Science & Engineering',
         classGroup: s.classGroup || defaultClassGroup || 'CSE-B',
+        numberOfBacklogs: s.numberOfBacklogs || 0,
+        backlogSubjects: s.backlogSubjects || [],
       }));
     } else if (ext === '.pdf') {
       // Parse PDF file
       const text = await parsePDF(fileBuffer);
       parsedStudents = extractStudentsFromText(text);
       // Apply defaults where missing
-      parsedStudents = parsedStudents.map(s => ({
+      parsedStudents = parsedStudents.map((s: any) => ({
         ...s,
         department: s.department || defaultDepartment || 'Computer Science & Engineering',
         classGroup: s.classGroup || defaultClassGroup || 'CSE-B',
+        numberOfBacklogs: s.numberOfBacklogs || 0,
+        backlogSubjects: s.backlogSubjects || [],
       }));
     } else {
       await removeUploadedFile(req.file.path);

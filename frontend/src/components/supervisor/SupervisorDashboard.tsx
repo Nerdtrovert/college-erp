@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, CalendarRange, CalendarDays, Users, ClipboardList, Menu, X, Shield, BookOpen, GraduationCap, BarChart3
+  LayoutDashboard, CalendarRange, CalendarDays, Users, ClipboardList, Menu, X, Shield, BookOpen, GraduationCap, BarChart3, CheckCircle
 } from 'lucide-react';
 import type { User } from '../../types';
 import { Sidebar } from '../Sidebar';
@@ -13,6 +13,7 @@ import { SubjectManagement } from './SubjectManagement';
 import { StudentManagement } from './StudentManagement';
 import ReportsDashboard from './ReportsDashboard';
 import { AcademicCalendar } from '../AcademicCalendar';
+import { AttendanceCorrections } from '../AttendanceCorrections';
 
 const NAV_ITEMS = [
   { id: 'home', label: 'Overview', icon: <LayoutDashboard size={16} /> },
@@ -23,6 +24,7 @@ const NAV_ITEMS = [
   { id: 'faculty', label: 'Faculty & Access', icon: <Users size={16} /> },
   { id: 'timetable', label: 'Timetables', icon: <ClipboardList size={16} /> },
   { id: 'reports', label: 'Reports', icon: <BarChart3 size={16} /> },
+  { id: 'attendance-corrections', label: 'Correct Attendance', icon: <CheckCircle size={16} /> },
 ];
 
 interface Props {
@@ -59,6 +61,7 @@ export const SupervisorDashboard: React.FC<Props> = ({ user, onLogout }) => {
       case 'faculty': return <FacultyManagement />;
       case 'timetable': return <TimetableManagement />;
       case 'reports': return <ReportsDashboard user={user} />;
+      case 'attendance-corrections': return <AttendanceCorrections />;
       default: return null;
     }
   };

@@ -11,7 +11,7 @@ import { Role } from '@prisma/client';
 
 const router = Router();
 
-const supervisorRolesActual = [Role.dean, Role.principal] as const;
+const supervisorRolesActual = [Role.dean, Role.principal, Role.hod] as const;
 
 router.get('/', authenticate, authorize(supervisorRolesActual), getSemesters);
 router.post('/', authenticate, authorize(supervisorRolesActual), createSemester);

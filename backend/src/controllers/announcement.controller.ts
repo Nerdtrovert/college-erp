@@ -42,6 +42,7 @@ export const getAnnouncements = async (req: AuthRequest, res: Response) => {
       author: a.author.name,
       pinned: a.pinned,
       target: a.target,
+      canDelete: a.authorId === req.user?.id,
     }));
 
     return res.status(200).json(mapped);
@@ -115,9 +116,8 @@ export const deleteAnnouncement = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: 'Announcement not found' });
     }
 
-    // Double check authorization: only original publisher (or any teacher) can delete
-    if (req.user?.role !== 'teacher') {
-      return res.status(403).json({ error: 'Forbidden: Only teachers can delete announcements' });
+    if (req.user?.role !== 'teacher' || announcement.authorId !== req.user.id) {
+      return res.status(403).json({ error: 'Forbidden: Only the original publisher can delete this announcement' });
     }
 
     await prisma.announcement.delete({

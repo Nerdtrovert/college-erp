@@ -14,5 +14,6 @@ router.get('/verge-of-backlog', authorize(['hod', 'principal', 'dean', 'teacher'
 
 // Update student backlogs
 router.put('/backlogs/:studentId', authorize(['hod', 'principal', 'dean', 'teacher']), reportsController.updateBacklogs);
+router.get('/attendance-assignments', authorize(['hod', 'principal', 'dean', 'teacher']), reportsController.getAttendanceAndAssignmentReport);
 
 export default router;

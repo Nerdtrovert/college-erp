@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, CalendarCheck, CalendarRange, BarChart2, Bell, BookOpen, Menu, X, FileText
+  LayoutDashboard, CalendarCheck, CalendarRange, BarChart2, Bell, BookOpen, Menu, X, FileText, CheckCircle
 } from 'lucide-react';
 import type { User } from '../../types';
 import { Sidebar } from '../Sidebar';
@@ -13,10 +13,12 @@ import { TeacherNotes } from './TeacherNotes';
 import { TeacherTimetable } from './TeacherTimetable';
 import ReportsDashboard from '../supervisor/ReportsDashboard';
 import { AcademicCalendar } from '../AcademicCalendar';
+import { AttendanceCorrections } from '../AttendanceCorrections';
 
 const NAV_ITEMS = [
   { id: 'home', label: 'Overview', icon: <LayoutDashboard size={16} /> },
   { id: 'attendance', label: 'Mark Attendance', icon: <CalendarCheck size={16} /> },
+  { id: 'attendance-corrections', label: 'Correct Attendance', icon: <CheckCircle size={16} /> },
   { id: 'timetable', label: 'My Timetable', icon: <CalendarCheck size={16} /> },
   { id: 'academic-calendar', label: 'Academic Calendar', icon: <CalendarRange size={16} /> },
   { id: 'marks', label: 'Update Marks', icon: <BarChart2 size={16} /> },
@@ -53,6 +55,7 @@ export const TeacherDashboard: React.FC<Props> = ({ user, onLogout }) => {
     switch (active) {
       case 'home': return <TeacherHome user={user} />;
       case 'attendance': return <TeacherAttendance />;
+      case 'attendance-corrections': return <AttendanceCorrections />;
       case 'timetable': return <TeacherTimetable />;
       case 'academic-calendar': return <AcademicCalendar editable editableTypes={['cie', 'academic']} />;
       case 'marks': return <TeacherMarks />;

@@ -4,7 +4,7 @@ import { idSchema } from './shared.validation';
 export const saveMarksSchema = z.object({
   body: z.object({
     subjectCode: idSchema(1, 'Subject code is required'),
-    type: z.union([z.literal('ia1'), z.literal('ia2'), z.literal('assignment'), z.literal('lab')]),
+    type: z.union([z.literal('cie1'), z.literal('cie2'), z.literal('cie3'), z.literal('assignment'), z.literal('lab')]),
     maxScore: z.number().min(0, 'Maximum score must be non-negative'),
     records: z.array(
       z.object({

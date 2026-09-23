@@ -10,6 +10,7 @@ interface Announcement {
   date: string;
   author: string;
   target: string;
+  canDelete?: boolean;
 }
 
 interface SubjectItem {
@@ -227,16 +228,18 @@ export const TeacherAnnouncements: React.FC = () => {
                   </span>
                 </div>
               </div>
-              <div className="absolute right-4 top-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button
-                  type="button"
-                  onClick={() => handleDelete(announcement.id)}
-                  className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-gray-50 transition"
-                  title="Delete Notice"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
+              {announcement.canDelete && (
+                <div className="absolute right-4 top-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(announcement.id)}
+                    className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-gray-50 transition"
+                    title="Delete Notice"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>

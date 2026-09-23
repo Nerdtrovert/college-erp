@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Upload, Search, Edit2, Trash2, CheckCircle2, AlertCircle,
   ChevronDown, HelpCircle, Loader2, X, Plus, ShieldCheck,
@@ -58,7 +58,7 @@ export const StudentManagement: React.FC = () => {
 
   // Edit / Add state
   const [editingStudent, setEditingStudent] = useState<StudentUser | null>(null);
-  const [newStudent, setNewStudent] = useState<{ id: string; name: string; department: string; classGroup: string; semesterId: string } | null>(null);
+  const [newStudent, setNewStudent] = useState<{ id: string; name: string; department: string; classGroup: string; semesterId: string; numberOfBacklogs?: number; backlogSubjects?: string } | null>(null);
   const [studentPassword, setStudentPassword] = useState('');
   const [showFormModal, setShowFormModal] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
@@ -153,32 +153,12 @@ export const StudentManagement: React.FC = () => {
     }
   };
 
-  const getFilteredStudents = (): StudentUser[] => {
-    return students.filter(s => {
-      const matchesSearch =
-        s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.id.toLowerCase().includes(searchQuery.toLowerCase());
 
-      const matchesDepartment =
-        filterDepartment === 'all' ||
-        s.department === filterDepartment;
-
-      const matchesSemester =
-        filterSemester === 'all' ||
-        s.semesterId === filterSemester;
-
-      const matchesSection =
-        filterSection === 'all' ||
-        (s.classGroup && s.classGroup.toLowerCase() === filterSection.toLowerCase());
-
-      return matchesSearch && matchesDepartment && matchesSemester && matchesSection;
-    });
-  };
 
   const handleDownloadReport = async () => {
     try {
       if (reportType === 'students') {
-        const filtered = getFilteredStudents();
+        const filtered = filteredStudents;
         if (filtered.length === 0) {
           showToast('No students match the current filters to export.', 'error');
           return;
@@ -334,29 +314,33 @@ export const StudentManagement: React.FC = () => {
   };
 
   // Filter students based on search and filters
-  const filteredStudents = students.filter(s => {
-    const matchesSearch = 
-      s.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      s.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.department.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesSemester = 
-      filterSemester === 'all' || 
-      s.semesterId === filterSemester;
+  const filteredStudents = useMemo(() => {
+    return students.filter(s => {
+      const matchesSearch =
+        s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        s.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        s.department.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesSection = 
-      filterSection === 'all' || 
-      (s.classGroup && s.classGroup.toLowerCase() === filterSection.toLowerCase());
+      const matchesSemester =
+        filterSemester === 'all' ||
+        s.semesterId === filterSemester;
 
-    return matchesSearch && matchesSemester && matchesSection;
-  });
+      const matchesSection =
+        filterSection === 'all' ||
+        (s.classGroup && s.classGroup.toLowerCase() === filterSection.toLowerCase());
+
+      return matchesSearch && matchesSemester && matchesSection;
+    });
+  }, [students, searchQuery, filterSemester, filterSection]);
 
   // Pagination calculations
   const totalPages = Math.ceil(filteredStudents.length / itemsPerPage);
-  const paginatedStudents = filteredStudents.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  const paginatedStudents = useMemo(() => {
+    return filteredStudents.slice(
+      (currentPage - 1) * itemsPerPage,
+      currentPage * itemsPerPage
+    );
+  }, [filteredStudents, currentPage, itemsPerPage]);
 
   // Generate unique list of classGroup sections for filter dropdown
   const sections = Array.from(
@@ -560,6 +544,8 @@ export const StudentManagement: React.FC = () => {
                 <li><strong className="text-gray-700">Name:</strong> Name, Student Name, Full Name</li>
                 <li><strong className="text-gray-700">Section:</strong> Section, Class, Section</li>
                 <li><strong className="text-gray-700">Department:</strong> Department, Dept, Branch</li>
+                <li><strong className="text-gray-700">Backlogs (Opt):</strong> Backlogs, numberOfBacklogs</li>
+                <li><strong className="text-gray-700">Backlog Subjs (Opt):</strong> Backlog Subjects</li>
               </ul>
             </div>
 
@@ -1016,6 +1002,37 @@ Section: CSE-B`}
                   </div>
                 </div>
               </div>
+
+              {!editingStudent && newStudent && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase mb-2">Number of Backlogs</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={newStudent.numberOfBacklogs || ''}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value) || 0;
+                        setNewStudent({ ...newStudent, numberOfBacklogs: val, backlogSubjects: val === 0 ? '' : newStudent.backlogSubjects });
+                      }}
+                      className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  {newStudent.numberOfBacklogs && newStudent.numberOfBacklogs > 0 ? (
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 uppercase mb-2">Backlog Subject Codes</label>
+                      <input
+                        type="text"
+                        required={newStudent.numberOfBacklogs > 0}
+                        value={newStudent.backlogSubjects || ''}
+                        onChange={(e) => setNewStudent({ ...newStudent, backlogSubjects: e.target.value })}
+                        placeholder="e.g. 24CS101, 24MA101"
+                        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                  ) : <div />}
+                </div>
+              )}
 
               {!editingStudent && (
                 <div className="bg-blue-50 text-blue-900 text-xs rounded-xl p-3 border border-blue-150 leading-relaxed">

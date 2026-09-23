@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { UserPlus, BookOpen, Plus, Search, Building, Briefcase, GraduationCap, Shield, Edit2, Trash2, ShieldAlert } from 'lucide-react';
 import API from '../../services/api';
@@ -207,12 +207,14 @@ export const FacultyManagement: React.FC = () => {
     setShowDeleteModal(true);
   };
 
-  const filteredFaculty = faculty.filter(f => {
-    const query = searchQuery.toLowerCase();
-    const matchesSearch = f.name.toLowerCase().includes(query) ||
-      f.id.toLowerCase().includes(query) || f.department.toLowerCase().includes(query);
-    return matchesSearch && (roleFilter === 'all' || f.role === roleFilter);
-  });
+  const filteredFaculty = useMemo(() => {
+    return faculty.filter(f => {
+      const query = searchQuery.toLowerCase();
+      const matchesSearch = f.name.toLowerCase().includes(query) ||
+        f.id.toLowerCase().includes(query) || f.department.toLowerCase().includes(query);
+      return matchesSearch && (roleFilter === 'all' || f.role === roleFilter);
+    });
+  }, [faculty, searchQuery, roleFilter]);
 
   if (loading && faculty.length === 0) {
     return <div className="text-center py-12 text-gray-500 font-medium animate-pulse">Loading faculty directory...</div>;

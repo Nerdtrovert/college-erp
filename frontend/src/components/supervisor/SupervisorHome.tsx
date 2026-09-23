@@ -1,5 +1,6 @@
-import React from 'react';
-import { CalendarRange, Users, ClipboardList, Shield, GraduationCap, LayoutDashboard } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import API from '../../services/api';
+import { CalendarRange, Users, ClipboardList, GraduationCap, LayoutDashboard } from 'lucide-react';
 
 interface Props {
   user: any;
@@ -7,6 +8,27 @@ interface Props {
 }
 
 export const SupervisorHome: React.FC<Props> = ({ user, onNavigate }) => {
+  const [stats, setStats] = useState({ students: 0, faculty: 0, semesters: 'Active' });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const res = await API.get('/vip/api-stats');
+        setStats({
+          students: res.data.userStats?.totalStudents || 0,
+          faculty: res.data.userStats?.totalFaculty || 0,
+          marks: res.data.userStats?.totalMarks || 0
+        } as any);
+      } catch (err) {
+        console.error('Failed to fetch stats', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStats();
+  }, []);
+
   const actions = [
     { id: 'semesters', title: 'Semester Management', description: 'Create, copy, and manage academic semesters across the institution.', icon: <CalendarRange size={20} />, color: 'text-blue-600 bg-blue-50' },
     { id: 'faculty', title: 'Faculty Management', description: 'Add new faculty members and assign supervisory access roles.', icon: <Users size={20} />, color: 'text-purple-600 bg-purple-50' },
@@ -23,9 +45,9 @@ export const SupervisorHome: React.FC<Props> = ({ user, onNavigate }) => {
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         {[
-          { label: 'Active Semesters', value: '1', icon: <CalendarRange size={18} />, color: 'text-blue-600 bg-blue-50' },
-          { label: 'Total Faculty', value: '6', icon: <Users size={18} />, color: 'text-green-600 bg-green-50' },
-          { label: 'Platform Status', value: 'Healthy', icon: <Shield size={18} />, color: 'text-purple-600 bg-purple-50' },
+          { label: 'Enrolled Students', value: loading ? '...' : stats.students.toString(), icon: <Users size={18} />, color: 'text-blue-600 bg-blue-50' },
+          { label: 'Registered Faculty', value: loading ? '...' : stats.faculty.toString(), icon: <Users size={18} />, color: 'text-green-600 bg-green-50' },
+          { label: 'Assessments Recorded', value: loading ? '...' : (stats as any).marks?.toString() || '0', icon: <ClipboardList size={18} />, color: 'text-purple-600 bg-purple-50' },
         ].map((stat) => (
           <div key={stat.label} className="bg-white rounded-xl sm:rounded-2xl p-3.5 sm:p-5 shadow-sm border border-gray-100">
             <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl flex items-center justify-center mb-2.5 sm:mb-3 ${stat.color}`}>

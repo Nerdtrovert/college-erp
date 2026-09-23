@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { saveAs } from 'file-saver';
 import * as docx from 'docx';
 import { AlertTriangle, Download, FileText, RefreshCw } from 'lucide-react';
@@ -9,9 +9,9 @@ import API from '../../services/api';
 interface SubjectMarkDetail {
   subjectCode: string;
   subjectName: string;
-  ia1: number | null;
-  ia2: number | null;
-  ia3: number | null;
+  cie1: number | null;
+  cie2: number | null;
+  cie3: number | null;
   assignment: number | null;
   lab: number | null;
   total: number;
@@ -42,9 +42,9 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
   const [hasSearched, setHasSearched] = useState(false);
   
   // Cascading Options State
-  const [reportCategory, setReportCategory] = useState<'marks' | 'backlogs' | ''>('');
-  const [reportDetail, setReportDetail] = useState<'verge' | 'current_backlogs' | 'all' | 'cie_total' | 'specific_cie' | ''>('');
-  const [specificCie, setSpecificCie] = useState<'ia1' | 'ia2' | 'ia3' | ''>('');
+  const [reportCategory, setReportCategory] = useState<'marks' | 'backlogs' | 'attendance' | ''>('');
+  const [reportDetail, setReportDetail] = useState<'verge' | 'current_backlogs' | 'all' | 'cie_total' | 'specific_cie' | 'low_attendance' | 'missing_assignments' | ''>('');
+  const [specificCie, setSpecificCie] = useState<'cie1' | 'cie2' | 'cie3' | ''>('');
   
   const [filters, setFilters] = useState({
     semesterId: '',
@@ -53,6 +53,7 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
     hasBacklogs: 'all'
   });
   const [semesters, setSemesters] = useState<{ id: string; name: string }[]>([]);
+  const [attendanceThreshold, setAttendanceThreshold] = useState('75');
 
   // Fetch report
   const fetchReport = async () => {
@@ -72,11 +73,17 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
          queryParams.append('hasBacklogs', filters.hasBacklogs);
       }
 
-      const response = await API.get(`/reports/verge-of-backlog?${queryParams.toString()}`);
-      setData(response.data);
-    } catch (err) {
+      if (reportCategory === 'attendance') {
+        queryParams.append('type', reportDetail);
+        queryParams.append('threshold', attendanceThreshold);
+      }
+      const response = await API.get(reportCategory === 'attendance'
+        ? `/reports/attendance-assignments?${queryParams.toString()}`
+        : `/reports/verge-of-backlog?${queryParams.toString()}`);
+      setData(response.data || []);
+    } catch (err: any) {
       console.error('Error fetching report:', err);
-      setError('Failed to load report data');
+      setError(err.response?.data?.error || 'Failed to load report data');
     } finally {
       setLoading(false);
     }
@@ -96,13 +103,16 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
   };
 
   // Helper to format Department to Acronym
-  const formatDept = (dept: string) => dept.match(/\((.*?)\)/)?.[1] || dept;
+  const formatDept = (dept?: string) => dept?.match(/\((.*?)\)/)?.[1] || dept || '-';
 
-  const subjectCodes = Array.from(new Set(data.flatMap(s => s.subjects.map(sub => sub.subjectCode)))).sort();
+  const subjectCodes = Array.from(new Set(data.flatMap(s => (s.subjects || []).map(sub => sub.subjectCode)))).sort();
 
   // Export to PDF
   const exportToPDF = () => {
-    if (data.length === 0) return;
+    if (data.length === 0) {
+      setError('Generate a report with results before exporting.');
+      return;
+    }
     const doc = new jsPDF('landscape');
     doc.setFontSize(16);
     doc.text(`Student Report (${reportDetail.toUpperCase()})`, 14, 22);
@@ -112,7 +122,13 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
     let head: any[] = [];
     let tableData: any[] = [];
 
-    if (reportDetail === 'verge') {
+    if (reportDetail === 'low_attendance') {
+      head = [['USN', 'Name', 'Dept', 'Sec', 'Subject', 'Present', 'Total', 'Attendance %']];
+      tableData = (data as any[]).map((row) => [row.studentId, row.studentName, formatDept(row.department), row.classGroup || '-', `${row.subjectCode} — ${row.subjectName}`, row.present, row.total, `${row.percentage}%`]);
+    } else if (reportDetail === 'missing_assignments') {
+      head = [['USN', 'Name', 'Dept', 'Sec', 'Subject', 'Missing']];
+      tableData = (data as any[]).map((row) => [row.studentId, row.studentName, formatDept(row.department), row.classGroup || '-', `${row.subjectCode} — ${row.subjectName}`, [row.missingAssignment1 && 'Assignment 1', row.missingAssignment2 && 'Assignment 2'].filter(Boolean).join(', ') || 'Assignment']);
+    } else if (reportDetail === 'verge') {
       head = [['ID', 'Name', 'Dept', 'Sec', '# Backlogs', 'At Risk Subjects', 'Total Score', 'Status']];
       tableData = data.map(s => [
         s.id, s.name, formatDept(s.department), s.classGroup || '-',
@@ -127,9 +143,9 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
     } else if (reportDetail === 'all') {
       head = [['ID', 'Name', 'Dept', 'Sec', ...subjectCodes.map(c => `${c} (Total)`)]];
       tableData = data.map(s => {
-        const row: any[] = [s.id, s.name, formatDept(s.department), s.classGroup || '-'];
+        const row: any[] = [s.id || (s as any).studentId, s.name || (s as any).studentName, formatDept(s.department), s.classGroup || '-'];
         subjectCodes.forEach(code => {
-          const sub = s.subjects.find(x => x.subjectCode === code);
+          const sub = (s.subjects || []).find(x => x.subjectCode === code);
           row.push(sub?.total ?? '-');
         });
         return row;
@@ -137,10 +153,10 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
     } else if (reportDetail === 'cie_total') {
       head = [['ID', 'Name', 'Dept', 'Sec', ...subjectCodes.map(c => `${c} (CIE)`)]];
       tableData = data.map(s => {
-        const row: any[] = [s.id, s.name, formatDept(s.department), s.classGroup || '-'];
+        const row: any[] = [s.id || (s as any).studentId, s.name || (s as any).studentName, formatDept(s.department), s.classGroup || '-'];
         subjectCodes.forEach(code => {
-          const sub = s.subjects.find(x => x.subjectCode === code);
-          const cieScore = (sub?.ia1 || 0) + (sub?.ia2 || 0) + (sub?.ia3 || 0);
+          const sub = (s.subjects || []).find(x => x.subjectCode === code);
+          const cieScore = (sub?.cie1 || 0) + (sub?.cie2 || 0) + (sub?.cie3 || 0);
           row.push(sub ? cieScore : '-');
         });
         return row;
@@ -148,16 +164,16 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
     } else if (reportDetail === 'specific_cie') {
       head = [['ID', 'Name', 'Dept', 'Sec', ...subjectCodes.map(c => `${c} (${specificCie.toUpperCase()})`)]];
       tableData = data.map(s => {
-        const row: any[] = [s.id, s.name, formatDept(s.department), s.classGroup || '-'];
+        const row: any[] = [s.id || (s as any).studentId, s.name || (s as any).studentName, formatDept(s.department), s.classGroup || '-'];
         subjectCodes.forEach(code => {
-          const sub = s.subjects.find(x => x.subjectCode === code);
-          row.push(sub?.[specificCie as 'ia1' | 'ia2' | 'ia3'] ?? '-');
+          const sub = (s.subjects || []).find(x => x.subjectCode === code);
+          row.push(sub?.[specificCie as 'cie1' | 'cie2' | 'cie3'] ?? '-');
         });
         return row;
       });
     }
 
-    (doc as any).autoTable({
+    autoTable(doc, {
       startY: 40,
       head,
       body: tableData,
@@ -172,39 +188,52 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
 
   const exportToWord = async () => {
     // Basic word export just containing table data as strings for now
-    if (data.length === 0) return;
+    if (data.length === 0) {
+      setError('Generate a report with results before exporting.');
+      return;
+    }
     
-    const tableRows = data.map(student => {
+    const createCell = (text: any) => new docx.TableCell({ children: [new docx.Paragraph({ text: String(text ?? '-') })] });
+
+    const tableRows = data.map((student: any) => {
       let cells = [
-        new docx.TableCell({ children: [new docx.Paragraph(student.id)] }),
-        new docx.TableCell({ children: [new docx.Paragraph(student.name)] }),
-        new docx.TableCell({ children: [new docx.Paragraph(formatDept(student.department))] }),
-        new docx.TableCell({ children: [new docx.Paragraph(student.classGroup || '-')] })
+        createCell(student.id || (student as any).studentId),
+        createCell(student.name || (student as any).studentName),
+        createCell(formatDept(student.department)),
+        createCell(student.classGroup || '-')
       ];
 
-      if (reportDetail === 'verge') {
-        cells.push(new docx.TableCell({ children: [new docx.Paragraph(String(student.numberOfBacklogs))] }));
-        cells.push(new docx.TableCell({ children: [new docx.Paragraph(student.atRiskSubjects.join(', ') || '-')] }));
-        cells.push(new docx.TableCell({ children: [new docx.Paragraph(String(student.totalScore))] }));
-        cells.push(new docx.TableCell({ children: [new docx.Paragraph(student.vergeStatus)] }));
+      if (reportDetail === 'low_attendance') {
+        cells.push(createCell(`${student.subjectCode} — ${student.subjectName}`));
+        cells.push(createCell(student.present));
+        cells.push(createCell(student.total));
+        cells.push(createCell(`${student.percentage}%`));
+      } else if (reportDetail === 'missing_assignments') {
+        cells.push(createCell(`${student.subjectCode} — ${student.subjectName}`));
+        cells.push(createCell([student.missingAssignment1 && 'Assignment 1', student.missingAssignment2 && 'Assignment 2'].filter(Boolean).join(', ') || 'Assignment'));
+      } else if (reportDetail === 'verge') {
+        cells.push(createCell(student.numberOfBacklogs));
+        cells.push(createCell(student.atRiskSubjects.join(', ') || '-'));
+        cells.push(createCell(student.totalScore));
+        cells.push(createCell(student.vergeStatus));
       } else if (reportDetail === 'current_backlogs') {
-        cells.push(new docx.TableCell({ children: [new docx.Paragraph(String(student.numberOfBacklogs))] }));
-        cells.push(new docx.TableCell({ children: [new docx.Paragraph(student.backlogSubjects?.join(', ') || '-')] }));
+        cells.push(createCell(student.numberOfBacklogs));
+        cells.push(createCell(student.backlogSubjects?.join(', ') || '-'));
       } else if (reportDetail === 'all') {
         subjectCodes.forEach(code => {
-          const sub = student.subjects.find(x => x.subjectCode === code);
-          cells.push(new docx.TableCell({ children: [new docx.Paragraph(String(sub?.total ?? '-'))] }));
+          const sub = (student.subjects || []).find((x: any) => x.subjectCode === code);
+          cells.push(createCell(sub?.total ?? '-'));
         });
       } else if (reportDetail === 'cie_total') {
         subjectCodes.forEach(code => {
-          const sub = student.subjects.find(x => x.subjectCode === code);
-          const cieScore = sub ? (sub.ia1 || 0) + (sub.ia2 || 0) + (sub.ia3 || 0) : '-';
-          cells.push(new docx.TableCell({ children: [new docx.Paragraph(String(cieScore))] }));
+          const sub = (student.subjects || []).find((x: any) => x.subjectCode === code);
+          const cieScore = sub ? (sub.cie1 || 0) + (sub.cie2 || 0) + (sub.cie3 || 0) : '-';
+          cells.push(createCell(cieScore));
         });
       } else if (reportDetail === 'specific_cie') {
         subjectCodes.forEach(code => {
-          const sub = student.subjects.find(x => x.subjectCode === code);
-          cells.push(new docx.TableCell({ children: [new docx.Paragraph(String(sub?.[specificCie as 'ia1' | 'ia2' | 'ia3'] ?? '-'))] }));
+          const sub = (student.subjects || []).find((x: any) => x.subjectCode === code);
+          cells.push(createCell(sub?.[specificCie as 'cie1' | 'cie2' | 'cie3'] ?? '-'));
         });
       }
 
@@ -235,12 +264,17 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
       try {
         const response = await API.get('/semesters');
         setSemesters(response.data || []);
-      } catch (err) {}
+      } catch (err) {
+        console.error('Failed to load semesters:', err);
+        setError('Unable to load semesters. Report filters may be incomplete.');
+      }
     };
     fetchSemesters();
   }, []);
 
-  const totalBacklogs = data.reduce((sum, student) => sum + student.numberOfBacklogs, 0);
+  const totalBacklogs = reportCategory === 'backlogs'
+    ? data.reduce((sum, student) => sum + (student.numberOfBacklogs || 0), 0)
+    : 0;
 
   return (
     <div className="flex-1 overflow-auto bg-gray-50/50">
@@ -251,15 +285,6 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Custom Reports Dashboard</h1>
             <p className="mt-1 text-sm text-gray-500">Filter, review, and download detailed academic reports.</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <button onClick={exportToPDF} className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-blue-600 shadow-sm ring-1 ring-inset ring-blue-100 hover:bg-blue-50 transition-colors">
-              <Download size={16} /> Export PDF
-            </button>
-            <button onClick={exportToWord} className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-green-600 shadow-sm ring-1 ring-inset ring-green-100 hover:bg-green-50 transition-colors">
-              <FileText size={16} /> Export Word
-            </button>
-            
           </div>
         </div>
 
@@ -272,8 +297,10 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
             </div>
           </div>
           <div className="bg-orange-50 rounded-2xl p-6 border border-orange-100 shadow-sm">
-            <p className="text-xs font-semibold text-orange-600 tracking-wide uppercase">Total Backlogs in Selection</p>
-            <p className="mt-2 text-3xl font-bold text-orange-700">{totalBacklogs}</p>
+            <p className="text-xs font-semibold text-orange-600 tracking-wide uppercase">
+              {reportDetail === 'low_attendance' ? 'Low Attendance Entries' : reportDetail === 'missing_assignments' ? 'Missing Assignment Entries' : 'Total Backlogs in Selection'}
+            </p>
+            <p className="mt-2 text-3xl font-bold text-orange-700">{reportCategory === 'attendance' ? data.length : totalBacklogs}</p>
           </div>
         </div>
 
@@ -293,7 +320,7 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
               <select
                 value={reportCategory}
                 onChange={(e) => {
-                  const val = e.target.value as 'marks' | 'backlogs' | '';
+                  const val = e.target.value as 'marks' | 'backlogs' | 'attendance' | '';
                   setReportCategory(val);
                   setReportDetail(''); // Reset detail on category change
                 }}
@@ -302,6 +329,7 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
                 <option value="" disabled>Select Category...</option>
                 <option value="backlogs">At Risk & Backlogs</option>
                 <option value="marks">Performance & Marks</option>
+                <option value="attendance">Attendance & Assignments</option>
               </select>
             </div>
 
@@ -324,7 +352,13 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
                   <>
                     <option value="all">Overall Performance (All Marks)</option>
                     <option value="cie_total">Total CIE Scores</option>
-                    <option value="specific_cie">Specific CIE (IA-1/2/3)</option>
+                    <option value="specific_cie">Specific CIE (CIE-1/2/3)</option>
+                  </>
+                )}
+                {reportCategory === 'attendance' && (
+                  <>
+                    <option value="low_attendance">Low Attendance List</option>
+                    <option value="missing_assignments">Missing Assignments List</option>
                   </>
                 )}
               </select>
@@ -339,9 +373,9 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
                   className="w-full px-4 py-2.5 rounded-xl border border-blue-200 text-sm font-medium text-blue-900 bg-white shadow-sm focus:outline-none focus:border-blue-500"
                 >
                   <option value="" disabled>Select...</option>
-                  <option value="ia1">IA-1 Only</option>
-                  <option value="ia2">IA-2 Only</option>
-                  <option value="ia3">IA-3 Only</option>
+                  <option value="cie1">CIE-1 Only</option>
+                  <option value="cie2">CIE-2 Only</option>
+                  <option value="cie3">CIE-3 Only</option>
                 </select>
               </div>
             )}
@@ -359,6 +393,15 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
                   <option value="yes">Yes (Has Backlogs)</option>
                   <option value="no">No (Clear Record)</option>
                 </select>
+              </div>
+            )}
+            {reportDetail === 'low_attendance' && (
+              <div>
+                <label className="block text-xs font-semibold text-blue-600 uppercase tracking-wide mb-2">Attendance below</label>
+                <div className="flex items-center gap-2">
+                  <input type="number" min="0" max="100" value={attendanceThreshold} onChange={(e) => setAttendanceThreshold(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-blue-200 text-sm bg-white" />
+                  <span className="text-sm text-gray-500">%</span>
+                </div>
               </div>
             )}
           </div>
@@ -386,10 +429,12 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
                 className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500"
               >
                 <option value="">All Departments</option>
-                <option value="Computer Science and Engineering (CSE)">Computer Science and Engineering (CSE)</option>
+                <option value="Computer Science & Engineering">CSE</option>
+                <option value="Computer Science and Engineering (CSE)">Computer Science and Engineering (CSE) (legacy)</option>
                 <option value="Information Science and Engineering (ISE)">Information Science and Engineering (ISE)</option>
                 <option value="Artificial Intelligence and Data Science (AI&DS)">Artificial Intelligence and Data Science (AI&DS)</option>
-                <option value="Electronics and Communication Engineering (ECE)">Electronics and Communication Engineering (ECE)</option>
+                <option value="Electronics & Communication">EC</option>
+                <option value="Electronics and Communication Engineering (ECE)">Electronics and Communication Engineering (ECE) (legacy)</option>
                 <option value="Mathematics">Mathematics</option>
                 <option value="Physics">Physics</option>
                 <option value="Chemistry">Chemistry</option>
@@ -407,14 +452,20 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
               />
             </div>
             
-            <div>
+            <div className="flex items-center gap-2">
               <button
                 onClick={fetchReport}
                 disabled={!reportCategory || !reportDetail || (reportDetail === 'specific_cie' && !specificCie) || loading}
-                className="w-full inline-flex justify-center items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 inline-flex justify-center items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> 
                 {loading ? 'Loading...' : 'Generate Report'}
+              </button>
+              <button onClick={exportToPDF} disabled={data.length === 0} title={data.length === 0 ? 'Generate a report first' : 'Export the current filtered report'} className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-blue-600 shadow-sm ring-1 ring-inset ring-blue-100 hover:bg-blue-50 transition-colors disabled:cursor-not-allowed disabled:opacity-50">
+                <Download size={16} /> PDF
+              </button>
+              <button onClick={exportToWord} disabled={data.length === 0} title={data.length === 0 ? 'Generate a report first' : 'Export the current filtered report'} className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-green-600 shadow-sm ring-1 ring-inset ring-green-100 hover:bg-green-50 transition-colors disabled:cursor-not-allowed disabled:opacity-50">
+                <FileText size={16} /> Word
               </button>
             </div>
           </div>
@@ -454,6 +505,20 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
                   <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Dept</th>
                   <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Sec</th>
                   
+                  {reportDetail === 'low_attendance' && (
+                    <>
+                      <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Subject</th>
+                      <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Present</th>
+                      <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Total</th>
+                      <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Attendance</th>
+                    </>
+                  )}
+                  {reportDetail === 'missing_assignments' && (
+                    <>
+                      <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Subject</th>
+                      <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Missing</th>
+                    </>
+                  )}
                   {reportDetail === 'verge' && (
                     <>
                       <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider"># Backlogs</th>
@@ -485,11 +550,25 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
               <tbody className="divide-y divide-gray-50 bg-white">
                 {data.map((student) => (
                   <tr key={student.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-6 py-4 text-sm font-medium text-gray-900">{student.id}</td>
-                    <td className="px-6 py-4 text-sm text-gray-700 whitespace-nowrap">{student.name}</td>
+                    <td className="px-6 py-4 text-sm font-medium text-gray-900">{student.id || (student as any).studentId}</td>
+                    <td className="px-6 py-4 text-sm text-gray-700 whitespace-nowrap">{student.name || (student as any).studentName}</td>
                     <td className="px-6 py-4 text-sm text-gray-500 font-medium whitespace-nowrap">{formatDept(student.department)}</td>
                     <td className="px-6 py-4 text-sm text-gray-700">{student.classGroup || '-'}</td>
                     
+                    {reportDetail === 'low_attendance' && (
+                      <>
+                        <td className="px-6 py-4 text-sm text-gray-700">{(student as any).subjectCode} — {(student as any).subjectName}</td>
+                        <td className="px-6 py-4 text-sm text-gray-700">{(student as any).present}</td>
+                        <td className="px-6 py-4 text-sm text-gray-700">{(student as any).total}</td>
+                        <td className="px-6 py-4 text-sm font-semibold text-red-700">{(student as any).percentage}%</td>
+                      </>
+                    )}
+                    {reportDetail === 'missing_assignments' && (
+                      <>
+                        <td className="px-6 py-4 text-sm text-gray-700">{(student as any).subjectCode} — {(student as any).subjectName}</td>
+                        <td className="px-6 py-4 text-sm font-semibold text-amber-700">{[(student as any).missingAssignment1 && 'Assignment 1', (student as any).missingAssignment2 && 'Assignment 2'].filter(Boolean).join(', ') || 'Assignment'}</td>
+                      </>
+                    )}
                     {reportDetail === 'verge' && (
                       <>
                         <td className="px-6 py-4 text-sm text-gray-700">
@@ -526,19 +605,19 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
                     )}
 
                     {reportDetail === 'all' && subjectCodes.map(code => {
-                      const sub = student.subjects.find(x => x.subjectCode === code);
+                      const sub = student.subjects.find((x: any) => x.subjectCode === code);
                       return <td key={code} className="px-6 py-4 text-sm text-gray-700">{sub?.total ?? '-'}</td>;
                     })}
 
                     {reportDetail === 'cie_total' && subjectCodes.map(code => {
-                      const sub = student.subjects.find(x => x.subjectCode === code);
-                      const cieScore = sub ? (sub.ia1 || 0) + (sub.ia2 || 0) + (sub.ia3 || 0) : '-';
+                      const sub = student.subjects.find((x: any) => x.subjectCode === code);
+                      const cieScore = sub ? (sub.cie1 || 0) + (sub.cie2 || 0) + (sub.cie3 || 0) : '-';
                       return <td key={code} className="px-6 py-4 text-sm text-gray-700">{cieScore}</td>;
                     })}
 
                     {reportDetail === 'specific_cie' && subjectCodes.map(code => {
-                      const sub = student.subjects.find(x => x.subjectCode === code);
-                      return <td key={code} className="px-6 py-4 text-sm text-gray-700">{sub?.[specificCie as 'ia1' | 'ia2' | 'ia3'] ?? '-'}</td>;
+                      const sub = student.subjects.find((x: any) => x.subjectCode === code);
+                      return <td key={code} className="px-6 py-4 text-sm text-gray-700">{sub?.[specificCie as 'cie1' | 'cie2' | 'cie3'] ?? '-'}</td>;
                     })}
                   </tr>
                 ))}
