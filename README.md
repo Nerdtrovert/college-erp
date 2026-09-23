@@ -51,7 +51,7 @@ Setting up a new development environment is straightforward:
 2. **Configure Environment Variables**: 
    - Copy `backend/.env.example` to `backend/.env`. The default local configuration connects to the Docker database at `localhost:5432`.
    - **Note for Windows users (or if port 5432 is in use)**: If you already run a local PostgreSQL instance on your machine, copy the root `.env.example` to `.env` in the repository root and change `DB_PORT=5433`. The startup script will automatically configure Docker and update your `backend/.env` connection URL on run.
-3. **Database Setup**: With Docker Desktop running, run `npm run db:setup` from the repository root. This starts PostgreSQL, generates the Prisma client, creates the database schema, and seeds mock data.
+3. **Database Setup**: With Docker Desktop running, run `npm run db:setup` from the repository root. This starts PostgreSQL, generates the Prisma client, creates the database schema. You can then optionally run `npm run db:seed` to insert mock data.
 4. **State Persistence**: The database container maps a volume on your machine. This means records are preserved when you stop the services.
 
 ## Main Project Models
@@ -139,12 +139,14 @@ All backend endpoints and frontend interfaces compile and validate cleanly with 
 
 To ensure smooth development and deployment, this project uses several custom database scripts. Run these from the **root directory**.
 
-### 1. New Developer Onboarding (The "Nuclear" Option)
+### 1. New Developer Onboarding
 ```bash
 npm run db:setup
+# Or, if you want mock data:
+npm run db:setup:dev
 ```
-**What it does:** Starts the PostgreSQL container, generates the Prisma client, pushes the schema, and executes the `seed.ts` script.
-**When to use it:** Only when you are setting up the project for the very first time, or if you want to completely wipe all your local database data and reset it back to the default mock data.
+**What it does:** Starts the PostgreSQL container, generates the Prisma client, and pushes the schema. The `:dev` variant also executes the `seed.ts` script.
+**When to use it:** When setting up the project for the very first time, or if you want to completely initialize a fresh local database environment.
 
 ### 2. Everyday Development (Safe Sync)
 ```bash
