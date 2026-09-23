@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, CalendarRange, Users, ClipboardList, Menu, X, Shield, BookOpen, GraduationCap, BarChart3
+  LayoutDashboard, CalendarRange, CalendarDays, Users, ClipboardList, Menu, X, Shield, BookOpen, GraduationCap, BarChart3
 } from 'lucide-react';
 import type { User } from '../../types';
 import { Sidebar } from '../Sidebar';
@@ -12,10 +12,12 @@ import { TimetableManagement } from './TimetableManagement';
 import { SubjectManagement } from './SubjectManagement';
 import { StudentManagement } from './StudentManagement';
 import ReportsDashboard from './ReportsDashboard';
+import { AcademicCalendar } from '../AcademicCalendar';
 
 const NAV_ITEMS = [
   { id: 'home', label: 'Overview', icon: <LayoutDashboard size={16} /> },
   { id: 'semesters', label: 'Semesters', icon: <CalendarRange size={16} /> },
+  { id: 'academic-calendar', label: 'Academic Calendar', icon: <CalendarDays size={16} /> },
   { id: 'subjects', label: 'Subjects', icon: <BookOpen size={16} /> },
   { id: 'students', label: 'Students', icon: <GraduationCap size={16} /> },
   { id: 'faculty', label: 'Faculty & Access', icon: <Users size={16} /> },
@@ -51,6 +53,7 @@ export const SupervisorDashboard: React.FC<Props> = ({ user, onLogout }) => {
     switch (active) {
       case 'home': return <SupervisorHome user={user} onNavigate={navigateTo} />;
       case 'semesters': return <SemesterManagement />;
+      case 'academic-calendar': return <AcademicCalendar editable />;
       case 'subjects': return <SubjectManagement />;
       case 'students': return <StudentManagement />;
       case 'faculty': return <FacultyManagement />;

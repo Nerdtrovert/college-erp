@@ -57,6 +57,20 @@ body {
   overflow-x: hidden;
 }
 
+.login-shell {
+  background: linear-gradient(135deg, #0f1e3c 0%, #1d4ed8 60%, #0ea5e9 100%);
+}
+
+@media (max-width: 1023px) {
+  .login-shell {
+    background: linear-gradient(135deg, #0f1e3c 0%, #1d4ed8 60%, #0ea5e9 100%);
+  }
+
+  .login-card {
+    min-height: 0;
+  }
+}
+
 .dashboard-scroll {
   overflow-y: auto;
   overscroll-behavior-y: contain;
