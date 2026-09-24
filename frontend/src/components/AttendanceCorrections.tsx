@@ -28,11 +28,16 @@ export const AttendanceCorrections: React.FC = () => {
   const [message, setMessage] = useState('');
 
   const fetchSessions = async () => {
+    if (!date) {
+      setSessions([]);
+      setSelectedId('');
+      return;
+    }
+
     setLoading(true);
     setMessage('');
     try {
-      const query = date ? `?date=${encodeURIComponent(date)}` : '';
-      const response = await API.get(`/attendance/correction-sessions${query}`);
+      const response = await API.get(`/attendance/correction-sessions?date=${encodeURIComponent(date)}`);
       setSessions(response.data || []);
       setSelectedId((current) => response.data.some((session: AttendanceSession) => session.id === current)
         ? current
@@ -81,8 +86,12 @@ export const AttendanceCorrections: React.FC = () => {
             <RefreshCw size={16} /> Refresh
           </button>
         </div>
-        {loading ? <p className="text-sm text-gray-500 py-4">Loading sessions...</p> : sessions.length === 0 ? (
-          <p className="text-sm text-gray-500 py-4">No saved attendance sessions found.</p>
+        {loading ? (
+          <p className="text-sm text-gray-500 py-4">Loading sessions...</p>
+        ) : !date ? (
+          <p className="text-sm text-gray-500 py-4">Please select a date to view and correct attendance sessions.</p>
+        ) : sessions.length === 0 ? (
+          <p className="text-sm text-gray-500 py-4">No saved attendance sessions found for this date.</p>
         ) : (
           <select value={selectedId} onChange={(event) => setSelectedId(event.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm">
             {sessions.map((session) => <option key={session.id} value={session.id}>{session.date} · {session.subject.code} — {session.subject.name} · {session.classGroup} · {session.startTime}-{session.endTime}</option>)}

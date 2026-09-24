@@ -5,20 +5,17 @@ export const loginSchema = z.object({
   body: z.object({
     id: commonIdFields.userId,
     password: z.string().min(6, 'Password must be at least 6 characters'),
-    role: roleSchemas.all, // student, teacher, dean, principal, hod
   }).superRefine((value, ctx) => {
-    const isStudent = value.role === 'student';
+    const isStudent = !value.id.includes('@');
     const validIdentifier = isStudent
-      ? /^1HC\d{2}[A-Z]{2}\d{3}$/.test(value.id)
-      : /^[^\s@]+@hnnce\.in$/i.test(value.id);
+      ? /^1HC\d{2}[A-Z]{2}\d{3}$/.test(value.id)  // Case sensitive for USN
+      : /^[a-zA-Z0-9._%+-]+@hnnce\.in$/i.test(value.id);  // More specific email pattern
 
     if (!validIdentifier) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['id'],
-        message: isStudent
-          ? 'Student login must use a USN such as 1HC24CS001'
-          : 'Faculty and supervisor login must use an @hnnce.in email address',
+        message: 'Invalid USN or @hnnce.in email format',
       });
     }
   }),
@@ -37,8 +34,8 @@ export const registerSchema = z.object({
   }).superRefine((value, ctx) => {
     const isStudent = value.role === 'student';
     const validIdentifier = isStudent
-      ? /^1HC\d{2}[A-Z]{2}\d{3}$/.test(value.id)
-      : /^[^\s@]+@hnnce\.in$/i.test(value.id);
+      ? /^1HC\d{2}[A-Z]{2}\d{3}$/.test(value.id)  // Case sensitive for USN
+      : /^[a-zA-Z0-9._%+-]+@hnnce\.in$/i.test(value.id);  // More specific email pattern
 
     if (!validIdentifier) {
       ctx.addIssue({

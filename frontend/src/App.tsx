@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import type { User } from './types';
-import { FacultyLoginPage, StudentLoginPage, SupervisorLoginPage } from './components/LoginPages';
+import { FacultyLoginPage, StudentLoginPage } from './components/LoginPages';
 import { StudentDashboard } from './components/student/StudentDashboard';
 import { TeacherDashboard } from './components/teacher/TeacherDashboard';
 import { SupervisorDashboard } from './components/supervisor/SupervisorDashboard';
@@ -48,21 +48,21 @@ export const App: React.FC = () => {
 
   const StudentOnlyRoute = ({ children }: { children: React.ReactNode }) => {
     if (!user || user.role !== 'student') {
-      return <Navigate to="/login/student" replace />;
+      return <Navigate to="/login" replace />;
     }
     return children;
   };
 
   const TeacherOnlyRoute = ({ children }: { children: React.ReactNode }) => {
     if (!user || user.role !== 'teacher') {
-      return <Navigate to="/login/faculty" replace />;
+      return <Navigate to="/facultylogin" replace />;
     }
     return children;
   };
 
   const SupervisorOnlyRoute = ({ children }: { children: React.ReactNode }) => {
     if (!user || !(user.role === 'dean' || user.role === 'principal' || user.role === 'hod')) {
-      return <Navigate to="/login/supervisor" replace />;
+      return <Navigate to="/facultylogin" replace />;
     }
     return children;
   };
@@ -72,15 +72,14 @@ export const App: React.FC = () => {
       <BrowserRouter>
         <Routes>
           {/* Public routes */}
-          <Route path="/login/student" element={<StudentLoginPage onLogin={login} />} />
-          <Route path="/login/faculty" element={<FacultyLoginPage onLogin={login} />} />
-          <Route path="/login/supervisor" element={<SupervisorLoginPage onLogin={login} />} />
-          <Route path="/login/teacher" element={<Navigate to="/login/faculty" replace />} />
-          <Route path="/login/dean" element={<Navigate to="/login/supervisor" replace />} />
-          <Route path="/login/principal" element={<Navigate to="/login/supervisor" replace />} />
+          <Route path="/login" element={<StudentLoginPage onLogin={login} />} />
+          <Route path="/facultylogin" element={<FacultyLoginPage onLogin={login} />} />
+                    <Route path="/login/teacher" element={<Navigate to="/facultylogin" replace />} />
+          <Route path="/login/dean" element={<Navigate to="/facultylogin" replace />} />
+          <Route path="/login/principal" element={<Navigate to="/facultylogin" replace />} />
 
           {/* Redirect root to student login */}
-          <Route path="/" element={<Navigate to="/login/student" replace />} />
+          <Route path="/" element={<Navigate to="/login" replace />} />
 
           {/* Student protected routes */}
           <Route element={<StudentOnlyRoute><Outlet /></StudentOnlyRoute>}>
@@ -98,7 +97,7 @@ export const App: React.FC = () => {
           </Route>
 
           {/* Catch-all redirect to login */}
-          <Route path="*" element={<Navigate to="/login/student" replace />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </BrowserRouter>
     </AuthContext.Provider>

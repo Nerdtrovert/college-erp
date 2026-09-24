@@ -20,12 +20,13 @@ export const requireAuth = (roles: readonly string[] | string) => {
 };
 
 /**
- * Middleware to require teacher role
+ * Middleware to require teacher role (Expanded for teaching supervisors)
  */
 export const requireTeacher = (req: AuthRequest, res: Response, next: NextFunction) => {
   authenticate(req, res, (err) => {
     if (err) return next(err);
-    authorize(['teacher'] as any)(req, res, next);
+    // Allow standard teachers AND teaching supervisors to access endpoints like /marks/teacher
+    authorize(['teacher', 'dean', 'principal', 'hod'] as any)(req, res, next);
   });
 };
 

@@ -1,10 +1,11 @@
+import { parseExcel, parseWord, parsePDF, extractStudentsFromText } from "../utils/fileParser";
+
 import { Request, Response } from 'express';
 import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
 import prisma from '../prisma/client';
 import { config } from '../config';
 import { AuthRequest } from '../types';
-import { parseExcel, parseWord, parsePDF, extractStudentsFromText } from '../utils/fileParser';
 import * as path from 'path';
 import * as fs from 'fs';
 
@@ -27,23 +28,29 @@ const hasExpectedFileSignature = (buffer: Buffer, ext: string): boolean => {
 };
 
 export const login = async (req: Request, res: Response) => {
-  const { password, role } = req.body;
-  const id = role === 'student'
-    ? String(req.body.id).toUpperCase()
-    : String(req.body.id).trim();
+  const { password } = req.body;
+  const rawId = String(req.body.id).trim();
+
+  // 1. Auto-detect expected role category from ID format
+  const isEmailFormat = rawId.includes('@') && rawId.endsWith('@hnnce.in');
+  const isStudentFormat = !isEmailFormat;
+
+  // 2. Normalize IDs: student IDs uppercase, faculty IDs preserve case
+  const id = isStudentFormat ? rawId.toUpperCase() : rawId;
 
   try {
-    // Find the user by ID (roll number or faculty ID)
+    // Find the user by ID
     const user = await prisma.user.findUnique({
       where: { id },
     });
 
-    // Check if user exists and roles match
-    // Use same error message regardless of whether user exists or password is wrong
-    const roleMatches = role === 'supervisor'
-      ? user?.role === 'dean' || user?.role === 'principal' || user?.role === 'hod'
-      : user?.role === role;
-    if (!user || !roleMatches) {
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // 3. Verify actual role matches expected format
+    const isActualStudent = user.role === 'student';
+    if (isStudentFormat !== isActualStudent) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
@@ -389,9 +396,6 @@ export const uploadStudents = async (req: AuthRequest, res: Response) => {
     parsedStudents = parsedStudents.filter(student =>
       student.id && student.name && student.id.trim() !== '' && student.name.trim() !== ''
     );
-
-    // Clean up uploaded file
-    await removeUploadedFile(req.file.path);
 
     if (parsedStudents.length === 0) {
       return res.status(400).json({

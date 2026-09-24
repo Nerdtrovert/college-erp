@@ -13,9 +13,9 @@ const router = Router();
 
 const supervisorRolesActual = [Role.dean, Role.principal, Role.hod] as const;
 
-router.get('/', authenticate, authorize(supervisorRolesActual), getSemesters);
+router.get('/', authenticate, authorize([...supervisorRolesActual, Role.teacher]), getSemesters);
 router.post('/', authenticate, authorize(supervisorRolesActual), createSemester);
-router.get('/:id', authenticate, authorize(supervisorRolesActual), getSemesterById);
+router.get('/:id', authenticate, authorize([...supervisorRolesActual, Role.teacher]), getSemesterById);
 router.patch('/:id', authenticate, authorize(supervisorRolesActual), updateSemester);
 router.post('/:id/copy', authenticate, authorize(supervisorRolesActual), copySemester);
 
