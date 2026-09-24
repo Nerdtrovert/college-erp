@@ -14,6 +14,10 @@ import { StudentManagement } from './StudentManagement';
 import ReportsDashboard from './ReportsDashboard';
 import { AcademicCalendar } from '../AcademicCalendar';
 import { AttendanceCorrections } from '../AttendanceCorrections';
+import { TeacherAttendance } from '../teacher/TeacherAttendance';
+import { TeacherMarks } from '../teacher/TeacherMarks';
+import { TeacherTimetable } from '../teacher/TeacherTimetable';
+import { CalendarCheck, BarChart2 } from 'lucide-react';
 
 const NAV_ITEMS = [
   { id: 'home', label: 'Overview', icon: <LayoutDashboard size={16} /> },
@@ -25,6 +29,9 @@ const NAV_ITEMS = [
   { id: 'timetable', label: 'Timetables', icon: <ClipboardList size={16} /> },
   { id: 'reports', label: 'Reports', icon: <BarChart3 size={16} /> },
   { id: 'attendance-corrections', label: 'Correct Attendance', icon: <CheckCircle size={16} /> },
+  { id: 'mark-attendance', label: 'Mark Attendance', icon: <CalendarCheck size={16} /> },
+  { id: 'update-marks', label: 'Update Marks', icon: <BarChart2 size={16} /> },
+  { id: 'my-timetable', label: 'My Timetable', icon: <CalendarCheck size={16} /> },
 ];
 
 interface Props {
@@ -62,6 +69,9 @@ export const SupervisorDashboard: React.FC<Props> = ({ user, onLogout }) => {
       case 'timetable': return <TimetableManagement />;
       case 'reports': return <ReportsDashboard user={user} />;
       case 'attendance-corrections': return <AttendanceCorrections />;
+      case 'mark-attendance': return <TeacherAttendance />;
+      case 'update-marks': return <TeacherMarks />;
+      case 'my-timetable': return <TeacherTimetable />;
       default: return null;
     }
   };
