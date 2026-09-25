@@ -87,6 +87,14 @@ textarea {
   max-width: 100%;
 }
 
+button:not(:disabled) {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
 @media (max-width: 640px) {
   .dashboard-scroll {
     scrollbar-width: none;

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import API from '../../services/api';
-import { CalendarRange, Users, ClipboardList, GraduationCap, LayoutDashboard } from 'lucide-react';
+import { CalendarDays, CalendarRange, Users, ClipboardList, LayoutDashboard } from 'lucide-react';
+import { CALENDAR_EVENTS, type CalendarEvent } from '../AcademicCalendar';
+import { getTimeBasedGreeting } from '../../utils/greeting';
 
 interface Props {
   user: any;
@@ -10,6 +12,7 @@ interface Props {
 export const SupervisorHome: React.FC<Props> = ({ user, onNavigate }) => {
   const [stats, setStats] = useState({ students: 0, faculty: 0, semesters: 'Active' });
   const [loading, setLoading] = useState(true);
+  const [upcomingEvents, setUpcomingEvents] = useState<CalendarEvent[]>([]);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -29,6 +32,37 @@ export const SupervisorHome: React.FC<Props> = ({ user, onNavigate }) => {
     fetchStats();
   }, []);
 
+  useEffect(() => {
+    const stored = localStorage.getItem('academic-calendar-events');
+    let events = CALENDAR_EVENTS;
+
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored) as CalendarEvent[];
+        if (Array.isArray(parsed)) events = parsed;
+      } catch {
+        events = CALENDAR_EVENTS;
+      }
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const upcoming = events
+      .filter((event) => {
+        const eventDate = new Date(`${event.date}T00:00:00`);
+        return !Number.isNaN(eventDate.getTime()) && eventDate >= today;
+      })
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .slice(0, 3);
+
+    setUpcomingEvents(upcoming);
+  }, []);
+
+  const formatEventDate = (date: string) =>
+    new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(
+      new Date(`${date}T00:00:00`),
+    );
+
   const actions = [
     { id: 'semesters', title: 'Semester Management', description: 'Create, copy, and manage academic semesters across the institution.', icon: <CalendarRange size={20} />, color: 'text-blue-600 bg-blue-50' },
     { id: 'faculty', title: 'Faculty Management', description: 'Add new faculty members and assign supervisory access roles.', icon: <Users size={20} />, color: 'text-purple-600 bg-purple-50' },
@@ -38,7 +72,7 @@ export const SupervisorHome: React.FC<Props> = ({ user, onNavigate }) => {
   return (
     <div className="space-y-5 sm:space-y-7">
       <div>
-        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900">Good morning, {user.name} 👋</h1>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900">{getTimeBasedGreeting()}, {user.name} 👋</h1>
         <p className="text-gray-500 text-sm mt-1">{user.role === 'dean' ? 'Dean Portal' : 'Principal Portal'} &middot; {user.department}</p>
       </div>
 
@@ -84,13 +118,30 @@ export const SupervisorHome: React.FC<Props> = ({ user, onNavigate }) => {
         </div>
       </div>
 
-      <div className="mt-6 pt-4 border-t border-gray-100">
-        <div className="flex items-start sm:items-center gap-3 p-4 bg-blue-50 rounded-xl border border-blue-100">
-          <GraduationCap size={24} className="text-blue-600 flex-shrink-0" />
-          <div className="min-w-0">
-            <p className="font-medium text-blue-900 text-sm">Welcome to the enhanced Supervisor Portal</p>
-            <p className="text-xs text-blue-700 mt-0.5">Use the sidebar to navigate seamlessly between management sections.</p>
-          </div>
+      <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+            <CalendarDays size={18} className="text-blue-600" />
+            Upcoming Events
+          </h2>
+          <button onClick={() => onNavigate('academic-calendar')} className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline">
+            View calendar
+          </button>
+        </div>
+        <div className="space-y-3">
+          {upcomingEvents.length > 0 ? upcomingEvents.map((event) => (
+            <div key={`${event.date}-${event.title}`} className="flex items-start gap-3 rounded-xl border border-gray-100 bg-gray-50/70 p-3">
+              <div className="min-w-[4.75rem] text-xs font-semibold text-blue-700">{formatEventDate(event.date)}</div>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-gray-900">{event.title}</p>
+                <p className="mt-0.5 text-xs capitalize text-gray-500">{event.type} event</p>
+              </div>
+            </div>
+          )) : (
+            <p className="rounded-xl border border-dashed border-gray-200 px-4 py-5 text-center text-sm text-gray-500">
+              No upcoming events scheduled.
+            </p>
+          )}
         </div>
       </div>
     </div>

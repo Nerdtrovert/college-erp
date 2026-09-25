@@ -2,6 +2,26 @@ import { useEffect, useState } from 'react';
 import { Bell, CalendarDays, User } from 'lucide-react';
 import API from '../../services/api';
 
+interface Announcement {
+  id: number;
+  title: string;
+  body: string;
+  category: string;
+  date: string;
+  author: string;
+  pinned?: boolean;
+}
+
+const sortAnnouncements = (items: Announcement[]) =>
+  [...items].sort((a, b) => {
+    if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+
+    const dateDifference = Date.parse(b.date) - Date.parse(a.date);
+    if (!Number.isNaN(dateDifference) && dateDifference !== 0) return dateDifference;
+
+    return b.id - a.id;
+  });
+
 const getCategoryIcon = (category: string) => {
   switch (category) {
     case 'exam': return <Exam />;
@@ -17,7 +37,7 @@ const Calendar = () => <span className="text-green-600">📅</span>;
 const MessageCircle = () => <span className="text-gray-600">💬</span>;
 
 export const StudentAnnouncements: React.FC = () => {
-  const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -25,7 +45,7 @@ export const StudentAnnouncements: React.FC = () => {
     const fetchAnnouncements = async () => {
       try {
         const res = await API.get('/announcements');
-        setAnnouncements(res.data);
+        setAnnouncements(sortAnnouncements(res.data));
       } catch (err: any) {
         console.error(err);
         setError('Failed to fetch announcements.');

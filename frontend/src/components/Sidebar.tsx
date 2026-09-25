@@ -26,7 +26,12 @@ export const Sidebar: React.FC<Props> = ({ user, items, active, onNavigate, onLo
       style={{ background: '#0f1e3c' }}
     >
       {/* Logo */}
-      <div className="flex items-center gap-3 px-5 sm:px-6 py-5 sm:py-6 border-b border-white/10">
+      <button
+        type="button"
+        aria-label="Go to overview"
+        onClick={() => onNavigate('home')}
+        className="flex w-full items-center gap-3 px-5 py-5 text-left transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400 sm:px-6 sm:py-6"
+      >
         <div className="w-9 h-9 rounded-xl bg-blue-500 flex items-center justify-center flex-shrink-0">
           <BookOpen size={18} className="text-white" />
         </div>
@@ -34,10 +39,10 @@ export const Sidebar: React.FC<Props> = ({ user, items, active, onNavigate, onLo
           <div className="text-white font-semibold text-sm leading-tight">EduPortal</div>
           <div className="text-white/40 text-xs">{user.role === 'student' ? 'Student' : user.role === 'teacher' ? 'Faculty' : 'Supervisor Faculty'} Portal</div>
         </div>
-      </div>
+      </button>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-4 sm:py-6 space-y-1">
+      <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:py-6 space-y-1">
         {items.map((item) => (
           <button
             key={item.id}
@@ -63,7 +68,7 @@ export const Sidebar: React.FC<Props> = ({ user, items, active, onNavigate, onLo
       </nav>
 
       {/* User card */}
-      <div className="px-4 py-4 border-t border-white/10">
+      <div className="shrink-0 px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-white/10">
         <div className="flex items-center gap-3 mb-3">
           <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-blue-700 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
             {initials}

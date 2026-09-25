@@ -354,7 +354,7 @@ export const TeacherMarks: React.FC = () => {
         <button
           onClick={handleExport}
           disabled={exporting || !selectedClass}
-          className="flex items-center justify-center gap-2 px-6 py-3 rounded-2xl border border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200 disabled:opacity-60"
+          className="flex items-center justify-center gap-2 px-6 py-3 rounded-2xl border border-blue-300 bg-blue-100 text-blue-800 font-semibold hover:bg-blue-200 disabled:opacity-60"
         >
           <Download size={16} />
           {exporting ? 'Exporting...' : 'Export Marks PDF'}

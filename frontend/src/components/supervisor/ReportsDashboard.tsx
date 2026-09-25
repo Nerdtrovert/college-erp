@@ -452,19 +452,19 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
               />
             </div>
             
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={fetchReport}
                 disabled={!reportCategory || !reportDetail || (reportDetail === 'specific_cie' && !specificCie) || loading}
-                className="flex-1 inline-flex justify-center items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="min-w-[10rem] flex-1 whitespace-nowrap inline-flex h-11 justify-center items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> 
                 {loading ? 'Loading...' : 'Generate Report'}
               </button>
-              <button onClick={exportToPDF} disabled={data.length === 0} title={data.length === 0 ? 'Generate a report first' : 'Export the current filtered report'} className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-blue-600 shadow-sm ring-1 ring-inset ring-blue-100 hover:bg-blue-50 transition-colors disabled:cursor-not-allowed disabled:opacity-50">
+              <button onClick={exportToPDF} disabled={data.length === 0} title={data.length === 0 ? 'Generate a report first' : 'Export the current filtered report'} className="inline-flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-blue-300 bg-blue-100 px-4 py-2.5 text-sm font-semibold text-blue-800 shadow-sm hover:bg-blue-200 transition-colors disabled:cursor-not-allowed disabled:opacity-50">
                 <Download size={16} /> PDF
               </button>
-              <button onClick={exportToWord} disabled={data.length === 0} title={data.length === 0 ? 'Generate a report first' : 'Export the current filtered report'} className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-green-600 shadow-sm ring-1 ring-inset ring-green-100 hover:bg-green-50 transition-colors disabled:cursor-not-allowed disabled:opacity-50">
+              <button onClick={exportToWord} disabled={data.length === 0} title={data.length === 0 ? 'Generate a report first' : 'Export the current filtered report'} className="inline-flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-green-300 bg-green-100 px-4 py-2.5 text-sm font-semibold text-green-800 shadow-sm hover:bg-green-200 transition-colors disabled:cursor-not-allowed disabled:opacity-50">
                 <FileText size={16} /> Word
               </button>
             </div>

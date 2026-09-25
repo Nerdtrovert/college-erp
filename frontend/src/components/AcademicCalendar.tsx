@@ -4,7 +4,6 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleCheck,
-  Clock3,
   Edit3,
   GraduationCap,
   Landmark,
@@ -15,9 +14,9 @@ import {
   X,
 } from 'lucide-react';
 
-type EventType = 'cie' | 'government' | 'general' | 'academic';
+export type EventType = 'cie' | 'government' | 'general' | 'academic';
 
-interface CalendarEvent {
+export interface CalendarEvent {
   date: string;
   title: string;
   type: EventType;
@@ -37,7 +36,7 @@ const MONTHS: MonthDefinition[] = [
   { month: 0, year: 2026, label: 'January 2026' },
 ];
 
-const CALENDAR_EVENTS: CalendarEvent[] = [
+export const CALENDAR_EVENTS: CalendarEvent[] = [
   { date: '2025-09-22', title: 'Commencement of classes for III semester', type: 'academic' },
   { date: '2025-09-24', title: 'Commencement of classes for I semester', type: 'academic' },
   { date: '2025-10-01', title: 'Dussehra', type: 'government' },
@@ -196,12 +195,8 @@ export const AcademicCalendar: React.FC<AcademicCalendarProps> = ({ editable = f
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-2 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-800">
-            <Clock3 size={15} />
-            <span>{editable ? (editableTypes.includes('government') ? 'Supervisor editing enabled' : 'Faculty academic editing enabled') : 'Approved college calendar'}</span>
-          </div>
           {editable && (
-            <button type="button" onClick={() => openAddForm()} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-100 px-3 py-2 text-xs font-semibold text-blue-800 transition-colors hover:border-blue-300 hover:bg-blue-200">
+            <button type="button" onClick={() => openAddForm()} className="inline-flex min-h-10 min-w-32 items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-100 px-5 py-2 text-sm font-semibold text-blue-800 transition-colors hover:border-blue-300 hover:bg-blue-200">
               <Plus size={15} />
               Add event
             </button>

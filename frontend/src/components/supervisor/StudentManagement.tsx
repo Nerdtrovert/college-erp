@@ -424,7 +424,7 @@ export const StudentManagement: React.FC = () => {
           <button
             onClick={handleDownloadReport}
             disabled={loading || uploading}
-            className="flex items-center justify-center gap-2 border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-semibold text-sm px-4 h-[42px] rounded-2xl transition-colors duration-150 whitespace-nowrap"
+            className="flex items-center justify-center gap-2 border border-emerald-300 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 font-semibold text-sm px-4 h-[42px] rounded-2xl transition-colors duration-150 whitespace-nowrap"
           >
             <Download size={16} />
             Export Report

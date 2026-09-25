@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Users, BarChart2, CalendarCheck, AlertTriangle } from 'lucide-react';
 import API from '../../services/api';
+import { getTimeBasedGreeting } from '../../utils/greeting';
 
 interface SubjectItem {
   code: string;
@@ -61,7 +62,7 @@ export const TeacherHome: React.FC<{ user: any }> = ({ user }) => {
   return (
     <div className="space-y-5 sm:space-y-7">
       <div>
-        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900">Good morning, {user.name} 👋</h1>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900">{getTimeBasedGreeting()}, {user.name} 👋</h1>
         <p className="text-gray-500 text-sm mt-1">{user.department} Department</p>
       </div>
 

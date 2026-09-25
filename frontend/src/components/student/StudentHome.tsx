@@ -1,5 +1,6 @@
 import { CalendarDays, BarChart2, Bell, TrendingUp, AlertTriangle, CheckCircle } from 'lucide-react';
 import type { User } from '../../types';
+import { getTimeBasedGreeting } from '../../utils/greeting';
 
 const SUBJECT_ATTENDANCE = [
   { name: 'Data Structures', code: 'CS2301', percent: 87, present: 26, total: 30 },
@@ -34,7 +35,7 @@ export const StudentHome: React.FC<Props> = ({ user, onNavigate }) => {
     <div className="space-y-5 sm:space-y-7">
       {/* Header */}
       <div>
-        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900">Good morning, {user.name.split(' ')[0]} 👋</h1>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900">{getTimeBasedGreeting()}, {user.name.split(' ')[0]} 👋</h1>
         <p className="text-gray-500 text-sm mt-1">{user.department} &middot; {user.id} &middot; 3rd Year, Semester 5</p>
       </div>
 
