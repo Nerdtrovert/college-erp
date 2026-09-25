@@ -47,6 +47,8 @@ body,
 
 html {
   background: #f0f4f8;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
@@ -131,6 +133,21 @@ button:disabled {
   .dashboard-scroll .text-5xl {
     font-size: 1.75rem;
     line-height: 1.2;
+  }
+
+  .dashboard-scroll .text-base {
+    font-size: 0.9375rem;
+    line-height: 1.4;
+  }
+
+  .dashboard-scroll .text-sm {
+    font-size: 0.8125rem;
+    line-height: 1.4;
+  }
+
+  .dashboard-scroll .text-xs {
+    font-size: 0.6875rem;
+    line-height: 1.4;
   }
 
   .dashboard-scroll p,

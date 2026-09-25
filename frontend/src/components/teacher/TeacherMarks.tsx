@@ -291,16 +291,16 @@ export const TeacherMarks: React.FC = () => {
             const num = parseInt(val);
             const pct = !isNaN(num) ? num / assessment.max : null;
             return (
-              <div key={s.roll} className="flex flex-wrap sm:flex-nowrap items-center gap-3 sm:gap-4 px-4 sm:px-6 py-4 hover:bg-gray-50">
+              <div key={s.roll} className="flex flex-nowrap items-center gap-2 sm:gap-4 px-4 sm:px-6 py-4 hover:bg-gray-50">
                 <span className="text-xs text-gray-400 w-5 flex-shrink-0 font-mono">{String(i + 1).padStart(2, '0')}</span>
                 <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-xs font-bold text-blue-700 flex-shrink-0">
                   {s.name.split(' ').map(n => n[0]).join('')}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold text-gray-900">{s.name}</div>
+                  <div className="text-sm font-semibold text-gray-900 truncate">{s.name}</div>
                   <div className="text-xs text-gray-400 font-mono">{s.roll}</div>
                 </div>
-                <div className="flex items-center justify-end gap-3 w-full sm:w-auto sm:flex-shrink-0">
+                <div className="flex items-center justify-end gap-2 sm:gap-3 flex-shrink-0">
                   {pct !== null && (
                     <div className="hidden sm:block w-20 h-1.5 bg-gray-100 rounded-full">
                       <div
@@ -341,7 +341,7 @@ export const TeacherMarks: React.FC = () => {
           <Save size={16} />
           {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Marks'}
         </button>
-        <label className="flex items-center justify-center gap-2 px-6 py-3 rounded-2xl border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 cursor-pointer transition-colors duration-150">
+        <label className="flex items-center justify-center gap-2 px-6 py-3 rounded-2xl border border-amber-200 bg-amber-50 text-amber-800 text-sm font-semibold hover:bg-amber-100 cursor-pointer transition-colors duration-150">
           <Upload size={16} />
           Upload Marks Excel
           <input
@@ -354,7 +354,7 @@ export const TeacherMarks: React.FC = () => {
         <button
           onClick={handleExport}
           disabled={exporting || !selectedClass}
-          className="flex items-center justify-center gap-2 px-6 py-3 rounded-2xl border border-blue-300 bg-blue-100 text-blue-800 font-semibold hover:bg-blue-200 disabled:opacity-60"
+          className="flex items-center justify-center gap-2 px-6 py-3 rounded-2xl border border-blue-300 bg-blue-100 text-blue-800 text-sm font-semibold hover:bg-blue-200 disabled:opacity-60"
         >
           <Download size={16} />
           {exporting ? 'Exporting...' : 'Export Marks PDF'}
