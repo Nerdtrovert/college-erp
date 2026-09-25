@@ -114,7 +114,7 @@ export const TeacherNotes: React.FC<{ user: User }> = ({ user }) => {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-3 sm:p-6">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
           <Upload size={20} className="text-blue-600" />
@@ -126,7 +126,7 @@ export const TeacherNotes: React.FC<{ user: User }> = ({ user }) => {
       </div>
 
       {/* Upload Form */}
-      <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
+      <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 mb-8">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
@@ -198,7 +198,7 @@ export const TeacherNotes: React.FC<{ user: User }> = ({ user }) => {
       </div>
 
       {/* Uploaded Notes List */}
-      <div className="bg-white rounded-xl shadow-sm p-6">
+      <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
         <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
           <FileText className="text-blue-600" />
           My Uploaded Notes
