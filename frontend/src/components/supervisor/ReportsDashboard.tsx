@@ -407,8 +407,8 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
           </div>
 
           {/* Row 2: Audience Filters */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="min-w-0">
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Semester</label>
               <select
                 name="semesterId"
@@ -420,7 +420,7 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
                 {semesters.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </div>
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Department</label>
               <select
                 name="department"
@@ -440,7 +440,7 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
                 <option value="Chemistry">Chemistry</option>
               </select>
             </div>
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Section</label>
               <input
                 type="text"
@@ -452,11 +452,11 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
               />
             </div>
             
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center justify-start gap-2 sm:col-span-2 lg:col-span-3">
               <button
                 onClick={fetchReport}
                 disabled={!reportCategory || !reportDetail || (reportDetail === 'specific_cie' && !specificCie) || loading}
-                className="min-w-[10rem] flex-1 whitespace-nowrap inline-flex h-11 justify-center items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex h-11 min-w-[14rem] items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> 
                 {loading ? 'Loading...' : 'Generate Report'}
