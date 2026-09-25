@@ -12,7 +12,20 @@ import {
   Save,
   Trash2,
   X,
+  Upload,
 } from 'lucide-react';
+
+import { useLocalStorage } from '../hooks/useLocalStorage';
+import {
+  EVENT_STYLES,
+  getEventsForDate,
+  getDaysInMonth,
+  isDuplicateEvent,
+  mergeEvents,
+  sortEventsByDate,
+  toDateKey,
+} from '../utils/calendarUtils';
+import { parsePDFForEvents } from '../utils/pdfParser';
 
 export type EventType = 'cie' | 'government' | 'general' | 'academic';
 
@@ -74,26 +87,6 @@ export const CALENDAR_EVENTS: CalendarEvent[] = [
   { date: '2026-01-13', title: 'Last working day for I and III semester', type: 'academic' },
 ];
 
-const EVENT_STYLES: Record<EventType, { label: string; className: string; icon: React.ReactNode }> = {
-  cie: { label: 'CIE / assessment', className: 'bg-amber-100 text-amber-800 border-amber-200', icon: <GraduationCap size={14} /> },
-  government: { label: 'Government holiday', className: 'bg-rose-50 text-rose-700 border-rose-200', icon: <Landmark size={14} /> },
-  general: { label: 'General holiday', className: 'bg-slate-100 text-slate-600 border-slate-200', icon: <PartyPopper size={14} /> },
-  academic: { label: 'Academic activity', className: 'bg-blue-50 text-blue-700 border-blue-200', icon: <CircleCheck size={14} /> },
-};
-
-const toDateKey = (year: number, month: number, day: number) =>
-  `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-
-const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
-
-const getEventsForDate = (events: CalendarEvent[], dateKey: string, dayOfWeek: number) => {
-  const dateEvents = events.filter((event) => event.date === dateKey);
-  if (dayOfWeek === 0 && dateEvents.length === 0) {
-    return [{ date: dateKey, title: 'Sunday holiday', type: 'general' as EventType }];
-  }
-  return dateEvents;
-};
-
 interface AcademicCalendarProps {
   editable?: boolean;
   editableTypes?: EventType[];
@@ -107,23 +100,19 @@ interface EventForm {
 
 const emptyForm: EventForm = { date: '', title: '', type: 'academic' };
 
-export const AcademicCalendar: React.FC<AcademicCalendarProps> = ({ editable = false, editableTypes = ['cie', 'government', 'general', 'academic'] }) => {
+export const AcademicCalendar: React.FC<AcademicCalendarProps> = ({ 
+  editable = false, 
+  editableTypes = ['cie', 'government', 'general', 'academic'] 
+}) => {
   const [monthIndex, setMonthIndex] = useState(0);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [events, setEvents] = useState<CalendarEvent[]>(() => {
-    const stored = localStorage.getItem('academic-calendar-events');
-    if (!stored) return CALENDAR_EVENTS;
-    try {
-      const parsed = JSON.parse(stored) as CalendarEvent[];
-      return Array.isArray(parsed) ? parsed : CALENDAR_EVENTS;
-    } catch {
-      return CALENDAR_EVENTS;
-    }
-  });
+  const [events, setEvents] = useLocalStorage<CalendarEvent[]>('academic-calendar-events', CALENDAR_EVENTS);
   const [form, setForm] = useState<EventForm>(emptyForm);
   const [editingEvent, setEditingEvent] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [feedback, setFeedback] = useState('');
+  const [importing, setImporting] = useState(false);
+  const [importFeedback, setImportFeedback] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
   const month = MONTHS[monthIndex];
   const eventLookup = useMemo(() => new Map(events.map((event) => [event.date, event])), [events]);
   const firstDay = new Date(month.year, month.month, 1).getDay();
@@ -137,8 +126,9 @@ export const AcademicCalendar: React.FC<AcademicCalendarProps> = ({ editable = f
   });
 
   const persistEvents = (nextEvents: CalendarEvent[]) => {
-    setEvents(nextEvents);
-    localStorage.setItem('academic-calendar-events', JSON.stringify(nextEvents));
+    const sortedEvents = sortEventsByDate(nextEvents);
+    setEvents(sortedEvents);
+    // useLocalStorage handles the localStorage persistence automatically
   };
 
   const openAddForm = (date = '') => {
@@ -146,6 +136,7 @@ export const AcademicCalendar: React.FC<AcademicCalendarProps> = ({ editable = f
     setForm({ ...emptyForm, date });
     setShowForm(true);
     setFeedback('');
+    setImportFeedback(null);
   };
 
   const openEditForm = (event: CalendarEvent) => {
@@ -153,6 +144,7 @@ export const AcademicCalendar: React.FC<AcademicCalendarProps> = ({ editable = f
     setForm(event);
     setShowForm(true);
     setFeedback('');
+    setImportFeedback(null);
   };
 
   const saveEvent = (event: React.FormEvent<HTMLFormElement>) => {
@@ -170,12 +162,60 @@ export const AcademicCalendar: React.FC<AcademicCalendarProps> = ({ editable = f
     setShowForm(false);
     setForm(emptyForm);
     setFeedback('');
+    setImportFeedback(null);
   };
 
   const deleteEvent = (event: CalendarEvent) => {
     if (!editableTypes.includes(event.type)) return;
     if (!window.confirm(`Remove "${event.title}" from the academic calendar?`)) return;
     persistEvents(events.filter((item) => item.date + item.title !== event.date + event.title));
+    setImportFeedback(null);
+  };
+
+  const handlePDFImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      setImportFeedback({ message: 'Please select a PDF file', type: 'error' });
+      return;
+    }
+
+    setImporting(true);
+    setImportFeedback({ message: 'Parsing PDF...', type: 'info' });
+
+    try {
+      const parsedEvents = await parsePDFForEvents(file);
+      
+      if (parsedEvents.length === 0) {
+        setImportFeedback({ message: 'No events found in the PDF', type: 'info' });
+        return;
+      }
+
+      // Filter out duplicates and merge with existing events
+      const newEvents = parsedEvents.filter(event => !isDuplicateEvent(events, event));
+      const mergedEvents = mergeEvents(events, newEvents);
+      
+      if (newEvents.length === 0) {
+        setImportFeedback({ message: 'All events from PDF already exist in the calendar', type: 'info' });
+        return;
+      }
+
+      persistEvents(mergedEvents);
+      setImportFeedback({ 
+        message: `Successfully imported ${newEvents.length} events from PDF`, 
+        type: 'success' 
+      });
+    } catch (error) {
+      setImportFeedback({ 
+        message: `Failed to import PDF: ${error instanceof Error ? error.message : 'Unknown error'}`, 
+        type: 'error' 
+      });
+    } finally {
+      setImporting(false);
+      // Reset file input
+      e.target.value = '';
+    }
   };
 
   const canEditEvent = (event: CalendarEvent) =>
@@ -196,10 +236,30 @@ export const AcademicCalendar: React.FC<AcademicCalendarProps> = ({ editable = f
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {editable && (
-            <button type="button" onClick={() => openAddForm()} className="inline-flex min-h-10 min-w-32 items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-100 px-5 py-2 text-sm font-semibold text-blue-800 transition-colors hover:border-blue-300 hover:bg-blue-200">
-              <Plus size={15} />
-              Add event
-            </button>
+            <>
+              <button type="button" onClick={() => openAddForm()} className="inline-flex min-h-10 min-w-32 items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-100 px-5 py-2 text-sm font-semibold text-blue-800 transition-colors hover:border-blue-300 hover:bg-blue-200">
+                <Plus size={15} />
+                Add event
+              </button>
+              
+              <label className="inline-flex items-center gap-2">
+                <button type="button" 
+                  onClick={() => document.getElementById('pdf-import-input')?.click()}
+                  disabled={importing}
+                  className={`inline-flex min-h-10 min-w-32 items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-100 px-5 py-2 text-sm font-semibold text-blue-800 transition-colors hover:border-blue-300 hover:bg-blue-200 ${importing ? 'opacity-70' : ''}`}
+                >
+                  <Upload size={15} />
+                  Import PDF
+                </button>
+                <input
+                  type="file"
+                  id="pdf-import-input"
+                  accept=".pdf"
+                  onChange={handlePDFImport}
+                  className="hidden"
+                />
+              </label>
+            </>
           )}
         </div>
       </header>
@@ -250,6 +310,17 @@ export const AcademicCalendar: React.FC<AcademicCalendarProps> = ({ editable = f
         </form>
       )}
 
+      {importFeedback && (
+        <div className={`mt-3 p-3 rounded-lg 
+          ${importFeedback.type === 'success' ? 'bg-green-50 border border-green-200 text-green-800' :
+          importFeedback.type === 'error' ? 'bg-rose-50 border border-rose-200 text-rose-800' :
+          'bg-blue-50 border border-blue-200 text-blue-800'}`}
+          role="alert"
+        >
+          {importFeedback.message}
+        </div>
+      )}
+
       <section className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6">
         <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center justify-between gap-3">
@@ -276,7 +347,10 @@ export const AcademicCalendar: React.FC<AcademicCalendarProps> = ({ editable = f
           <div className="flex flex-wrap justify-center gap-2 md:justify-end">
             {Object.entries(EVENT_STYLES).map(([type, style]) => (
               <span key={type} className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium ${style.className}`}>
-                {style.icon}
+                {(type === 'cie' && <GraduationCap size={14} />) ||
+                 (type === 'government' && <Landmark size={14} />) ||
+                 (type === 'general' && <PartyPopper size={14} />) ||
+                 (type === 'academic' && <CircleCheck size={14} />)}
                 {style.label}
               </span>
             ))}
@@ -382,3 +456,4 @@ export const AcademicCalendar: React.FC<AcademicCalendarProps> = ({ editable = f
     </div>
   );
 };
+

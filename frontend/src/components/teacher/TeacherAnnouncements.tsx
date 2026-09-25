@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Save, Calendar, Info, MessageCircle, User, FileText, Trash2 } from 'lucide-react';
 import API from '../../services/api';
+import { sortAnnouncements } from '../../utils/announcements';
 
 interface Announcement {
   id: number;
@@ -9,7 +10,6 @@ interface Announcement {
   category: string;
   date: string;
   author: string;
-  target: string;
   canDelete?: boolean;
 }
 
@@ -39,7 +39,7 @@ export const TeacherAnnouncements: React.FC = () => {
           API.get('/announcements'),
           API.get('/timetable/teacher-subjects')
         ]);
-        setAnnouncements(annRes.data);
+        setAnnouncements(sortAnnouncements(annRes.data));
         setSubjects(subjRes.data);
       } catch (err) {
         console.error('Error fetching announcements/subjects:', err);
@@ -215,7 +215,6 @@ export const TeacherAnnouncements: React.FC = () => {
                   >
                     {announcement.category.toUpperCase()}
                   </span>
-                  <span className="text-xs text-gray-500">{announcement.target}</span>
                 </div>
                 <h3 className="text-lg font-semibold text-gray-900">{announcement.title}</h3>
                 <p className="text-gray-700 text-sm leading-relaxed">{announcement.body}</p>

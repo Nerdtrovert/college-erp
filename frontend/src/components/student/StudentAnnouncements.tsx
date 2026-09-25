@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Bell, CalendarDays, User } from 'lucide-react';
 import API from '../../services/api';
+import { sortAnnouncements } from '../../utils/announcements';
 
 interface Announcement {
   id: number;
@@ -11,16 +12,6 @@ interface Announcement {
   author: string;
   pinned?: boolean;
 }
-
-const sortAnnouncements = (items: Announcement[]) =>
-  [...items].sort((a, b) => {
-    if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
-
-    const dateDifference = Date.parse(b.date) - Date.parse(a.date);
-    if (!Number.isNaN(dateDifference) && dateDifference !== 0) return dateDifference;
-
-    return b.id - a.id;
-  });
 
 const getCategoryIcon = (category: string) => {
   switch (category) {
