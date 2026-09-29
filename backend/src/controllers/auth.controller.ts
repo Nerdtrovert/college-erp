@@ -106,7 +106,7 @@ export const register = async (req: Request, res: Response) => {
     }
 
     // Hash password
-    const hashedPassword = await bcrypt.hash(password, 12);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create user record
     const user = await prisma.user.create({
@@ -201,7 +201,7 @@ export const updateUser = async (req: Request, res: Response) => {
     if (classGroup !== undefined) data.classGroup = classGroup;
     if (semesterId !== undefined) data.semesterId = semesterId;
     if (password) {
-      data.password = await bcrypt.hash(password, 12);
+      data.password = await bcrypt.hash(password, 10);
     }
 
     const user = await prisma.user.update({
@@ -316,7 +316,7 @@ export const uploadStudents = async (req: AuthRequest, res: Response) => {
       await removeUploadedFile(req.file.path);
       return res.status(400).json({ error: 'The uploaded file does not match its declared format' });
     }
-    const defaultPassword = await bcrypt.hash('student123', 12);
+    const defaultPassword = await bcrypt.hash('student123', 10);
 
     let parsedStudents: { id: string; name: string; department: string; classGroup: string }[] = [];
 

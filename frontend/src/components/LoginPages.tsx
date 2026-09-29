@@ -91,6 +91,26 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, pageType }) => {
 
         <div className="text-white/40 text-sm">
           <p>© 2026 EduPortal · Dr. HN National College of Engineering</p>
+          <p className="mt-1.5 text-white/40">
+            Designed and developed by{' '}
+            <a
+              href="https://prajwalnavada.is-a.dev/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-white font-bold hover:underline transition-colors"
+            >
+              Prajwal
+            </a>
+            {' '}and{' '}
+            <a
+              href="https://github.com/sudhanva1608/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-white font-bold hover:underline transition-colors"
+            >
+              Sudhanva
+            </a>
+          </p>
         </div>
       </div>
 
@@ -192,6 +212,26 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, pageType }) => {
           {/* Mobile Footer */}
           <div className="mt-4 text-center text-[10px] leading-relaxed text-white/60 lg:hidden">
             <p>© 2026 EduPortal · Dr. HN National College of Engineering</p>
+            <p className="mt-1 text-white/50">
+              Designed and developed by{' '}
+              <a
+                href="https://prajwalnavada.is-a.dev/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-white font-bold hover:underline transition-colors"
+              >
+                Prajwal
+              </a>
+              {' '}and{' '}
+              <a
+                href="https://github.com/sudhanva1608/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-white font-bold hover:underline transition-colors"
+              >
+                Sudhanva
+              </a>
+            </p>
           </div>
         </div>
       </div>

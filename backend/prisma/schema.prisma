@@ -90,6 +90,8 @@ model Semester {
   marks              Mark[]
   timetableSlots     TimetableSlot[]
   students           User[]
+
+  @@index([status])
 }
 
 model AttendanceSession {
@@ -152,6 +154,7 @@ model Mark {
   @@unique([studentId, subjectCode, type, semesterId])
   @@index([subjectCode, semesterId])
   @@index([studentId, semesterId])
+  @@index([subjectCode, type, semesterId])
 }
 
 model Announcement {
@@ -190,6 +193,7 @@ model TimetableSlot {
   @@unique([classGroup, day, slotIndex, semesterId])
   @@index([teacherId, semesterId])
   @@index([classGroup, semesterId])
+  @@index([coTeacherId])
 }
 
 model Note {
