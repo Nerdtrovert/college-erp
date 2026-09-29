@@ -52,7 +52,7 @@ export const getVergeOfBacklogReport = async (req: AuthRequest, res: Response) =
     if (req.user?.role === 'teacher') {
       // Teachers can only see students in the classes they teach
       const taughtSubjects = await prisma.subject.findMany({
-        where: { facultyId: req.user.id },
+        where: { OR: [{ facultyId: req.user.id }, { coFacultyId: req.user.id }] },
         select: { classGroup: true }
       });
       const teacherClassGroups = Array.from(new Set(taughtSubjects.map(s => s.classGroup)));
@@ -270,7 +270,7 @@ export const getAttendanceAndAssignmentReport = async (req: AuthRequest, res: Re
 
     if (req.user?.role === 'teacher') {
       const taught = await prisma.subject.findMany({
-        where: { facultyId: req.user.id },
+        where: { OR: [{ facultyId: req.user.id }, { coFacultyId: req.user.id }] },
         select: { classGroup: true },
       });
       studentWhere.classGroup = { in: Array.from(new Set(taught.map((item) => item.classGroup))) };
@@ -304,7 +304,7 @@ export const getAttendanceAndAssignmentReport = async (req: AuthRequest, res: Re
       const subjects = await prisma.subject.findMany({
         where: {
           ...(classGroup ? { classGroup } : {}),
-          ...(req.user?.role === 'teacher' ? { facultyId: req.user.id } : {}),
+          ...(req.user?.role === 'teacher' ? { OR: [{ facultyId: req.user.id }, { coFacultyId: req.user.id }] } : {}),
         },
         select: { code: true, name: true, classGroup: true, type: true },
       });
@@ -340,12 +340,12 @@ export const getAttendanceAndAssignmentReport = async (req: AuthRequest, res: Re
       select: {
         classGroup: true,
         subjectCode: true,
-        subject: { select: { name: true, facultyId: true } },
+        subject: { select: { name: true, facultyId: true, coFacultyId: true } },
         records: { select: { studentId: true, status: true } },
       },
     });
     const taughtCodes = req.user?.role === 'teacher'
-      ? new Set((await prisma.subject.findMany({ where: { facultyId: req.user.id }, select: { code: true } })).map((s) => s.code))
+      ? new Set((await prisma.subject.findMany({ where: { OR: [{ facultyId: req.user.id }, { coFacultyId: req.user.id }] }, select: { code: true } })).map((s) => s.code))
       : null;
     const scopedSessions = taughtCodes
       ? sessions.filter((session) => taughtCodes.has(session.subjectCode))

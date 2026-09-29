@@ -29,6 +29,7 @@ interface SlotForm {
   subjectCode: string;
   room: string;
   teacherId: string;
+  coTeacherId: string;
 }
 
 const emptyForm: SlotForm = {
@@ -38,6 +39,7 @@ const emptyForm: SlotForm = {
   subjectCode: '',
   room: '',
   teacherId: '',
+  coTeacherId: '',
 };
 
 export const TimetableManagement: React.FC = () => {
@@ -134,6 +136,7 @@ export const TimetableManagement: React.FC = () => {
       subjectCode: slot?.subjectCode || '',
       room: slot?.room === 'LH-N/A' ? '' : slot?.room || '',
       teacherId: slot?.teacherId || '',
+      coTeacherId: slot?.coTeacherId || '',
     });
     setMessage(null);
   };
@@ -320,7 +323,7 @@ export const TimetableManagement: React.FC = () => {
                   <p className="text-xs text-gray-500">{slotForm.day} · {PERIODS[Number(slotForm.slotIndex)].label}</p>
                 </div>
               </div>
-              <form onSubmit={saveSlot} className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+              <form onSubmit={saveSlot} className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Subject code</label>
                   <input required value={slotForm.subjectCode} onChange={(event) => setSlotForm({ ...slotForm, subjectCode: event.target.value })} placeholder="e.g. CS2301" className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-blue-500" />
@@ -329,6 +332,13 @@ export const TimetableManagement: React.FC = () => {
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Faculty</label>
                   <select required value={slotForm.teacherId} onChange={(event) => setSlotForm({ ...slotForm, teacherId: event.target.value })} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-blue-500">
                     <option value="">Select faculty</option>
+                    {faculty.map((member) => <option key={member.id} value={member.id}>{member.name} ({member.id})</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Co-Teacher</label>
+                  <select value={slotForm.coTeacherId || ''} onChange={(event) => setSlotForm({ ...slotForm, coTeacherId: event.target.value })} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-blue-500">
+                    <option value="">None</option>
                     {faculty.map((member) => <option key={member.id} value={member.id}>{member.name} ({member.id})</option>)}
                   </select>
                 </div>

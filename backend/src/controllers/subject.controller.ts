@@ -25,7 +25,7 @@ export const getSubjects = async (req: AuthRequest, res: Response) => {
 };
 
 export const createSubject = async (req: AuthRequest, res: Response) => {
-  const { code, name, facultyId, classGroup, type } = req.body;
+  const { code, name, facultyId, coFacultyId, classGroup, type } = req.body;
 
   if (!code || !name || !facultyId || !classGroup || !type) {
     return res.status(400).json({ error: 'All fields are required' });
@@ -53,6 +53,7 @@ export const createSubject = async (req: AuthRequest, res: Response) => {
         code,
         name,
         facultyId,
+        coFacultyId: coFacultyId || null,
         classGroup,
         type,
       },
@@ -67,7 +68,7 @@ export const createSubject = async (req: AuthRequest, res: Response) => {
 
 export const updateSubject = async (req: AuthRequest, res: Response) => {
   const code = req.params.code as string;
-  const { name, facultyId, classGroup, type } = req.body;
+  const { name, facultyId, coFacultyId, classGroup, type } = req.body;
 
   try {
     const subject = await prisma.subject.update({
@@ -75,6 +76,7 @@ export const updateSubject = async (req: AuthRequest, res: Response) => {
       data: {
         name,
         facultyId,
+        coFacultyId: coFacultyId || null,
         classGroup,
         type,
       },

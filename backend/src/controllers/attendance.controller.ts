@@ -153,7 +153,7 @@ export const getTeacherAttendance = async (req: AuthRequest, res: Response) => {
     if (!subject) {
       return res.status(404).json({ error: 'Subject code not found' });
     }
-    if (subject.facultyId !== req.user?.id) {
+    if (subject.facultyId !== req.user?.id && subject.coFacultyId !== req.user?.id) {
       return res.status(403).json({ error: 'You can only mark attendance for your own subjects' });
     }
 
@@ -216,7 +216,7 @@ export const saveTeacherAttendance = async (req: AuthRequest, res: Response) => 
     if (!subject) {
       return res.status(404).json({ error: 'Subject code not found' });
     }
-    if (subject.facultyId !== req.user?.id || subject.classGroup !== classGroup) {
+    if ((subject.facultyId !== req.user?.id && subject.coFacultyId !== req.user?.id) || subject.classGroup !== classGroup) {
       return res.status(403).json({ error: 'You can only mark attendance for your assigned class' });
     }
 
@@ -289,7 +289,7 @@ export const getCorrectionSessions = async (req: AuthRequest, res: Response) => 
         ...(date ? { date } : {}),
         ...(subjectCode ? { subjectCode } : {}),
         ...(classGroup ? { classGroup } : {}),
-        ...(isTeacher ? { subject: { facultyId: req.user?.id } } : {}),
+        ...(isTeacher ? { subject: { OR: [{ facultyId: req.user?.id }, { coFacultyId: req.user?.id }] } } : {}),
       },
       include: {
         subject: { select: { code: true, name: true, facultyId: true } },
@@ -320,11 +320,11 @@ export const updateAttendanceRecord = async (req: AuthRequest, res: Response) =>
   try {
     const record = await prisma.attendanceRecord.findUnique({
       where: { id: String(recordId) },
-      include: { session: { include: { subject: { select: { facultyId: true } } } } },
+      include: { session: { include: { subject: { select: { facultyId: true, coFacultyId: true } } } } },
     });
     if (!record) return res.status(404).json({ error: 'Attendance record not found' });
 
-    const canEdit = req.user?.role !== 'teacher' || record.session.subject.facultyId === req.user.id;
+    const canEdit = req.user?.role !== 'teacher' || record.session.subject.facultyId === req.user.id || record.session.subject.coFacultyId === req.user.id;
     if (!canEdit) return res.status(403).json({ error: 'You can only correct attendance for your assigned subjects' });
 
     const updated = await prisma.attendanceRecord.update({

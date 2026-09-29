@@ -63,7 +63,10 @@ export const getTeacherTimetable = async (req: AuthRequest, res: Response) => {
   try {
     const slots = await prisma.timetableSlot.findMany({
       where: {
-        teacherId,
+        OR: [
+          { teacherId },
+          { coTeacherId: teacherId }
+        ],
         semester: {
           status: 'ACTIVE',
         },
@@ -122,7 +125,10 @@ export const getTimetableBySemester = async (req: AuthRequest, res: Response) =>
     }
 
     if (teacherId) {
-      whereClause.teacherId = teacherId;
+      whereClause.OR = [
+        { teacherId: String(teacherId) },
+        { coTeacherId: String(teacherId) }
+      ];
     }
 
     const slots = await prisma.timetableSlot.findMany({
@@ -151,6 +157,7 @@ export const getTimetableBySemester = async (req: AuthRequest, res: Response) =>
               room: slot.room || 'LH-N/A',
               class: slot.classGroup, // e.g. "CSE-B" for timetable
               teacherId: slot.teacherId,
+              coTeacherId: slot.coTeacherId,
             };
           }
         }
@@ -195,7 +202,10 @@ export const getTeacherSubjects = async (req: AuthRequest, res: Response) => {
     // Get distinct subjects taught by the teacher in the active semester via timetable slots
     const slots = await prisma.timetableSlot.findMany({
       where: {
-        teacherId,
+        OR: [
+          { teacherId },
+          { coTeacherId: teacherId }
+        ],
         semester: {
           status: 'ACTIVE',
         },
@@ -239,7 +249,7 @@ export const getTeacherSubjects = async (req: AuthRequest, res: Response) => {
 };
 
 export const saveTimetableSlot = async (req: AuthRequest, res: Response) => {
-  const { semesterId, day, slotIndex, classGroup, subjectCode, room, teacherId } = req.body;
+  const { semesterId, day, slotIndex, classGroup, subjectCode, room, teacherId, coTeacherId } = req.body;
   if (!semesterId || !day || !classGroup || !subjectCode || !teacherId || !Number.isInteger(slotIndex) || slotIndex < 0 || slotIndex > 7) {
     return res.status(400).json({ error: 'Semester, day, class group, subject, faculty, and a slot from 0 to 7 are required' });
   }
@@ -247,8 +257,8 @@ export const saveTimetableSlot = async (req: AuthRequest, res: Response) => {
   try {
     const slot = await prisma.timetableSlot.upsert({
       where: { classGroup_day_slotIndex_semesterId: { classGroup, day, slotIndex, semesterId } },
-      update: { subjectCode, room: room || null, teacherId },
-      create: { semesterId, day, slotIndex, classGroup, subjectCode, room: room || null, teacherId },
+      update: { subjectCode, room: room || null, teacherId, coTeacherId: coTeacherId || null },
+      create: { semesterId, day, slotIndex, classGroup, subjectCode, room: room || null, teacherId, coTeacherId: coTeacherId || null },
     });
     return res.status(200).json(slot);
   } catch (error) {

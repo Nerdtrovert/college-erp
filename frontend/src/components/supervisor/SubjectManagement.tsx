@@ -12,6 +12,7 @@ export const SubjectManagement: React.FC = () => {
     code: '',
     name: '',
     facultyId: '',
+    coFacultyId: '',
     classGroup: '',
     type: 'STANDALONE'
   });
@@ -55,6 +56,7 @@ export const SubjectManagement: React.FC = () => {
         code: '',
         name: '',
         facultyId: '',
+        coFacultyId: '',
         classGroup: '',
         type: 'STANDALONE'
       });
@@ -146,6 +148,22 @@ export const SubjectManagement: React.FC = () => {
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-gray-50 focus:bg-white transition-colors"
               >
                 <option value="">Select Faculty...</option>
+                {faculty.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.name} ({member.id})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Co-Teacher (Optional)</label>
+              <select
+                value={form.coFacultyId}
+                onChange={(e) => setForm({ ...form, coFacultyId: e.target.value })}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-gray-50 focus:bg-white transition-colors"
+              >
+                <option value="">None (Single Teacher)</option>
                 {faculty.map((member) => (
                   <option key={member.id} value={member.id}>
                     {member.name} ({member.id})

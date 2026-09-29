@@ -41,6 +41,7 @@ model User {
 
   // Relations
   taughtSubjects    Subject[]          @relation("TeacherSubjects")
+  coTaughtSubjects  Subject[]          @relation("CoTeacherSubjects")
   attendanceRecords AttendanceRecord[]
   marks             Mark[]
   announcements     Announcement[]     @relation("UserAnnouncements")
@@ -56,11 +57,13 @@ model User {
 model Subject {
   code       String      @id // Course Code (e.g. CS2301)
   name       String
-  facultyId  String
-  classGroup String // Target class (e.g., "CSE-B")
-  type       SubjectType @default(STANDALONE)
+  facultyId   String
+  coFacultyId String?
+  classGroup  String // Target class (e.g., "CSE-B")
+  type        SubjectType @default(STANDALONE)
 
-  faculty User @relation("TeacherSubjects", fields: [facultyId], references: [id])
+  faculty   User  @relation("TeacherSubjects", fields: [facultyId], references: [id])
+  coFaculty User? @relation("CoTeacherSubjects", fields: [coFacultyId], references: [id])
 
   // Relations
   attendanceSessions AttendanceSession[]
@@ -175,6 +178,7 @@ model TimetableSlot {
   room        String?
   classGroup  String // Target section for students (e.g., "CSE-B")
   teacherId   String // Associated teacher ID
+  coTeacherId String? // Associated co-teacher ID (Optional)
   semesterId  String
 
   subject  Subject? @relation(fields: [subjectCode], references: [code], onDelete: SetNull)
