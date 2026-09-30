@@ -32,7 +32,7 @@ export const login = async (req: Request, res: Response) => {
   const rawId = String(req.body.id).trim();
 
   // 1. Auto-detect expected role category from ID format
-  const isEmailFormat = rawId.includes('@');
+  const isEmailFormat = rawId.includes('@') && (rawId.endsWith('@hnnce.in') || rawId.endsWith('@hnnce.com'));
   const isStudentFormat = !isEmailFormat;
 
   // 2. Normalize IDs: student IDs uppercase, faculty IDs preserve case

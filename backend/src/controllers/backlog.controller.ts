@@ -381,10 +381,15 @@ function parsePDFText(text: string): any {
  */
 function parseExcelSheet(workbook: exceljs.Workbook): any {
   // Simplified Excel parser
-  const students = [];
+  const students: any[] = [];
 
   workbook.eachSheet((worksheet, sheetId) => {
-    const rows = worksheet.toArray();
+    const rows: any[][] = [];
+    worksheet.eachRow((row, rowNumber) => {
+      // exceljs row.values is 1-indexed, so we drop the first empty element
+      const rowValues = Array.isArray(row.values) ? row.values.slice(1) : [];
+      rows.push(rowValues);
+    });
 
     // Assume first row contains headers
     if (rows.length < 2) return;
@@ -407,7 +412,7 @@ function parseExcelSheet(workbook: exceljs.Workbook): any {
       };
 
       // Map headers to values
-      headers.forEach((header, colIdx) => {
+      headers.forEach((header: string, colIdx: number) => {
         const value = row[colIdx];
         if (value !== undefined && value !== null) {
           const strValue = String(value).trim();

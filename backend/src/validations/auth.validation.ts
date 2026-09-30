@@ -15,7 +15,7 @@ export const loginSchema = z.object({
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['id'],
-        message: 'Invalid USN or @hnnce.in/@hnnce.com email format',
+        message: 'Invalid USN or @hnnce.in/com email format',
       });
     }
   }),

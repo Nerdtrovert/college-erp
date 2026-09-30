@@ -36,7 +36,7 @@ async function main() {
     // Dean user
     { id: 'deanCSE@hnnce.in', name: 'Dr. Dean Administrator', password: deanPasswordHash, role: Role.dean, department: 'Administration' },
   // HOD user
-    { id: 'hodCSE@hnnce.com', name: 'Prof. Hod Coordinator', password: hodPasswordHash, role: Role.hod, department: 'Computer Science & Engineering' },
+    { id: 'hodCSE@hnnce.com', name: 'Dr Anirudh Sharma', password: hodPasswordHash, role: Role.hod, department: 'Dept of CSE' },
   ];
 
   for (const f of facultyData) {
