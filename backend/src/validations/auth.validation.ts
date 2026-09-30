@@ -9,13 +9,13 @@ export const loginSchema = z.object({
     const isStudent = !value.id.includes('@');
     const validIdentifier = isStudent
       ? /^1HC\d{2}[A-Z]{2}\d{3}$/.test(value.id)  // Case sensitive for USN
-      : /^[a-zA-Z0-9._%+-]+@hnnce\.in$/i.test(value.id);  // More specific email pattern
+      : /^[a-zA-Z0-9._%+-]+@hnnce\.(in|com)$/i.test(value.id);  // More specific email pattern
 
     if (!validIdentifier) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['id'],
-        message: 'Invalid USN or @hnnce.in email format',
+        message: 'Invalid USN or @hnnce.in/@hnnce.com email format',
       });
     }
   }),
@@ -35,7 +35,7 @@ export const registerSchema = z.object({
     const isStudent = value.role === 'student';
     const validIdentifier = isStudent
       ? /^1HC\d{2}[A-Z]{2}\d{3}$/.test(value.id)  // Case sensitive for USN
-      : /^[a-zA-Z0-9._%+-]+@hnnce\.in$/i.test(value.id);  // More specific email pattern
+      : /^[a-zA-Z0-9._%+-]+@hnnce\.(in|com)$/i.test(value.id);  // More specific email pattern
 
     if (!validIdentifier) {
       ctx.addIssue({
@@ -43,7 +43,7 @@ export const registerSchema = z.object({
         path: ['id'],
         message: isStudent
           ? 'Student ID must be a USN such as 1HC24CS001'
-          : 'Faculty and supervisor ID must be an @hnnce.in email address',
+          : 'Faculty and supervisor ID must be an @hnnce.in or @hnnce.com email address',
       });
     }
 

@@ -184,7 +184,7 @@ export const SupervisorHome: React.FC<Props> = ({ user, onNavigate }) => {
                       );
                     })}
                   </div>
-                </>
+                </div>
               ))}
               {/* Semester Info */}
               <div className="mt-4 pt-3 border-t border-gray-200">
@@ -206,7 +206,7 @@ export const SupervisorHome: React.FC<Props> = ({ user, onNavigate }) => {
             {statusLoading ? (
               <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-300 animate-spin">
                 <div className="h-4 w-4 bg-blue-500 rounded-full"></div>
-              }
+              </div>
             ) : (
               <span className="text-xs font-semibold text-gray-600">
                 {facultyStatus === null ? 'No data' : 'Live updates'}

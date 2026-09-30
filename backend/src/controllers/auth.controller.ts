@@ -32,7 +32,7 @@ export const login = async (req: Request, res: Response) => {
   const rawId = String(req.body.id).trim();
 
   // 1. Auto-detect expected role category from ID format
-  const isEmailFormat = rawId.includes('@') && rawId.endsWith('@hnnce.in');
+  const isEmailFormat = rawId.includes('@');
   const isStudentFormat = !isEmailFormat;
 
   // 2. Normalize IDs: student IDs uppercase, faculty IDs preserve case
@@ -40,9 +40,11 @@ export const login = async (req: Request, res: Response) => {
 
   try {
     // Find the user by ID
-    const user = await prisma.user.findUnique({
-      where: { id },
-    });
+    const user = isStudentFormat
+      ? await prisma.user.findUnique({ where: { id } })
+      : await prisma.user.findFirst({
+          where: { id: { equals: id, mode: 'insensitive' } },
+        });
 
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
