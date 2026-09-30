@@ -28,8 +28,8 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, pageType }) => {
       password: 'teacher123',
     },
     supervisor: {
-      id: 'deanCSE@hnnce.in',
-      password: 'dean123',
+      id: 'hodCSE@hnnce.com',
+      password: 'hod123',
     },
   };
 

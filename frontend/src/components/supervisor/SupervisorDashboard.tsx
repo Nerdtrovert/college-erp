@@ -28,6 +28,7 @@ const NAV_ITEMS = [
   { id: 'faculty', label: 'Faculty & Access', icon: <Users size={16} /> },
   { id: 'timetable', label: 'Timetables', icon: <ClipboardList size={16} /> },
   { id: 'reports', label: 'Reports', icon: <BarChart3 size={16} /> },
+  { id: 'backlogs', label: 'Backlogs', icon: <BarChart2 size={16} /> },
   { id: 'attendance-corrections', label: 'Correct Attendance', icon: <CheckCircle size={16} /> },
   { id: 'mark-attendance', label: 'Mark Attendance', icon: <CalendarCheck size={16} /> },
   { id: 'update-marks', label: 'Update Marks', icon: <BarChart2 size={16} /> },
@@ -68,6 +69,7 @@ export const SupervisorDashboard: React.FC<Props> = ({ user, onLogout }) => {
       case 'faculty': return <FacultyManagement />;
       case 'timetable': return <TimetableManagement />;
       case 'reports': return <ReportsDashboard user={user} />;
+      case 'backlogs': return <BacklogsManagement user={user} />;
       case 'attendance-corrections': return <AttendanceCorrections />;
       case 'mark-attendance': return <TeacherAttendance />;
       case 'update-marks': return <TeacherMarks />;

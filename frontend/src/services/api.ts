@@ -27,4 +27,17 @@ API.interceptors.response.use(
   },
 );
 
+// Faculty timetable API methods (for HOD/Dean/Principal)
+export const getAnyFacultyTimetable = async (teacherId: string, semesterId?: string) => {
+  const params = semesterId ? { semesterId } : {};
+  const response = await API.get(`/timetable/faculty/${teacherId}`, { params });
+  return response.data;
+};
+
+// Faculty status API method (for HOD/Dean/Principal)
+export const getCurrentFacultyStatus = async () => {
+  const response = await API.get('/timetable/faculty-status');
+  return response.data;
+};
+
 export default API;

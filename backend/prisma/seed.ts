@@ -10,6 +10,7 @@ async function main() {
   const studentPasswordHash = await bcrypt.hash('student123', 10);
   const teacherPasswordHash = await bcrypt.hash('teacher123', 10);
   const deanPasswordHash = await bcrypt.hash('dean123', 10); // Dean password
+  const hodPasswordHash = await bcrypt.hash('hod123', 10); // HOD password
 
   // Seed default semester first so other records can reference its ID
   const defaultSemester = await prisma.semester.upsert({
@@ -34,6 +35,8 @@ async function main() {
     { id: 'meena@hnnce.in', name: 'Dr. Meena Nair', password: teacherPasswordHash, role: Role.teacher, department: 'Computer Science & Engineering' },
     // Dean user
     { id: 'deanCSE@hnnce.in', name: 'Dr. Dean Administrator', password: deanPasswordHash, role: Role.dean, department: 'Administration' },
+  // HOD user
+    { id: 'hodCSE@hnnce.com', name: 'Prof. Hod Coordinator', password: hodPasswordHash, role: Role.hod, department: 'Computer Science & Engineering' },
   ];
 
   for (const f of facultyData) {

@@ -9,6 +9,7 @@ import semesterRoutes from './semester.routes';
 import subjectRoutes from './subject.routes';
 import vipRoutes from './vip.routes';
 import reportsRoutes from './reports.routes';
+import backlogRoutes from './backlog.routes';
 
 const router = Router();
 
@@ -22,5 +23,6 @@ router.use('/semesters', semesterRoutes);
 router.use('/subjects', subjectRoutes);
 router.use('/vip', vipRoutes);
 router.use('/reports', reportsRoutes);
+router.use('/backlogs', backlogRoutes);
 
 export default router;
