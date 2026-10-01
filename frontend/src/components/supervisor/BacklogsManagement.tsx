@@ -44,8 +44,7 @@ export const BacklogsManagement: React.FC<Props> = () => {
   const [filters, setFilters] = useState({
     semesterId: '',
     program: '',
-    classGroup: '',
-    hasBacklogs: 'all' // all | yes | no
+    classGroup: ''
   });
   const [semesters, setSemesters] = useState<{ id: string; name: string }[]>([]);
 
@@ -61,10 +60,8 @@ export const BacklogsManagement: React.FC<Props> = () => {
       if (filters.semesterId) queryParams.append('semesterId', filters.semesterId);
       if (filters.program) queryParams.append('program', filters.program);
       if (filters.classGroup) queryParams.append('classGroup', filters.classGroup);
-      if (filters.hasBacklogs !== 'all') {
-        queryParams.append('hasBacklogs', filters.hasBacklogs);
-      }
-
+      // Always show students with backlogs when generating report
+      queryParams.append('hasBacklogs', 'yes');
       const response = await API.get(`/reports/verge-of-backlog?${queryParams.toString()}`);
       setData(response.data || []);
     } catch (err: any) {
@@ -331,10 +328,10 @@ export const BacklogsManagement: React.FC<Props> = () => {
                       // Step 2: Process the parsed data
                       const processRes = await API.post('/backlogs/process', {
                         semesterId: filters.semesterId,
-                        studentsData: uploadRes.data.parsedData.students
+                        gradecardData: { students: uploadRes.data.students }
                       });
 
-                      alert(`Successfully processed  student records with backlogs!`);
+                      alert(processRes.data.message || `Successfully processed ${processRes.data.processedStudents.length} student records with backlogs!`);
                       // Reset file input
                       fileInput.value = '';
                       // Refresh the report

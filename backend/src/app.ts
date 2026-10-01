@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import * as path from 'path';
 import routes from './routes';
+import { writeLog } from './utils/appLogger';
 
 const app = express();
 
@@ -48,8 +49,12 @@ app.use((req, res, next) => {
     if (field in body) body[field] = '[REDACTED]';
   }
   console.log(`[REQUEST] ${req.method} ${req.url} - Body:`, JSON.stringify(body));
+  writeLog('INFO', `${req.method} ${req.url}`, { body });
   res.on('finish', () => {
     console.log(`[RESPONSE] ${req.method} ${req.url} - Status: ${res.statusCode}`);
+    if (res.statusCode >= 400) {
+      writeLog(res.statusCode >= 500 ? 'ERROR' : 'WARN', `${req.method} ${req.url} responded ${res.statusCode}`);
+    }
   });
   next();
 });
@@ -73,6 +78,7 @@ app.use((req: Request, res: Response) => {
 // Global Error Handler
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   console.error('Unhandled Server Error:', err);
+  writeLog('ERROR', `Unhandled server error on ${req.method} ${req.url}`, { message: err.message });
   const status = err.status || err.statusCode || 500;
 
   // In production, don't leak error details

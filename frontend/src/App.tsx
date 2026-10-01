@@ -5,6 +5,7 @@ import { FacultyLoginPage, StudentLoginPage } from './components/LoginPages';
 import { StudentDashboard } from './components/student/StudentDashboard';
 import { TeacherDashboard } from './components/teacher/TeacherDashboard';
 import { SupervisorDashboard } from './components/supervisor/SupervisorDashboard';
+import { AdminLoginPage, AdminPortal } from './components/AdminPortal';
 
 
 // Auth context
@@ -66,6 +67,10 @@ export const App: React.FC = () => {
     }
     return children;
   };
+  const AdminOnlyRoute = ({ children }: { children: React.ReactNode }) => {
+    if (!user || (user.role as string) !== 'admin') return <Navigate to="/adminLogin" replace />;
+    return children;
+  };
 
   return (
     <AuthContext.Provider value={{ user, login, logout }}>
@@ -74,6 +79,7 @@ export const App: React.FC = () => {
           {/* Public routes */}
           <Route path="/login" element={<StudentLoginPage onLogin={login} />} />
           <Route path="/facultylogin" element={<FacultyLoginPage onLogin={login} />} />
+          <Route path="/adminLogin" element={<AdminLoginPage onLogin={login} />} />
                     <Route path="/login/teacher" element={<Navigate to="/facultylogin" replace />} />
           <Route path="/login/dean" element={<Navigate to="/facultylogin" replace />} />
           <Route path="/login/principal" element={<Navigate to="/facultylogin" replace />} />
@@ -94,6 +100,9 @@ export const App: React.FC = () => {
           {/* Supervisor protected routes (Dean, Principal) */}
           <Route element={<SupervisorOnlyRoute><Outlet /></SupervisorOnlyRoute>}>
             <Route path="/supervisor/*" element={<SupervisorDashboard user={user!} onLogout={logout} />} />
+          </Route>
+          <Route element={<AdminOnlyRoute><Outlet /></AdminOnlyRoute>}>
+            <Route path="/admin/*" element={<AdminPortal onLogout={logout} />} />
           </Route>
 
           {/* Catch-all redirect to login */}

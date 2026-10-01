@@ -1,4 +1,4 @@
-export type Role = 'student' | 'teacher' | 'dean' | 'principal' | 'hod';
+export type Role = 'student' | 'teacher' | 'dean' | 'principal' | 'hod' | 'admin';
 export type SignInRole = 'student' | 'teacher' | 'supervisor';
 export type StudentProgram = 'CSE' | 'ISE' | 'AI&DS' | 'ECE';
 
