@@ -5,6 +5,7 @@ import {
   Download
 } from 'lucide-react';
 import API from '../../services/api';
+import { PROGRAM_LABELS, SECTION_OPTIONS, STUDENT_PROGRAMS, type StudentProgram } from '../../constants/program';
 
 interface Semester {
   id: string;
@@ -18,7 +19,7 @@ interface StudentUser {
   id: string; // roll number
   name: string;
   role: string;
-  department: string;
+  program: StudentProgram;
   classGroup: string;
   semesterId?: string;
   semester?: {
@@ -31,7 +32,7 @@ export const StudentManagement: React.FC = () => {
   const [semesters, setSemesters] = useState<Semester[]>([]);
   const [students, setStudents] = useState<StudentUser[]>([]);
   const [selectedSemester, setSelectedSemester] = useState('');
-  const [defaultDepartment, setDefaultDepartment] = useState('Computer Science and Engineering (CSE)');
+  const [defaultProgram, setDefaultProgram] = useState<StudentProgram>('CSE');
   const [defaultClassGroup, setDefaultClassGroup] = useState('CSE-B');
   const [file, setFile] = useState<File | null>(null);
   
@@ -51,14 +52,14 @@ export const StudentManagement: React.FC = () => {
   // Search and Filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [filterSemester, setFilterSemester] = useState('all');
-  const [filterDepartment, setFilterDepartment] = useState('all');
+  const [filterProgram, setFilterProgram] = useState('all');
   const [filterSection, setFilterSection] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
 
   // Edit / Add state
   const [editingStudent, setEditingStudent] = useState<StudentUser | null>(null);
-  const [newStudent, setNewStudent] = useState<{ id: string; name: string; department: string; classGroup: string; semesterId: string; numberOfBacklogs?: number; backlogSubjects?: string } | null>(null);
+  const [newStudent, setNewStudent] = useState<{ id: string; name: string; program: StudentProgram; classGroup: string; semesterId: string; numberOfBacklogs?: number; backlogSubjects?: string } | null>(null);
   const [studentPassword, setStudentPassword] = useState('');
   const [showFormModal, setShowFormModal] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
@@ -125,7 +126,7 @@ export const StudentManagement: React.FC = () => {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('semesterId', selectedSemester);
-    formData.append('defaultDepartment', defaultDepartment);
+    formData.append('defaultProgram', defaultProgram);
     formData.append('defaultClassGroup', defaultClassGroup);
 
     try {
@@ -169,6 +170,7 @@ export const StudentManagement: React.FC = () => {
           params: {
             search: searchQuery,
             semesterId: filterSemester !== 'all' ? filterSemester : undefined,
+            program: filterProgram !== 'all' ? filterProgram : undefined,
             classGroup: filterSection !== 'all' ? filterSection : undefined,
             format: exportFormat
           },
@@ -181,16 +183,16 @@ export const StudentManagement: React.FC = () => {
 
         if (exportFormat === 'csv') {
           blob = new Blob([response.data], { type: 'text/csv' });
-          filename = `students-report${filterSemester !== 'all' ? `-${filterSemester}` : ''}${filterSection !== 'all' ? `-${filterSection}` : ''}${searchQuery ? `-search` : ''}.csv`;
+          filename = `students-report${filterProgram !== 'all' ? `-${filterProgram}` : ''}${filterSemester !== 'all' ? `-${filterSemester}` : ''}${filterSection !== 'all' ? `-${filterSection}` : ''}${searchQuery ? `-search` : ''}.csv`;
         } else if (exportFormat === 'json') {
           blob = new Blob([response.data], { type: 'application/json' });
-          filename = `students-report${filterSemester !== 'all' ? `-${filterSemester}` : ''}${filterSection !== 'all' ? `-${filterSection}` : ''}${searchQuery ? `-search` : ''}.json`;
+          filename = `students-report${filterProgram !== 'all' ? `-${filterProgram}` : ''}${filterSemester !== 'all' ? `-${filterSemester}` : ''}${filterSection !== 'all' ? `-${filterSection}` : ''}${searchQuery ? `-search` : ''}.json`;
         } else if (exportFormat === 'excel') {
           blob = new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-          filename = `students-report${filterSemester !== 'all' ? `-${filterSemester}` : ''}${filterSection !== 'all' ? `-${filterSection}` : ''}${searchQuery ? `-search` : ''}.xlsx`;
+          filename = `students-report${filterProgram !== 'all' ? `-${filterProgram}` : ''}${filterSemester !== 'all' ? `-${filterSemester}` : ''}${filterSection !== 'all' ? `-${filterSection}` : ''}${searchQuery ? `-search` : ''}.xlsx`;
         } else if (exportFormat === 'pdf') {
           blob = new Blob([response.data], { type: 'application/pdf' });
-          filename = `students-report${filterSemester !== 'all' ? `-${filterSemester}` : ''}${filterSection !== 'all' ? `-${filterSection}` : ''}${searchQuery ? `-search` : ''}.pdf`;
+          filename = `students-report${filterProgram !== 'all' ? `-${filterProgram}` : ''}${filterSemester !== 'all' ? `-${filterSemester}` : ''}${filterSection !== 'all' ? `-${filterSection}` : ''}${searchQuery ? `-search` : ''}.pdf`;
         } else {
           throw new Error(`Unsupported student report format: ${exportFormat}`);
         }
@@ -255,7 +257,7 @@ export const StudentManagement: React.FC = () => {
         // Edit student
         const res = await API.patch(`/auth/users/${editingStudent.id}`, {
           name: editingStudent.name,
-          department: editingStudent.department,
+          program: editingStudent.program,
           classGroup: editingStudent.classGroup,
           semesterId: editingStudent.semesterId || null,
           ...(studentPassword ? { password: studentPassword } : {})
@@ -268,7 +270,7 @@ export const StudentManagement: React.FC = () => {
           name: newStudent.name,
           password: studentPassword,
           role: 'student',
-          department: newStudent.department,
+          program: newStudent.program,
           classGroup: newStudent.classGroup,
         });
 
@@ -319,8 +321,10 @@ export const StudentManagement: React.FC = () => {
       const matchesSearch =
         s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         s.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.department.toLowerCase().includes(searchQuery.toLowerCase());
+        s.program.toLowerCase().includes(searchQuery.toLowerCase());
 
+      const matchesProgram =
+        filterProgram === 'all' || s.program === filterProgram;
       const matchesSemester =
         filterSemester === 'all' ||
         s.semesterId === filterSemester;
@@ -329,9 +333,9 @@ export const StudentManagement: React.FC = () => {
         filterSection === 'all' ||
         (s.classGroup && s.classGroup.toLowerCase() === filterSection.toLowerCase());
 
-      return matchesSearch && matchesSemester && matchesSection;
+      return matchesSearch && matchesProgram && matchesSemester && matchesSection;
     });
-  }, [students, searchQuery, filterSemester, filterSection]);
+  }, [students, searchQuery, filterProgram, filterSemester, filterSection]);
 
   // Pagination calculations
   const totalPages = Math.ceil(filteredStudents.length / itemsPerPage);
@@ -386,7 +390,7 @@ export const StudentManagement: React.FC = () => {
               setNewStudent({
                 id: '',
                 name: '',
-                department: defaultDepartment,
+                program: defaultProgram,
                 classGroup: defaultClassGroup,
                 semesterId: selectedSemester || (semesters[0]?.id || '')
               });
@@ -474,14 +478,14 @@ export const StudentManagement: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Default Department (Fallback)</label>
-              <input
-                type="text"
-                value={defaultDepartment}
-                onChange={(e) => setDefaultDepartment(e.target.value)}
-                placeholder="e.g. Computer Science & Engineering"
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Default Program (Fallback)</label>
+              <select
+                value={defaultProgram}
+                onChange={(e) => setDefaultProgram(e.target.value as StudentProgram)}
                 className="w-full px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500"
-              />
+              >
+                {STUDENT_PROGRAMS.map(program => <option key={program} value={program}>{PROGRAM_LABELS[program]}</option>)}
+              </select>
             </div>
 
             {/* Dropzone */}
@@ -654,21 +658,15 @@ Section: CSE-B`}
           <div className="flex flex-wrap items-center gap-3 text-sm">
             <span className="text-gray-500 font-medium">Filters:</span>
             
-            {/* Department Filter */}
+            {/* Program Filter */}
             <div className="relative">
               <select
-                value={filterDepartment}
-                onChange={(e) => { setFilterDepartment(e.target.value); setCurrentPage(1); }}
+                value={filterProgram}
+                onChange={(e) => { setFilterProgram(e.target.value); setCurrentPage(1); }}
                 className="appearance-none bg-gray-50 border border-gray-200 rounded-xl px-4 py-1.5 pr-8 font-semibold text-xs text-gray-700 focus:outline-none focus:border-blue-500"
               >
-                <option value="all">All Departments</option>
-                <option value="Computer Science and Engineering (CSE)">Computer Science and Engineering (CSE)</option>
-                  <option value="Information Science and Engineering (ISE)">Information Science and Engineering (ISE)</option>
-                  <option value="Electronics and Communication Engineering (ECE)">Electronics and Communication Engineering (ECE)</option>
-                  <option value="Artificial Intelligence and Data Science (AI&DS)">Artificial Intelligence and Data Science (AI&DS)</option>
-                  <option value="Mathematics">Mathematics</option>
-                  <option value="Physics">Physics</option>
-                  <option value="Chemistry">Chemistry</option>
+                <option value="all">All Programs</option>
+                {STUDENT_PROGRAMS.map(program => <option key={program} value={program}>{PROGRAM_LABELS[program]}</option>)}
               </select>
               <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
             </div>
@@ -719,7 +717,7 @@ Section: CSE-B`}
               <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
                 <div className="rounded-lg bg-white border border-gray-100 px-3 py-2">
                   <p className="text-gray-400">Department</p>
-                  <p className="mt-0.5 font-medium text-gray-700 break-words">{stud.department}</p>
+                  <p className="mt-0.5 font-medium text-gray-700 break-words">{PROGRAM_LABELS[stud.program]}</p>
                 </div>
                 <div className="rounded-lg bg-white border border-gray-100 px-3 py-2">
                   <p className="text-gray-400">Semester / Class</p>
@@ -778,7 +776,7 @@ Section: CSE-B`}
                       </div>
                     </td>
                     <td className="py-4 px-5 font-mono text-xs font-semibold text-gray-700">{stud.id}</td>
-                    <td className="py-4 px-5 text-gray-600 max-w-[200px] truncate">{stud.department}</td>
+                    <td className="py-4 px-5 text-gray-600 max-w-[200px] truncate">{PROGRAM_LABELS[stud.program]}</td>
                     <td className="py-4 px-5">
                       <div className="space-y-0.5">
                         <span className="inline-block bg-blue-50 text-blue-700 border border-blue-100 rounded px-2 py-0.5 text-[10px] font-bold">
@@ -921,27 +919,23 @@ Section: CSE-B`}
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase mb-2">Department</label>
+                <label className="block text-xs font-semibold text-gray-500 uppercase mb-2">Program</label>
                 <select
                   required
-                  value={editingStudent ? editingStudent.department : (newStudent?.department || '')}
+                  value={editingStudent ? editingStudent.program : (newStudent?.program || '')}
                   onChange={(e) => {
                     if (editingStudent) {
-                      setEditingStudent({ ...editingStudent, department: e.target.value });
+                      const program = e.target.value as StudentProgram;
+                      setEditingStudent({ ...editingStudent, program, classGroup: SECTION_OPTIONS[program][0] });
                     } else if (newStudent) {
-                      setNewStudent({ ...newStudent, department: e.target.value });
+                      const program = e.target.value as StudentProgram;
+                      setNewStudent({ ...newStudent, program, classGroup: SECTION_OPTIONS[program][0] });
                     }
                   }}
                   className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500"
                 >
-                  <option value="" disabled>Select Department</option>
-                  <option value="Computer Science and Engineering (CSE)">Computer Science and Engineering (CSE)</option>
-                  <option value="Information Science and Engineering (ISE)">Information Science and Engineering (ISE)</option>
-                  <option value="Electronics and Communication Engineering (ECE)">Electronics and Communication Engineering (ECE)</option>
-                  <option value="Artificial Intelligence and Data Science (AI&DS)">Artificial Intelligence and Data Science (AI&DS)</option>
-                  <option value="Mathematics">Mathematics</option>
-                  <option value="Physics">Physics</option>
-                  <option value="Chemistry">Chemistry</option>
+                  <option value="" disabled>Select Program</option>
+                  {STUDENT_PROGRAMS.map(program => <option key={program} value={program}>{PROGRAM_LABELS[program]}</option>)}
                 </select>
               </div>
 
@@ -963,8 +957,7 @@ Section: CSE-B`}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase mb-2">Section</label>
-                  <input
-                    type="text"
+                  <select
                     required
                     value={editingStudent ? (editingStudent.classGroup || '') : (newStudent?.classGroup || '')}
                     onChange={(e) => {
@@ -974,9 +967,13 @@ Section: CSE-B`}
                         setNewStudent({ ...newStudent, classGroup: e.target.value });
                       }
                     }}
-                    placeholder="e.g. CSE-B"
                     className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500"
-                  />
+                  >
+                    <option value="" disabled>Select Section</option>
+                    {(editingStudent ? SECTION_OPTIONS[editingStudent.program] : SECTION_OPTIONS[newStudent?.program || defaultProgram]).map(section => (
+                      <option key={section} value={section}>{section}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>

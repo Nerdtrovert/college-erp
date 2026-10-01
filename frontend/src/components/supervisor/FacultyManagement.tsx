@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { UserPlus, BookOpen, Plus, Search, Building, Briefcase, GraduationCap, Shield, Edit2, Trash2, ShieldAlert } from 'lucide-react';
+import { UserPlus, Upload, BookOpen, Plus, Search, Building, Briefcase, GraduationCap, Shield, Edit2, Trash2, ShieldAlert } from 'lucide-react';
 import API from '../../services/api';
+import * as XLSX from 'xlsx';
 
 interface ModalLayerProps {
   open: boolean;
@@ -36,6 +37,7 @@ export const FacultyManagement: React.FC = () => {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
+  const [facultyFile, setFacultyFile] = useState<File | null>(null);
 
   // Form states
   const [newFaculty, setNewFaculty] = useState({
@@ -148,6 +150,39 @@ export const FacultyManagement: React.FC = () => {
     }
   };
 
+  const handleFacultyUpload = async () => {
+    if (!facultyFile) {
+      setError('Choose an Excel file first.');
+      return;
+    }
+    try {
+      setLoading(true);
+      const workbook = XLSX.read(await facultyFile.arrayBuffer(), { type: 'array' });
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets[workbook.SheetNames[0]]);
+      let imported = 0;
+      for (const row of rows) {
+        const id = String(row.ID || row.Email || row.email || '').trim();
+        const name = String(row.Name || row['Full Name'] || row.name || '').trim();
+        if (!id || !name) continue;
+        await API.post('/auth/register', {
+          id,
+          name,
+          password: String(row.Password || row.password || 'teacher123'),
+          role: String(row.Role || row.role || 'teacher').toLowerCase(),
+          department: String(row.Department || row.department || '')
+        });
+        imported += 1;
+      }
+      setSuccess(`${imported} faculty records imported successfully.`);
+      setFacultyFile(null);
+      await fetchFaculty();
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to import faculty spreadsheet.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleEditFaculty = async () => {
     try {
       setLoading(true);
@@ -234,6 +269,12 @@ export const FacultyManagement: React.FC = () => {
           <UserPlus size={18} />
           <span>Add Faculty</span>
         </button>
+        <div className="flex w-full items-center gap-2 sm:w-auto">
+          <input type="file" accept=".xlsx,.xls" onChange={e => setFacultyFile(e.target.files?.[0] || null)} className="max-w-[12rem] text-xs" />
+          <button onClick={handleFacultyUpload} disabled={!facultyFile || loading} className="flex items-center gap-2 rounded-2xl border border-green-200 bg-green-50 px-4 py-2.5 text-sm font-semibold text-green-700 disabled:opacity-50">
+            <Upload size={16} /> Import
+          </button>
+        </div>
       </div>
 
       {success && (
@@ -306,31 +347,14 @@ export const FacultyManagement: React.FC = () => {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Department</label>
-                <select
+                <input
+                  type="text"
                   value={newFaculty.department}
                   onChange={(e) => setNewFaculty({...newFaculty, department: e.target.value})}
                   className="w-full px-3.5 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-gray-50 focus:bg-white transition-colors"
                   required
-                >
-                                    <option value="" disabled>Select Department</option>
-                  <option value="Computer Science & Engineering">Computer Science & Engineering</option>
-                  <option value="Information Science">Information Science</option>
-                  <option value="Electronics & Communication">Electronics & Communication</option>
-                  <option value="Artificial Intelligence">Artificial Intelligence</option>
-                  <option value="Mathematics">Mathematics</option>
-                  <option value="Physics">Physics</option>
-                  <option value="Chemistry">Chemistry</option>
-                  <option value="Academics">Academics (Dean)</option>
-                  <option value="Student Affairs">Student Affairs (Dean)</option>
-                  <option value="Administration">Administration (Principal)</option>
-                  <option value="Mathematics">Mathematics</option>
-                  <option value="Electronics & Communication">Electronics & Communication</option>
-                  <option value="Physics">Physics</option>
-                  <option value="Chemistry">Chemistry</option>
-                  <option value="Academics">Academics</option>
-                  <option value="Student Affairs">Student Affairs</option>
-                  <option value="Administration">Administration</option>
-                </select>
+                  placeholder="e.g. Physics"
+                />
               </div>
             </div>
             
@@ -407,31 +431,14 @@ export const FacultyManagement: React.FC = () => {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Department</label>
-                <select
+                <input
+                  type="text"
                   value={editingFaculty.department}
                   onChange={(e) => setEditingFaculty({...editingFaculty, department: e.target.value})}
                   className="w-full px-3.5 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-gray-50 focus:bg-white transition-colors"
                   required
-                >
-                                    <option value="" disabled>Select Department</option>
-                  <option value="Computer Science & Engineering">Computer Science & Engineering</option>
-                  <option value="Information Science">Information Science</option>
-                  <option value="Electronics & Communication">Electronics & Communication</option>
-                  <option value="Artificial Intelligence">Artificial Intelligence</option>
-                  <option value="Mathematics">Mathematics</option>
-                  <option value="Physics">Physics</option>
-                  <option value="Chemistry">Chemistry</option>
-                  <option value="Academics">Academics (Dean)</option>
-                  <option value="Student Affairs">Student Affairs (Dean)</option>
-                  <option value="Administration">Administration (Principal)</option>
-                  <option value="Mathematics">Mathematics</option>
-                  <option value="Electronics & Communication">Electronics & Communication</option>
-                  <option value="Physics">Physics</option>
-                  <option value="Chemistry">Chemistry</option>
-                  <option value="Academics">Academics</option>
-                  <option value="Student Affairs">Student Affairs</option>
-                  <option value="Administration">Administration</option>
-                </select>
+                  placeholder="e.g. Physics"
+                />
               </div>
             </div>
             

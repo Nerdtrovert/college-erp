@@ -284,7 +284,10 @@ export const getAnyFacultyTimetable = async (req: AuthRequest, res: Response) =>
 
   try {
     const whereClause: any = {
-      teacherId,
+      OR: [
+        { teacherId },
+        { coTeacherId: teacherId },
+      ],
       semester: {
         status: semesterId ? undefined : 'ACTIVE', // If semesterId provided, don't filter by status
       },
@@ -356,9 +359,17 @@ export const getCurrentFacultyStatus = async (req: AuthRequest, res: Response) =
   try {
     // Get current day and time
     const now = new Date();
-    const currentDay = now.toLocaleDateString('en-US', { weekday: 'long' }); // Monday, Tuesday, etc.
-    const currentHours = now.getHours();
-    const currentMinutes = now.getMinutes();
+    const indiaTimeParts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Kolkata',
+      weekday: 'long',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).formatToParts(now);
+    const indiaTime = Object.fromEntries(indiaTimeParts.map(({ type, value }) => [type, value]));
+    const currentDay = indiaTime.weekday;
+    const currentHours = Number(indiaTime.hour);
+    const currentMinutes = Number(indiaTime.minute);
     const currentTimeInMinutes = currentHours * 60 + currentMinutes;
 
     // Define period boundaries (matching PERIOD_TIMES from attendance controller)
@@ -390,16 +401,6 @@ export const getCurrentFacultyStatus = async (req: AuthRequest, res: Response) =
       }
     }
 
-    // If we're in a break/lunch period or outside class hours, no classes
-    if (currentPeriodIndex === -1) {
-      return res.status(200).json({
-        currentDay,
-        currentTime: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-        facultyStatus: [],
-        message: 'No classes currently in session',
-      });
-    }
-
     // Get active semester
     const activeSemester = await prisma.semester.findFirst({
       where: { status: 'ACTIVE' },
@@ -427,7 +428,7 @@ export const getCurrentFacultyStatus = async (req: AuthRequest, res: Response) =
     const facultyStatus = await Promise.all(
       facultyMembers.map(async (faculty) => {
         // Check if this faculty is teaching in the current period
-        const timetableSlot = await prisma.timetableSlot.findFirst({
+        const timetableSlot = currentPeriodIndex === -1 ? null : await prisma.timetableSlot.findFirst({
           where: {
             OR: [
               { teacherId: faculty.id },
@@ -458,7 +459,7 @@ export const getCurrentFacultyStatus = async (req: AuthRequest, res: Response) =
             room: timetableSlot.room || 'TBD',
             classGroup: timetableSlot.classGroup,
             periodIndex: currentPeriodIndex,
-            periodLabel: PERIOD_TIMES[currentPeriodIndex][0] + '–' + PERIOD_TIMES[currentPeriodIndex][1],
+            periodLabel: currentPeriodIndex === -1 ? 'No active period' : PERIOD_TIMES[currentPeriodIndex][0] + '–' + PERIOD_TIMES[currentPeriodIndex][1],
           };
         } else {
           // Faculty is not teaching in current period
@@ -471,7 +472,7 @@ export const getCurrentFacultyStatus = async (req: AuthRequest, res: Response) =
             room: null,
             classGroup: null,
             periodIndex: currentPeriodIndex,
-            periodLabel: PERIOD_TIMES[currentPeriodIndex][0] + '–' + PERIOD_TIMES[currentPeriodIndex][1],
+            periodLabel: currentPeriodIndex === -1 ? 'No active period' : PERIOD_TIMES[currentPeriodIndex][0] + '–' + PERIOD_TIMES[currentPeriodIndex][1],
             status: 'free', // Indicates not currently teaching
           };
         }
@@ -480,9 +481,13 @@ export const getCurrentFacultyStatus = async (req: AuthRequest, res: Response) =
 
     return res.status(200).json({
       currentDay,
-      currentTime: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+      currentTime: new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Kolkata',
+        hour: '2-digit',
+        minute: '2-digit',
+      }).format(now),
       currentPeriodIndex,
-      currentPeriodLabel: PERIOD_TIMES[currentPeriodIndex][0] + '–' + PERIOD_TIMES[currentPeriodIndex][1],
+      currentPeriodLabel: currentPeriodIndex === -1 ? 'No active period' : PERIOD_TIMES[currentPeriodIndex][0] + '–' + PERIOD_TIMES[currentPeriodIndex][1],
       semester: {
         id: activeSemester.id,
         name: activeSemester.name,

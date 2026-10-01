@@ -31,7 +31,8 @@ model User {
   name             String
   password         String
   role             Role
-  department       String
+  department       String? // Free-text faculty metadata; students use program instead
+  program          String? // Canonical student program: CSE, ISE, AI&DS, or ECE
   classGroup       String? // Section for students (e.g., "CSE-B"). Null for teachers.
   numberOfBacklogs Int      @default(0)
   backlogSubjects  String[] @default([])
@@ -46,12 +47,14 @@ model User {
   marks             Mark[]
   announcements     Announcement[]     @relation("UserAnnouncements")
   notes             Note[]
+  adminUploads      AdminUpload[]      @relation("AdminUploads")
   semesterId        String?
   semester          Semester?          @relation(fields: [semesterId], references: [id])
 
   @@index([classGroup])
   @@index([role])
   @@index([role, classGroup])
+  @@index([role, program])
 }
 
 model Subject {
@@ -205,6 +208,20 @@ model Note {
   uploadedById String
 
   uploadedBy User @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AdminUpload {
+  id           String  @id @default(uuid())
+  title        String
+  description  String?
+  fileName     String
+  filePath     String
+  uploadedById String
+
+  uploadedBy User @relation("AdminUploads", fields: [uploadedById], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

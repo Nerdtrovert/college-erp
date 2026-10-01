@@ -10,12 +10,13 @@ import {
   getCurrentFacultyStatus,
 } from '../controllers/timetable.controller';
 import { authenticate, authorize } from '../middleware/auth';
+import { requireTeacher } from '../middleware/role';
 
 const router = Router();
 
 router.get('/student', authenticate, authorize(['student']), getStudentTimetable);
-router.get('/teacher', authenticate, authorize(['teacher']), getTeacherTimetable);
-router.get('/teacher-subjects', authenticate, authorize(['teacher']), getTeacherSubjects);
+router.get('/teacher', requireTeacher, getTeacherTimetable);
+router.get('/teacher-subjects', requireTeacher, getTeacherSubjects);
 router.get('/semester/:semesterId', authenticate, authorize(['teacher', 'dean', 'principal', 'hod']), getTimetableBySemester);
 router.get('/semester/:semesterId/classes', authenticate, authorize(['dean', 'principal', 'hod']), getTimetableClassGroups);
 router.put('/slot', authenticate, authorize(['dean', 'principal', 'hod']), saveTimetableSlot);

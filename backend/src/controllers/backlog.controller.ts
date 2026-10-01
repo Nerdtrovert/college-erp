@@ -9,7 +9,7 @@ import multer from 'multer';
 // Document parsing imports
 import pdfParse from 'pdf-parse';
 import mammoth from 'mammoth';
-import * as exceljs from 'exceljs';
+import * as xlsx from 'xlsx';
 
 // Configure multer for file upload
 const storage = multer.diskStorage({
@@ -106,8 +106,7 @@ export const uploadGradecard = async (req: AuthRequest, res: Response) => {
           file.mimetype === 'application/vnd.ms-excel'
         ) {
           // Parse Excel
-          const workbook = new exceljs.Workbook();
-          await workbook.xlsx.readFile(file.path);
+          const workbook = xlsx.readFile(file.path, { cellDates: true });
           gradecardData = parseExcelSheet(workbook);
         } else if (
           file.mimetype === 'application/msword' ||
@@ -203,24 +202,62 @@ export const processGradecard = async (req: AuthRequest, res: Response) => {
           continue;
         }
 
-        // Count F grades and collect backlog subjects
-        const fGrades = studentData.subjects.filter((subj: any) => subj.grade === 'F');
-        const backlogSubjects = fGrades.map((subj: any) => subj.subjectCode);
+        // Get current backlog subjects from database
+        let currentBacklogSubjects: string[] = [];
+        if (student.backlogSubjects) {
+          if (Array.isArray(student.backlogSubjects)) {
+            currentBacklogSubjects = student.backlogSubjects.map((subject: unknown) => String(subject).trim()).filter(Boolean);
+          } else {
+            currentBacklogSubjects = String(student.backlogSubjects)
+              .split(',')
+              .map((subject: string) => subject.trim())
+              .filter(Boolean);
+          }
+        }
+
+        // Backlog status is determined only by the grade: F is a backlog and P is not.
+        const backlogSubjects = studentData.subjects
+          .filter((subj: any) => String(subj.grade || '').trim().toUpperCase() === 'F')
+          .map((subj: any) => subj.subjectCode);
+
+        // Calculate differences for cross-checking
+        const subjectsToAdd = backlogSubjects.filter(
+          (subject: string) => !currentBacklogSubjects.includes(subject)
+        );
+        const subjectsToRemove = currentBacklogSubjects.filter(
+          (subject: string) => !backlogSubjects.includes(subject)
+        );
+
+        // Calculate new backlog count
+        const currentBacklogCount = student.numberOfBacklogs || 0;
+        const newBacklogCount =
+          currentBacklogCount + subjectsToAdd.length - subjectsToRemove.length;
+
+        // Ensure backlog count doesn't go below zero
+        const finalBacklogCount = Math.max(0, newBacklogCount);
+
+        // Calculate new backlog subjects array
+        const updatedBacklogSubjects = [
+          ...currentBacklogSubjects.filter(
+            (subject) => !subjectsToRemove.includes(subject)
+          ),
+          ...subjectsToAdd
+        ];
 
         // Update student backlog count and subjects
         const updatedStudent = await prisma.user.update({
           where: { id: student.id },
           data: {
-            numberOfBacklogs: backlogSubjects.length,
-            backlogSubjects: backlogSubjects
+            numberOfBacklogs: finalBacklogCount,
+            backlogSubjects: updatedBacklogSubjects
           }
         });
 
         processedStudents.push({
           ...studentData,
           status: 'processed',
-          backlogCount: backlogSubjects.length,
-          backlogSubjects: backlogSubjects
+          backlogCount: finalBacklogCount,
+          backlogSubjects: updatedBacklogSubjects
         });
 
         updatedStudents.push({
@@ -252,26 +289,36 @@ export const processGradecard = async (req: AuthRequest, res: Response) => {
 };
 
 /**
- * Get all students with their backlog information for a semester
+ * Get all students with their backlog information
+ * If semesterId is provided, filters by that semester
+ * If semesterId is not provided, returns all students
  */
 export const getStudentsWithBacklogs = async (req: AuthRequest, res: Response) => {
   try {
-    const { semesterId } = req.query;
+    const { semesterId, program } = req.query;
 
-    if (!semesterId) {
-      return res.status(400).json({ error: 'Semester ID is required' });
+    // Build where clause
+    const whereClause: any = {
+      role: 'student'
+    };
+
+    // Only add semesterId filter if provided
+    if (semesterId) {
+      whereClause.semesterId = semesterId as string;
+    }
+    if (program && typeof program === 'string') {
+      whereClause.program = program;
     }
 
-    // Get all students for the semester
+    // Get all students (filtered by semester if specified)
     const students = await prisma.user.findMany({
-      where: {
-        role: 'student',
-        semesterId: semesterId as string
-      },
+      where: whereClause,
       select: {
         id: true,
         name: true,
         department: true,
+        program: true,
+        semesterId: true,
         numberOfBacklogs: true,
         backlogSubjects: true
       }
@@ -283,7 +330,8 @@ export const getStudentsWithBacklogs = async (req: AuthRequest, res: Response) =
       name: student.name,
       usn: student.id, // Assuming USN is stored as id
       department: student.department || 'N/A',
-      semester: semesterId,
+      program: student.program || 'CSE',
+      semester: student.semesterId || 'N/A',
       backlogCount: student.numberOfBacklogs,
       backlogSubjects: student.backlogSubjects
     }));
@@ -302,75 +350,113 @@ function parsePDFText(text: string): any {
   // This is a simplified parser - in a real implementation, you'd need
   // more sophisticated parsing based on the actual gradecard format
   const lines = text.split('\n');
-  const students = [];
+  const students: any[] = [];
 
   // Look for patterns in the text to identify student records
   // This would need to be customized based on the actual gradecard format
   let currentStudent: any = null;
   let currentSubjects: any[] = [];
 
+  const saveCurrentStudent = () => {
+    if (currentStudent && currentSubjects.length > 0) {
+      students.push({
+        ...currentStudent,
+        subjects: currentSubjects
+      });
+    }
+    currentStudent = null;
+    currentSubjects = [];
+  };
+
   for (const line of lines) {
     const trimmedLine = line.trim();
     if (!trimmedLine) continue;
 
-    // Simple pattern matching - this would need to be enhanced
-    // Look for student name/USN patterns
-    if (trimmedLine.match(/^(Name|USN|Roll No):/i)) {
-      // Save previous student if exists
-      if (currentStudent && currentSubjects.length > 0) {
-        students.push({
-          ...currentStudent,
-          subjects: currentSubjects
-        });
-        currentSubjects = [];
+    const identityMatch = trimmedLine.match(/^(Name|USN|Roll No):\s*(.*)$/i);
+    if (identityMatch) {
+      const field = identityMatch[1].toLowerCase();
+      const value = identityMatch[2].trim();
+      const startsNewStudent =
+        field === 'name'
+          ? currentStudent !== null && (currentStudent.name || currentSubjects.length > 0)
+          : currentStudent !== null && currentStudent.usn && currentSubjects.length > 0;
+
+      if (startsNewStudent) {
+        saveCurrentStudent();
       }
 
-      // Start new student
-      currentStudent = {
-        name: '',
-        usn: '',
-        semester: '',
-        subjects: []
-      };
+      if (!currentStudent) {
+        currentStudent = {
+          name: '',
+          usn: '',
+          semester: '',
+          subjects: []
+        };
+      }
 
-      // Extract value after colon
-      const value = trimmedLine.split(':')[1].trim();
-      if (trimmedLine.toLowerCase().startsWith('name:')) {
+      if (field === 'name') {
         currentStudent.name = value;
-      } else if (trimmedLine.toLowerCase().startsWith('usn:') || trimmedLine.toLowerCase().startsWith('roll no:')) {
+      } else {
         currentStudent.usn = value;
       }
     } else if (trimmedLine.match(/^(Subject|Course)/i)) {
-      // Subject line - this would need more sophisticated parsing
-      // For now, we'll skip detailed subject parsing in this example
+      // Subject line - extract subject name and initialize subject object
+      const subjectMatch = trimmedLine.match(/^(Subject|Course):?\s*(.+)$/i);
+      if (subjectMatch) {
+        const subjectName = subjectMatch[2].trim();
+        if (subjectName) {
+          const subject: any = {
+            subjectName: subjectName,
+            subjectCode: subjectName.replace(/\s+/g, '').toUpperCase().substring(0, 10), // Simple code generation
+            credits: 4 // Default credits
+          };
+          currentSubjects.push(subject);
+        }
+      }
+    } else if (currentStudent && currentSubjects.length > 0) {
+      // We're inside a student block and have at least one subject - try to parse mark data
+      const subject = currentSubjects[currentSubjects.length - 1]; // Get the last (current) subject
+
+      // Look for internal marks
+      const internalMatch = trimmedLine.match(/Internal(?:Marks?):?\s*(\d+(?:\.\d+)?)/i);
+      if (internalMatch) {
+        const marks = parseFloat(internalMatch[1]);
+        if (!isNaN(marks)) {
+          subject.internalMarks = marks;
+        }
+      }
+
+      // Look for external marks
+      const externalMatch = trimmedLine.match(/External(?:Marks?):?\s*(\d+(?:\.\d+)?)/i);
+      if (externalMatch) {
+        const marks = parseFloat(externalMatch[1]);
+        if (!isNaN(marks)) {
+          subject.externalMarks = marks;
+        }
+      }
+
+      // Look for total marks
+      const totalMatch = trimmedLine.match(/Total(?:Marks?):?\s*(\d+(?:\.\d+)?)/i);
+      if (totalMatch) {
+        const marks = parseFloat(totalMatch[1]);
+        if (!isNaN(marks)) {
+          subject.totalMarks = marks;
+
+        }
+      }
+
+      // Also look for direct grade mention
+      const gradeMatch = trimmedLine.match(/Grade:?\s*([FP])/i);
+      if (gradeMatch) {
+        subject.grade = gradeMatch[1].toUpperCase();
+      }
     }
   }
 
-  // Don't forget the last student
-  if (currentStudent && currentSubjects.length > 0) {
-    students.push({
-      ...currentStudent,
-      subjects: currentSubjects
-    });
-  }
+  saveCurrentStudent();
 
-  // If we couldn't parse structured data, return a basic format
-  // In a real implementation, you'd have proper parsing logic here
   if (students.length === 0) {
-    // Return a mock structure for demonstration
-    return {
-      students: [
-        {
-          name: 'Sample Student',
-          usn: 'CS21B042',
-          semester: 'CS401',
-          subjects: [
-            { subjectCode: 'CS2301', subjectName: 'Data Structures', grade: 'F', credits: 4 },
-            { subjectCode: 'CS2302', subjectName: 'Algorithms', grade: 'B', credits: 4 }
-          ]
-        }
-      ]
-    };
+    return { students: [] };
   }
 
   return { students };
@@ -379,16 +465,15 @@ function parsePDFText(text: string): any {
 /**
  * Parse Excel sheet to extract student grade data
  */
-function parseExcelSheet(workbook: exceljs.Workbook): any {
+function parseExcelSheet(workbook: xlsx.WorkBook): any {
   // Simplified Excel parser
   const students: any[] = [];
 
-  workbook.eachSheet((worksheet, sheetId) => {
-    const rows: any[][] = [];
-    worksheet.eachRow((row, rowNumber) => {
-      // exceljs row.values is 1-indexed, so we drop the first empty element
-      const rowValues = Array.isArray(row.values) ? row.values.slice(1) : [];
-      rows.push(rowValues);
+  workbook.SheetNames.forEach((sheetName) => {
+    const worksheet = workbook.Sheets[sheetName];
+    const rows = xlsx.utils.sheet_to_json<any[]>(worksheet, {
+      header: 1,
+      defval: ''
     });
 
     // Assume first row contains headers
@@ -411,11 +496,16 @@ function parseExcelSheet(workbook: exceljs.Workbook): any {
         subjects: []
       };
 
-      // Map headers to values
+      // Temporary object to collect mark data by subject
+      const subjectMarks: Record<string, Record<string, number | string>> = {};
+
+      // Process each column
       headers.forEach((header: string, colIdx: number) => {
         const value = row[colIdx];
         if (value !== undefined && value !== null) {
           const strValue = String(value).trim();
+
+          // Handle student identifying information
           if (header.includes('name')) {
             student.name = strValue;
           } else if (header.includes('usn') || header.includes('roll')) {
@@ -423,9 +513,55 @@ function parseExcelSheet(workbook: exceljs.Workbook): any {
           } else if (header.includes('semester')) {
             student.semester = strValue;
           }
-          // Subject parsing would be more complex - simplified for now
+          // Handle potential mark columns - look for patterns like "SubjectName_Internal", "SubjectName_External", etc.
+          else {
+            // Check if header matches pattern: something_Internal, something_External, something_Total
+            const internalMatch = header.match(/^(.+?)_(internal|int|internalmarks?)$/i);
+            const externalMatch = header.match(/^(.+?)_(external|ext|externalmarks?)$/i);
+            const totalMatch = header.match(/^(.+?)_(total|tot|totalmarks?)$/i);
+            const gradeMatch = header.match(/^(.+?)_(grade|result|status)$/i);
+
+            const numericValue = Number(strValue);
+            if (internalMatch || externalMatch || totalMatch || gradeMatch) {
+              const subjectMatch = internalMatch || externalMatch || totalMatch || gradeMatch;
+              const subjectName = subjectMatch![1].trim();
+              if (!subjectMarks[subjectName]) subjectMarks[subjectName] = {};
+
+              if (gradeMatch) {
+                const grade = strValue.toUpperCase();
+                if (grade === 'F' || grade === 'P') {
+                  subjectMarks[subjectName].grade = grade;
+                }
+              } else if (!isNaN(numericValue)) {
+                if (internalMatch) {
+                  subjectMarks[subjectName].internal = numericValue;
+                } else if (externalMatch) {
+                  subjectMarks[subjectName].external = numericValue;
+                } else if (totalMatch) {
+                  subjectMarks[subjectName].total = numericValue;
+                }
+              }
+            }
+          }
         }
       });
+
+      // Convert collected mark data to subject objects
+      for (const [subjectName, marks] of Object.entries(subjectMarks)) {
+        const subject: any = {
+          subjectName: subjectName,
+          subjectCode: subjectName.replace(/\s+/g, '').toUpperCase().substring(0, 10), // Simple code generation
+          credits: 4 // Default credits
+        };
+
+        // Add mark data if available
+        if (marks.internal !== undefined) subject.internalMarks = marks.internal;
+        if (marks.external !== undefined) subject.externalMarks = marks.external;
+        if (marks.total !== undefined) subject.totalMarks = marks.total;
+        if (marks.grade === 'F' || marks.grade === 'P') subject.grade = marks.grade;
+
+        student.subjects.push(subject);
+      }
 
       // Only add if we have at least a name or USN
       if (student.name || student.usn) {
@@ -434,21 +570,8 @@ function parseExcelSheet(workbook: exceljs.Workbook): any {
     }
   });
 
-  // If no structured data found, return mock data
   if (students.length === 0) {
-    return {
-      students: [
-        {
-          name: 'Sample Student',
-          usn: 'CS21B042',
-          semester: 'CS401',
-          subjects: [
-            { subjectCode: 'CS2301', subjectName: 'Data Structures', grade: 'F', credits: 4 },
-            { subjectCode: 'CS2302', subjectName: 'Algorithms', grade: 'B', credits: 4 }
-          ]
-        }
-      ]
-    };
+    return { students: [] };
   }
 
   return { students };

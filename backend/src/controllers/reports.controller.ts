@@ -11,13 +11,13 @@ export const getVergeOfBacklogReport = async (req: AuthRequest, res: Response) =
   try {
     // Get query parameters for filtering - handle arrays from query parsing
     const semesterIdParam = req.query.semesterId;
-    const departmentParam = req.query.department;
+    const programParam = req.query.program;
     const classGroupParam = req.query.classGroup;
     const hasBacklogsParam = req.query.hasBacklogs;
 
     // Extract values (handle potential arrays from query string parsing)
     const semesterId = Array.isArray(semesterIdParam) ? semesterIdParam[0] : semesterIdParam;
-    const department = Array.isArray(departmentParam) ? departmentParam[0] : departmentParam;
+    const program = Array.isArray(programParam) ? programParam[0] : programParam;
     const classGroup = Array.isArray(classGroupParam) ? classGroupParam[0] : classGroupParam;
     const hasBacklogs = Array.isArray(hasBacklogsParam) ? hasBacklogsParam[0] : hasBacklogsParam;
 
@@ -38,9 +38,9 @@ export const getVergeOfBacklogReport = async (req: AuthRequest, res: Response) =
       where.semesterId = semesterId;
     }
 
-    // Add department filter if provided
-    if (department && typeof department === 'string' && department !== '') {
-      where.department = department;
+    // Add student program filter if provided
+    if (program && typeof program === 'string' && program !== '') {
+      where.program = program;
     }
 
     // Add classGroup filter if provided
@@ -70,11 +70,6 @@ export const getVergeOfBacklogReport = async (req: AuthRequest, res: Response) =
         // Teacher has no classes, return empty results by matching an impossible condition
         where.id = 'NO_CLASSES_ASSIGNED';
       }
-    } else if (req.user?.role === 'hod') {
-      // HODs can only see students in their own department
-      if (req.user.department) {
-        where.department = req.user.department;
-      }
     }
 
     // Get active semester if none specified
@@ -94,9 +89,10 @@ export const getVergeOfBacklogReport = async (req: AuthRequest, res: Response) =
       select: {
         id: true,
         name: true,
-        department: true,
+        program: true,
         classGroup: true,
         semesterId: true,
+        semester: { select: { id: true, name: true } },
         numberOfBacklogs: true,
         backlogSubjects: true,
         marks: {
@@ -205,8 +201,9 @@ export const getVergeOfBacklogReport = async (req: AuthRequest, res: Response) =
       return {
         id: student.id,
         name: student.name,
-        department: student.department,
+        program: student.program,
         classGroup: student.classGroup,
+        semester: student.semester,
         numberOfBacklogs: student.numberOfBacklogs || 0,
         backlogSubjects: student.backlogSubjects || '',
         totalScore: parseFloat(totalScoreAll.toFixed(2)),
@@ -256,7 +253,7 @@ export const getAttendanceAndAssignmentReport = async (req: AuthRequest, res: Re
   const semesterId = typeof req.query.semesterId === 'string'
     ? req.query.semesterId
     : (await semesterService.getActiveSemester())?.id;
-  const department = typeof req.query.department === 'string' ? req.query.department : undefined;
+  const program = typeof req.query.program === 'string' ? req.query.program : undefined;
   const classGroup = typeof req.query.classGroup === 'string' ? req.query.classGroup : undefined;
 
   if (!semesterId) return res.status(400).json({ error: 'No active semester found and none specified' });
@@ -264,7 +261,7 @@ export const getAttendanceAndAssignmentReport = async (req: AuthRequest, res: Re
   try {
     const studentWhere: any = {
       role: 'student',
-      ...(department ? { department } : {}),
+      ...(program ? { program } : {}),
       ...(classGroup ? { classGroup } : {}),
     };
 
@@ -274,8 +271,6 @@ export const getAttendanceAndAssignmentReport = async (req: AuthRequest, res: Re
         select: { classGroup: true },
       });
       studentWhere.classGroup = { in: Array.from(new Set(taught.map((item) => item.classGroup))) };
-    } else if (req.user?.role === 'hod' && req.user.department) {
-      studentWhere.department = req.user.department;
     }
 
     const students = await prisma.user.findMany({
@@ -283,8 +278,10 @@ export const getAttendanceAndAssignmentReport = async (req: AuthRequest, res: Re
       select: {
         id: true,
         name: true,
-        department: true,
+        program: true,
         classGroup: true,
+        semesterId: true,
+        semester: { select: { id: true, name: true } },
         marks: {
           where: { semesterId },
           select: {
@@ -322,8 +319,9 @@ export const getAttendanceAndAssignmentReport = async (req: AuthRequest, res: Re
             return (missingAssignment1 || missingAssignment2) ? [{
             studentId: student.id,
             studentName: student.name,
-            department: student.department,
+            program: student.program,
             classGroup: student.classGroup,
+            semester: student.semester,
             subjectCode: subject.code,
             subjectName: subject.name,
             missingAssignment1,
@@ -369,8 +367,9 @@ export const getAttendanceAndAssignmentReport = async (req: AuthRequest, res: Re
       return Array.from(total.subjects.entries()).map(([subjectCode, subject]) => ({
         studentId: student.id,
         studentName: student.name,
-        department: student.department,
+        program: student.program,
         classGroup: student.classGroup,
+        semester: student.semester,
         subjectCode,
         subjectName: subject.name,
         present: subject.present,

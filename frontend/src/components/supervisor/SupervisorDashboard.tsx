@@ -12,11 +12,12 @@ import { TimetableManagement } from './TimetableManagement';
 import { SubjectManagement } from './SubjectManagement';
 import { StudentManagement } from './StudentManagement';
 import ReportsDashboard from './ReportsDashboard';
+import { BacklogsManagement } from './BacklogsManagement';
 import { AcademicCalendar } from '../AcademicCalendar';
 import { AttendanceCorrections } from '../AttendanceCorrections';
 import { TeacherAttendance } from '../teacher/TeacherAttendance';
 import { TeacherMarks } from '../teacher/TeacherMarks';
-import { TeacherTimetable } from '../teacher/TeacherTimetable';
+import { FacultyTimetables } from './FacultyTimetables';
 import { CalendarCheck, BarChart2 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -26,13 +27,13 @@ const NAV_ITEMS = [
   { id: 'subjects', label: 'Subjects', icon: <BookOpen size={16} /> },
   { id: 'students', label: 'Students', icon: <GraduationCap size={16} /> },
   { id: 'faculty', label: 'Faculty & Access', icon: <Users size={16} /> },
+  { id: 'faculty-timetables', label: 'Faculty Timetables', icon: <CalendarCheck size={16} /> },
   { id: 'timetable', label: 'Timetables', icon: <ClipboardList size={16} /> },
   { id: 'reports', label: 'Reports', icon: <BarChart3 size={16} /> },
   { id: 'backlogs', label: 'Backlogs', icon: <BarChart2 size={16} /> },
   { id: 'attendance-corrections', label: 'Correct Attendance', icon: <CheckCircle size={16} /> },
   { id: 'mark-attendance', label: 'Mark Attendance', icon: <CalendarCheck size={16} /> },
   { id: 'update-marks', label: 'Update Marks', icon: <BarChart2 size={16} /> },
-  { id: 'my-timetable', label: 'My Timetable', icon: <CalendarCheck size={16} /> },
 ];
 
 interface Props {
@@ -69,11 +70,11 @@ export const SupervisorDashboard: React.FC<Props> = ({ user, onLogout }) => {
       case 'faculty': return <FacultyManagement />;
       case 'timetable': return <TimetableManagement />;
       case 'reports': return <ReportsDashboard user={user} />;
-      case 'backlogs': return <BacklogsManagement user={user} />;
+      case 'backlogs': return <BacklogsManagement />;
       case 'attendance-corrections': return <AttendanceCorrections />;
       case 'mark-attendance': return <TeacherAttendance />;
       case 'update-marks': return <TeacherMarks />;
-      case 'my-timetable': return <TeacherTimetable />;
+      case 'faculty-timetables': return <FacultyTimetables />;
       default: return null;
     }
   };

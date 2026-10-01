@@ -91,7 +91,11 @@ const subjectTodayBg: Record<string, string> = {
   'OS Lab': 'bg-purple-50',
 };
 
-export const TeacherTimetable: React.FC = () => {
+interface TeacherTimetableProps {
+  teacherId?: string;
+}
+
+export const TeacherTimetable: React.FC<TeacherTimetableProps> = ({ teacherId }) => {
   const [schedule, setSchedule] = useState<DaySchedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -99,7 +103,9 @@ export const TeacherTimetable: React.FC = () => {
   useEffect(() => {
     const fetchTimetable = async () => {
       try {
-        const res = await API.get('/timetable/teacher');
+        setLoading(true);
+        const endpoint = teacherId ? `/timetable/faculty/${teacherId}` : '/timetable/teacher';
+        const res = await API.get(endpoint);
         setSchedule(res.data);
       } catch (err: any) {
         console.error(err);
@@ -109,7 +115,7 @@ export const TeacherTimetable: React.FC = () => {
       }
     };
     fetchTimetable();
-  }, []);
+  }, [teacherId]);
 
   const todayIndex = useMemo(() => {
     const dayOfWeek = new Date().getDay();

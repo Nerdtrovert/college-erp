@@ -26,7 +26,7 @@ export const authorize = (roles: readonly Role[]) => {
       return res.status(401).json({ error: 'Unauthorized: Authentication required' });
     }
 
-    if (!roles.includes(req.user.role)) {
+    if (req.user.role !== 'admin' && !roles.includes(req.user.role as Role)) {
       return res.status(403).json({ error: 'Forbidden: Access is denied for this role' });
     }
 
