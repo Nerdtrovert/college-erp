@@ -85,7 +85,7 @@ export const StudentMarks: React.FC = () => {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Internal Marks</h1>
-        <p className="text-gray-500 text-sm mt-1">Semester 5 &middot; Academic Year 2024–25</p>
+        <p className="text-gray-500 text-sm mt-1">Current academic period</p>
       </div>
 
       {/* Summary row */}

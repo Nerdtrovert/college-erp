@@ -26,6 +26,15 @@ interface StudentUser {
     id: string;
     name: string;
   };
+  semesterNumber?: number;
+  enrollments?: Array<{
+    id: string;
+    semesterId: string;
+    semesterNumber: number;
+    program: StudentProgram;
+    classGroup: string;
+    semester?: { id: string; name: string };
+  }>;
 }
 
 export const StudentManagement: React.FC = () => {
@@ -52,6 +61,7 @@ export const StudentManagement: React.FC = () => {
   // Search and Filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [filterSemester, setFilterSemester] = useState('all');
+  const [filterSemesterNumber, setFilterSemesterNumber] = useState('all');
   const [filterProgram, setFilterProgram] = useState('all');
   const [filterSection, setFilterSection] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -170,6 +180,7 @@ export const StudentManagement: React.FC = () => {
           params: {
             search: searchQuery,
             semesterId: filterSemester !== 'all' ? filterSemester : undefined,
+            semesterNumber: filterSemesterNumber !== 'all' ? filterSemesterNumber : undefined,
             program: filterProgram !== 'all' ? filterProgram : undefined,
             classGroup: filterSection !== 'all' ? filterSection : undefined,
             format: exportFormat
@@ -183,16 +194,16 @@ export const StudentManagement: React.FC = () => {
 
         if (exportFormat === 'csv') {
           blob = new Blob([response.data], { type: 'text/csv' });
-          filename = `students-report${filterProgram !== 'all' ? `-${filterProgram}` : ''}${filterSemester !== 'all' ? `-${filterSemester}` : ''}${filterSection !== 'all' ? `-${filterSection}` : ''}${searchQuery ? `-search` : ''}.csv`;
+          filename = `students-report${filterProgram !== 'all' ? `-${filterProgram}` : ''}${filterSemesterNumber !== 'all' ? `-sem${filterSemesterNumber}` : ''}${filterSemester !== 'all' ? `-${filterSemester}` : ''}${filterSection !== 'all' ? `-${filterSection}` : ''}${searchQuery ? `-search` : ''}.csv`;
         } else if (exportFormat === 'json') {
           blob = new Blob([response.data], { type: 'application/json' });
-          filename = `students-report${filterProgram !== 'all' ? `-${filterProgram}` : ''}${filterSemester !== 'all' ? `-${filterSemester}` : ''}${filterSection !== 'all' ? `-${filterSection}` : ''}${searchQuery ? `-search` : ''}.json`;
+          filename = `students-report${filterProgram !== 'all' ? `-${filterProgram}` : ''}${filterSemesterNumber !== 'all' ? `-sem${filterSemesterNumber}` : ''}${filterSemester !== 'all' ? `-${filterSemester}` : ''}${filterSection !== 'all' ? `-${filterSection}` : ''}${searchQuery ? `-search` : ''}.json`;
         } else if (exportFormat === 'excel') {
           blob = new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-          filename = `students-report${filterProgram !== 'all' ? `-${filterProgram}` : ''}${filterSemester !== 'all' ? `-${filterSemester}` : ''}${filterSection !== 'all' ? `-${filterSection}` : ''}${searchQuery ? `-search` : ''}.xlsx`;
+          filename = `students-report${filterProgram !== 'all' ? `-${filterProgram}` : ''}${filterSemesterNumber !== 'all' ? `-sem${filterSemesterNumber}` : ''}${filterSemester !== 'all' ? `-${filterSemester}` : ''}${filterSection !== 'all' ? `-${filterSection}` : ''}${searchQuery ? `-search` : ''}.xlsx`;
         } else if (exportFormat === 'pdf') {
           blob = new Blob([response.data], { type: 'application/pdf' });
-          filename = `students-report${filterProgram !== 'all' ? `-${filterProgram}` : ''}${filterSemester !== 'all' ? `-${filterSemester}` : ''}${filterSection !== 'all' ? `-${filterSection}` : ''}${searchQuery ? `-search` : ''}.pdf`;
+          filename = `students-report${filterProgram !== 'all' ? `-${filterProgram}` : ''}${filterSemesterNumber !== 'all' ? `-sem${filterSemesterNumber}` : ''}${filterSemester !== 'all' ? `-${filterSemester}` : ''}${filterSection !== 'all' ? `-${filterSection}` : ''}${searchQuery ? `-search` : ''}.pdf`;
         } else {
           throw new Error(`Unsupported student report format: ${exportFormat}`);
         }
@@ -277,7 +288,7 @@ export const StudentManagement: React.FC = () => {
         // If a semester is linked, update their semester
         if (newStudent.semesterId) {
           await API.patch(`/auth/users/${newStudent.id}`, {
-            semesterId: newStudent.semesterId
+            semesterId: newStudent.semesterId,
           });
         }
 
@@ -317,7 +328,25 @@ export const StudentManagement: React.FC = () => {
 
   // Filter students based on search and filters
   const filteredStudents = useMemo(() => {
-    return students.filter(s => {
+    const directoryStudents = students.flatMap((student) => {
+      const enrollments = student.enrollments?.length ? student.enrollments : [{
+        id: `${student.id}-${student.semesterId || 'current'}`,
+        semesterId: student.semesterId || '',
+        program: student.program,
+        classGroup: student.classGroup,
+        semester: student.semester,
+      }];
+      return enrollments.map((enrollment) => ({
+        ...student,
+        program: enrollment.program,
+        classGroup: enrollment.classGroup,
+        semesterId: enrollment.semesterId,
+        semesterNumber: enrollment.semesterNumber,
+        semester: enrollment.semester,
+      }));
+    });
+
+    return directoryStudents.filter(s => {
       const matchesSearch =
         s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         s.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -328,14 +357,17 @@ export const StudentManagement: React.FC = () => {
       const matchesSemester =
         filterSemester === 'all' ||
         s.semesterId === filterSemester;
+      const matchesSemesterNumber =
+        filterSemesterNumber === 'all' ||
+        String(s.semesterNumber) === filterSemesterNumber;
 
       const matchesSection =
         filterSection === 'all' ||
         (s.classGroup && s.classGroup.toLowerCase() === filterSection.toLowerCase());
 
-      return matchesSearch && matchesProgram && matchesSemester && matchesSection;
+      return matchesSearch && matchesProgram && matchesSemester && matchesSemesterNumber && matchesSection;
     });
-  }, [students, searchQuery, filterProgram, filterSemester, filterSection]);
+  }, [students, searchQuery, filterProgram, filterSemester, filterSemesterNumber, filterSection]);
 
   // Pagination calculations
   const totalPages = Math.ceil(filteredStudents.length / itemsPerPage);
@@ -392,7 +424,7 @@ export const StudentManagement: React.FC = () => {
                 name: '',
                 program: defaultProgram,
                 classGroup: defaultClassGroup,
-                semesterId: selectedSemester || (semesters[0]?.id || '')
+                semesterId: selectedSemester || (semesters[0]?.id || ''),
               });
               setEditingStudent(null);
               setStudentPassword('');
@@ -464,7 +496,7 @@ export const StudentManagement: React.FC = () => {
                   <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                 </div>
               </div>
-              
+
               <div>
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Default Section (Fallback)</label>
                 <input
@@ -647,7 +679,7 @@ Section: CSE-B`}
               <Search size={16} className="text-gray-400" />
               <input
                 type="text"
-                placeholder="Search by name, roll, dept..."
+                placeholder="Search by name, roll, program..."
                 value={searchQuery}
                 onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                 className="bg-transparent border-none text-sm text-gray-900 focus:outline-none w-full"
@@ -684,6 +716,21 @@ Section: CSE-B`}
               <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
             </div>
 
+            {/* Semester Number Filter */}
+            <div className="relative">
+              <select
+                value={filterSemesterNumber}
+                onChange={(e) => { setFilterSemesterNumber(e.target.value); setCurrentPage(1); }}
+                className="appearance-none bg-gray-50 border border-gray-200 rounded-xl px-4 py-1.5 pr-8 font-semibold text-xs text-gray-700 focus:outline-none focus:border-blue-500"
+              >
+                <option value="all">All Semester Numbers</option>
+                {[1, 2, 3, 4, 5, 6, 7, 8].map(number => (
+                  <option key={number} value={number}>{number}{number === 1 ? 'st' : number === 2 ? 'nd' : number === 3 ? 'rd' : 'th'} Semester</option>
+                ))}
+              </select>
+              <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+            </div>
+
             {/* Section/ClassGroup Filter */}
             <div className="relative">
               <select
@@ -716,12 +763,12 @@ Section: CSE-B`}
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
                 <div className="rounded-lg bg-white border border-gray-100 px-3 py-2">
-                  <p className="text-gray-400">Department</p>
+                  <p className="text-gray-400">Program</p>
                   <p className="mt-0.5 font-medium text-gray-700 break-words">{PROGRAM_LABELS[stud.program]}</p>
                 </div>
                 <div className="rounded-lg bg-white border border-gray-100 px-3 py-2">
                   <p className="text-gray-400">Semester / Class</p>
-                  <p className="mt-0.5 font-medium text-gray-700 break-words">{stud.semester?.name || 'No Semester'} · {stud.classGroup || 'N/A'}</p>
+                  <p className="mt-0.5 font-medium text-gray-700 break-words">{stud.semester?.name || 'No Semester'} · Sem {stud.semesterNumber || 'N/A'} · {stud.classGroup || 'N/A'}</p>
                 </div>
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2">
@@ -755,7 +802,7 @@ Section: CSE-B`}
               <tr className="bg-gray-55/50 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase">
                 <th className="py-3 px-5">Student Details</th>
                 <th className="py-3 px-5">Roll Number</th>
-                <th className="py-3 px-5">Department</th>
+                <th className="py-3 px-5">Program</th>
                 <th className="py-3 px-5">Semester / Section</th>
                 <th className="py-3 px-5 text-right">Actions</th>
               </tr>
@@ -780,7 +827,7 @@ Section: CSE-B`}
                     <td className="py-4 px-5">
                       <div className="space-y-0.5">
                         <span className="inline-block bg-blue-50 text-blue-700 border border-blue-100 rounded px-2 py-0.5 text-[10px] font-bold">
-                          {stud.semester?.name || 'No Semester'}
+                          {stud.semester?.name || 'No Semester'} · Sem {stud.semesterNumber || 'N/A'}
                         </span>
                         <p className="text-xs text-gray-500 font-medium">Class: <span className="font-bold text-gray-700">{stud.classGroup || 'N/A'}</span></p>
                       </div>

@@ -1,5 +1,7 @@
 import { PrismaClient, Role, SemesterStatus, SubjectType } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
+import { currentStudents } from './current-students';
+import { batchYearsFromUsn, semesterNumberFromUsn } from '../src/constants/program';
 
 const prisma = new PrismaClient();
 
@@ -10,6 +12,7 @@ async function main() {
   const teacherPasswordHash = await bcrypt.hash('teacher123', 10);
   const deanPasswordHash = await bcrypt.hash('dean123', 10);
   const hodPasswordHash = await bcrypt.hash('hod123', 10);
+  const principalPasswordHash = await bcrypt.hash('principal123', 10);
 
   const defaultSemester = await prisma.semester.upsert({
     where: { id: 'sem1' },
@@ -40,6 +43,8 @@ async function main() {
     // Admins
     { id: 'deanCSE@hnnce.in', name: 'Dr. Dean Administrator', password: deanPasswordHash, role: Role.dean, department: 'Administration' },
     { id: 'hodCSE@hnnce.com', name: 'Dr Anirudh Sharma', password: hodPasswordHash, role: Role.hod, department: 'Dept of CSE' },
+    { id: 'shwetha@hnnce.in', name: 'Dr. Shwetha V', password: hodPasswordHash, role: Role.hod, department: 'EC' },
+    { id: 'jayadevappa@hnnce.in', name: 'Dr. D Jayadevappa', password: principalPasswordHash, role: Role.principal, department: 'Administration' },
   ];
 
   for (const f of facultyData) {
@@ -51,52 +56,34 @@ async function main() {
   }
   console.log('Faculty seeded.');
 
-  // Students Data
-  const students = [
-    // CSE-A Students
-    { id: '1HC24CS001', name: 'Aarav Patel', password: studentPasswordHash, role: Role.student, department: 'Dept of CSE', classGroup: 'CSE-A' },
-    { id: '1HC24CS002', name: 'Diya Sharma', password: studentPasswordHash, role: Role.student, department: 'Dept of CSE', classGroup: 'CSE-A' },
-    { id: '1HC24CS003', name: 'Kabir Singh', password: studentPasswordHash, role: Role.student, department: 'Dept of CSE', classGroup: 'CSE-A' },
-
-    // CSE-B Students
-    { id: '1HC24CS042', name: 'Rehman Dakait', password: studentPasswordHash, role: Role.student, department: 'Dept of CSE', classGroup: 'CSE-B' },
-    { id: '1HC24CS043', name: 'Sanya Gupta', password: studentPasswordHash, role: Role.student, department: 'Dept of CSE', classGroup: 'CSE-B' },
-    { id: '1HC24CS044', name: 'Vihaan Reddy', password: studentPasswordHash, role: Role.student, department: 'Dept of CSE', classGroup: 'CSE-B' },
-
-    // More Mock Students (A Section)
-    { id: '1HC24CS004', name: 'Rohan Sharma', password: studentPasswordHash, role: Role.student, department: 'Dept of CSE', classGroup: 'CSE-A', numberOfBacklogs: 0, backlogSubjects: [] },
-    { id: '1HC24CS005', name: 'Anjali Desai', password: studentPasswordHash, role: Role.student, department: 'Dept of CSE', classGroup: 'CSE-A', numberOfBacklogs: 2, backlogSubjects: ['CS101', 'MA101'] },
-    { id: '1HC24CS006', name: 'Vikram Singh', password: studentPasswordHash, role: Role.student, department: 'Dept of CSE', classGroup: 'CSE-A', numberOfBacklogs: 1, backlogSubjects: ['PH101'] },
-    { id: '1HC24CS007', name: 'Sneha Reddy', password: studentPasswordHash, role: Role.student, department: 'Dept of CSE', classGroup: 'CSE-A', numberOfBacklogs: 0, backlogSubjects: [] },
-    { id: '1HC24CS008', name: 'Karan Malhotra', password: studentPasswordHash, role: Role.student, department: 'Dept of CSE', classGroup: 'CSE-A', numberOfBacklogs: 3, backlogSubjects: ['CS101', 'MA101', 'EC101'] },
-    { id: '1HC24CS009', name: 'Neha Kapoor', password: studentPasswordHash, role: Role.student, department: 'Dept of CSE', classGroup: 'CSE-A', numberOfBacklogs: 0, backlogSubjects: [] },
-    { id: '1HC24CS010', name: 'Arjun Iyer', password: studentPasswordHash, role: Role.student, department: 'Dept of CSE', classGroup: 'CSE-A', numberOfBacklogs: 1, backlogSubjects: ['ME101'] },
-    { id: '1HC24CS011', name: 'Priya Patel', password: studentPasswordHash, role: Role.student, department: 'Dept of CSE', classGroup: 'CSE-A', numberOfBacklogs: 0, backlogSubjects: [] },
-
-    // More Mock Students (B Section)
-    { id: '1HC24CS045', name: 'Rahul Menon', password: studentPasswordHash, role: Role.student, department: 'Dept of CSE', classGroup: 'CSE-B', numberOfBacklogs: 0, backlogSubjects: [] },
-    { id: '1HC24CS046', name: 'Riya Gupta', password: studentPasswordHash, role: Role.student, department: 'Dept of CSE', classGroup: 'CSE-B', numberOfBacklogs: 1, backlogSubjects: ['CS101'] },
-    { id: '1HC24CS047', name: 'Aditya Rao', password: studentPasswordHash, role: Role.student, department: 'Dept of CSE', classGroup: 'CSE-B', numberOfBacklogs: 0, backlogSubjects: [] },
-    { id: '1HC24CS048', name: 'Karthik Nair', password: studentPasswordHash, role: Role.student, department: 'Dept of CSE', classGroup: 'CSE-B', numberOfBacklogs: 2, backlogSubjects: ['MA101', 'PH101'] },
-    { id: '1HC24CS049', name: 'Meera Joshi', password: studentPasswordHash, role: Role.student, department: 'Dept of CSE', classGroup: 'CSE-B', numberOfBacklogs: 0, backlogSubjects: [] },
-    { id: '1HC24CS050', name: 'Vivek Verma', password: studentPasswordHash, role: Role.student, department: 'Dept of CSE', classGroup: 'CSE-B', numberOfBacklogs: 4, backlogSubjects: ['CS101', 'MA101', 'PH101', 'EC101'] },
-    { id: '1HC24CS051', name: 'Divya Choudhury', password: studentPasswordHash, role: Role.student, department: 'Dept of CSE', classGroup: 'CSE-B', numberOfBacklogs: 1, backlogSubjects: ['EC101'] },
-  ];
-
-  const programForSection = (classGroup: string) => {
-    if (classGroup.startsWith('ISE')) return 'ISE';
-    if (classGroup.startsWith('AI&DS')) return 'AI&DS';
-    if (classGroup.startsWith('ECE')) return 'ECE';
-    return 'CSE';
-  };
-
-  for (const s of students) {
-    await prisma.user.upsert({
-      where: { id: s.id },
-      update: { name: s.name, password: s.password, role: s.role, department: null, program: programForSection(s.classGroup), classGroup: s.classGroup, numberOfBacklogs: (s as any).numberOfBacklogs || 0, backlogSubjects: (s as any).backlogSubjects || [] },
-      create: { ...s, department: null, program: programForSection(s.classGroup) },
-    });
-  }
+  // Current roster from the 09.07.2026 seating list. Semester numbers are
+  // derived from each USN cohort and the academic period start date.
+  // Replacing all student rows removes the old demo students and stale names.
+  await prisma.user.deleteMany({ where: { role: Role.student } });
+  await prisma.user.createMany({
+    data: currentStudents.map((student) => ({
+      id: student.id,
+      name: student.name,
+      password: studentPasswordHash,
+      role: Role.student,
+      isActive: true,
+      batchStartYear: batchYearsFromUsn(student.id)?.startYear,
+      batchEndYear: batchYearsFromUsn(student.id)?.endYear,
+      department: null,
+      program: student.program,
+      classGroup: student.classGroup,
+      semesterId: defaultSemester.id,
+    })),
+  });
+  await prisma.studentEnrollment.createMany({
+    data: currentStudents.map((student) => ({
+      studentId: student.id,
+      semesterId: defaultSemester.id,
+      semesterNumber: semesterNumberFromUsn(student.id, defaultSemester.startDate!)!,
+      program: student.program,
+      classGroup: student.classGroup,
+    })),
+  });
   console.log('Students seeded.');
 
   // Subjects Data
@@ -246,149 +233,6 @@ async function main() {
     });
   }
   console.log('Timetables seeded.');
-
-  // 7. Seed mock Marks for the demo students
-  const activeStudents = ['1HC24CS042', '1HC24CS001', '1HC24CS002', '1HC24CS003', '1HC24CS004', '1HC24CS005'];
-  const testSubjects = ['BCS501-A', 'BCS502-A', 'BCS503-A', 'BCS501-B', 'BCS502-B', 'BCS503-B'];
-
-  for (const sId of activeStudents) {
-    for (const subCode of testSubjects) {
-      // Find seeded subject type
-      const sub = subjects.find(s => s.code === subCode);
-      if (!sub) continue;
-
-      let assessments: { type: string; max: number }[] = [];
-      if (sub.type === SubjectType.STANDALONE) {
-        assessments = [
-          { type: 'cie1', max: 50 },
-          { type: 'cie2', max: 50 },
-          { type: 'cie3', max: 50 },
-          { type: 'assignment', max: 25 },
-        ];
-      } else {
-        assessments = [
-          { type: 'cie1', max: 50 },
-          { type: 'cie2', max: 50 },
-          { type: 'cie3', max: 50 },
-          { type: 'assignment1', max: 10 },
-          { type: 'assignment2', max: 10 },
-          { type: 'lab', max: 25 },
-        ];
-      }
-
-      for (const ass of assessments) {
-        // Generate a random score or set some fixed mock score
-        let score: number | null = Math.floor(Math.random() * (ass.max - ass.max * 0.5) + ass.max * 0.5);
-
-        // Let's create some pending marks for the demo student Rehman Dakait (CS21B042)
-        if (sId === '1HC24CS042') {
-          // Software Engineering (CS2305 - Theory) is missing cie3
-          if (subCode === 'CS2305' && ass.type === 'cie3') {
-            score = null;
-          }
-          // Labs CS2301L, CS2302L, CS2303L have all pending marks
-          if (subCode.endsWith('L')) {
-            score = null;
-          }
-        }
-
-        await prisma.mark.upsert({
-          where: {
-            studentId_subjectCode_type_semesterId: {
-              studentId: sId,
-              subjectCode: subCode,
-              type: ass.type,
-              semesterId: defaultSemester.id,
-            },
-          },
-          update: {
-            maxScore: ass.max,
-          },
-          create: {
-            studentId: sId,
-            subjectCode: subCode,
-            type: ass.type,
-            score,
-            maxScore: ass.max,
-            semesterId: defaultSemester.id,
-          },
-        });
-      }
-    }
-  }
-  console.log('Marks seeded.');
-
-  // 8. Seed mock Attendance Sessions & Records
-  const dates = ['2024-11-01', '2024-11-04', '2024-11-06', '2024-11-08', '2024-11-11', '2024-11-12', '2024-11-14', '2024-11-15'];
-
-  for (const subCode of testSubjects) {
-    for (const date of dates) {
-      const session = await prisma.attendanceSession.upsert({
-        where: {
-          subjectCode_date_classGroup_semesterId_startTime_endTime: {
-            subjectCode: subCode,
-            date: date,
-            classGroup: 'CSE-B',
-            semesterId: defaultSemester.id,
-            startTime: '08:30',
-            endTime: '09:30',
-          },
-        },
-        update: {},
-        create: {
-          subjectCode: subCode,
-          date: date,
-          classGroup: 'CSE-B',
-          semesterId: defaultSemester.id,
-          startTime: '08:30',
-          endTime: '09:30',
-        },
-      });
-
-      // Attendance records for Rehman Dakait (CS21B042) to match StudentAttendance.tsx percentages
-      let status = 'present';
-      if (subCode === 'CS2301' && (date === '2024-11-06' || date === '2024-11-14')) status = 'absent';
-      if (subCode === 'CS2302' && (date === '2024-11-04' || date === '2024-11-06' || date === '2024-11-11' || date === '2024-11-15')) status = 'absent';
-      if (subCode === 'CS2303' && date === '2024-11-12') status = 'absent';
-      if (subCode === 'CS2304' && (date === '2024-11-01' || date === '2024-11-04' || date === '2024-11-08' || date === '2024-11-14')) status = 'absent';
-      if (subCode === 'CS2305' && (date === '2024-11-08' || date === '2024-11-14')) status = 'absent';
-
-      await prisma.attendanceRecord.upsert({
-        where: {
-          sessionId_studentId: {
-            sessionId: session.id,
-            studentId: '1HC24CS042',
-          },
-        },
-        update: {},
-        create: {
-          sessionId: session.id,
-          studentId: '1HC24CS042',
-          status,
-        },
-      });
-
-      // For other students, mark them mostly present
-      for (const sId of activeStudents.filter(id => id !== '1HC24CS042')) {
-        const otherStatus = Math.random() > 0.15 ? 'present' : 'absent';
-        await prisma.attendanceRecord.upsert({
-          where: {
-            sessionId_studentId: {
-              sessionId: session.id,
-              studentId: sId,
-            },
-          },
-          update: {},
-          create: {
-            sessionId: session.id,
-            studentId: sId,
-            status: otherStatus,
-          },
-        });
-      }
-    }
-  }
-  console.log('Attendance seeded.');
 
   console.log('Seeding completed successfully!');
 }

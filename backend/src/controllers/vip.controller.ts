@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import prisma from '../prisma/client';
 import { AuthRequest } from '../types';
+import { isStudentProgram, sectionMatchesProgram } from '../constants/program';
 import * as fs from 'fs';
 import * as path from 'path';
 import { parse } from 'json2csv';
@@ -34,6 +35,10 @@ export const getStudentById = async (req: AuthRequest, res: Response) => {
         classGroup: true,
         semesterId: true,
         semester: { select: { id: true, name: true } },
+        enrollments: {
+          include: { semester: { select: { id: true, name: true } } },
+          orderBy: { semester: { createdAt: 'desc' } },
+        },
         createdAt: true,
         updatedAt: true,
         marks: {
@@ -71,7 +76,7 @@ export const updateStudent = async (req: AuthRequest, res: Response) => {
     return res.status(400).json({ error: 'Student ID is required' });
   }
 
-  const { name, department, program, classGroup } = req.body;
+  const { name, program, classGroup } = req.body;
 
   // Validate that the user is a student
   try {
@@ -81,6 +86,11 @@ export const updateStudent = async (req: AuthRequest, res: Response) => {
     }
     if (existing.role !== 'student') {
       return res.status(400).json({ error: 'User is not a student' });
+    }
+    const nextProgram = program ?? existing.program;
+    const nextClassGroup = classGroup ?? existing.classGroup;
+    if (!isStudentProgram(nextProgram) || !nextClassGroup || !sectionMatchesProgram(nextProgram, nextClassGroup)) {
+      return res.status(400).json({ error: 'Student program and class group must be present and match' });
     }
   } catch (error) {
     console.error('Error checking student existence:', error);
@@ -92,7 +102,7 @@ export const updateStudent = async (req: AuthRequest, res: Response) => {
       where: { id: studentId },
       data: {
         name: name ?? undefined,
-        department: department ?? undefined,
+        department: null,
         program: program ?? undefined,
         classGroup: classGroup ?? undefined,
       },
@@ -124,7 +134,7 @@ export const updateStudent = async (req: AuthRequest, res: Response) => {
  */
 export const getAllStudents = async (req: AuthRequest, res: Response) => {
   // Pagination and search parameters
-  const { page = 1, limit = 10, search, program, classGroup } = req.query;
+  const { page = 1, limit = 10, search, program, classGroup, semesterId, semesterNumber } = req.query;
 
   // Handle case where query parameters might be arrays
   const pageStr = Array.isArray(page) ? page[0] : page;
@@ -132,6 +142,8 @@ export const getAllStudents = async (req: AuthRequest, res: Response) => {
   const searchStr = Array.isArray(search) ? search[0] : search;
   const programStr = Array.isArray(program) ? program[0] : program;
   const classGroupStr = Array.isArray(classGroup) ? classGroup[0] : classGroup;
+  const semesterIdStr = Array.isArray(semesterId) ? semesterId[0] : semesterId;
+  const semesterNumberStr = Array.isArray(semesterNumber) ? semesterNumber[0] : semesterNumber;
 
   const pageNum = Math.max(parseInt(pageStr as string, 10) || 1, 1);
   const limitNum = Math.max(parseInt(limitStr as string, 10) || 10, 1);
@@ -150,11 +162,17 @@ export const getAllStudents = async (req: AuthRequest, res: Response) => {
   }
 
   if (programStr && typeof programStr === 'string' && programStr !== '') {
-    where.program = programStr;
+    where.enrollments = { some: { ...(where.enrollments?.some || {}), program: programStr } };
   }
 
   if (classGroupStr && typeof classGroupStr === 'string' && classGroupStr !== '') {
-    where.classGroup = classGroupStr;
+    where.enrollments = { some: { classGroup: classGroupStr } };
+  }
+  if (semesterIdStr && typeof semesterIdStr === 'string' && semesterIdStr !== '') {
+    where.enrollments = { some: { ...(where.enrollments?.some || {}), semesterId: semesterIdStr } };
+  }
+  if (semesterNumberStr && typeof semesterNumberStr === 'string' && semesterNumberStr !== '') {
+    where.enrollments = { some: { ...(where.enrollments?.some || {}), semesterNumber: Number(semesterNumberStr) } };
   }
 
   try {
@@ -170,6 +188,9 @@ export const getAllStudents = async (req: AuthRequest, res: Response) => {
           classGroup: true,
           semesterId: true,
           semester: { select: { id: true, name: true } },
+          enrollments: {
+            include: { semester: { select: { id: true, name: true } } },
+          },
           createdAt: true,
           updatedAt: true,
         },
@@ -216,7 +237,7 @@ const exportFacultyMarksAsExcel = async (rows: any[], res: Response, semesterNam
       { header: 'Subject Name', key: 'Subject Name', width: 25 },
       { header: 'Student ID', key: 'Student ID', width: 15 },
       { header: 'Student Name', key: 'Student Name', width: 25 },
-      { header: 'Student Department', key: 'Student Department', width: 20 },
+      { header: 'Student Program', key: 'Student Program', width: 20 },
       { header: 'Student Class Group', key: 'Student Class Group', width: 15 },
       { header: 'Mark Type', key: 'Mark Type', width: 10 },
       { header: 'Score', key: 'Score', width: 10 },
@@ -391,7 +412,6 @@ const computeLeaderboard = async (groupBy: 'department' | 'classGroup' | null, m
       .map((student) => ({
         id: student.id,
         name: student.name,
-        department: student.department,
         program: student.program,
         classGroup: student.classGroup,
         totalScore: student.totalScore,
@@ -467,16 +487,29 @@ const getActiveSemester = async () => {
  * Download all students report in multiple formats
  */
 export const downloadStudentsReport = async (req: AuthRequest, res: Response) => {
-  const { program, classGroup, format = 'csv' } = req.query;
+  const { program, classGroup, semesterId, semesterNumber, search, format = 'csv' } = req.query;
 
   // Build where clause
   const where: any = { role: 'student' };
 
-  if (program && typeof program === 'string' && program !== '') {
+  const enrollmentWhere: any = {};
+  if (semesterId && typeof semesterId === 'string' && semesterId !== '') enrollmentWhere.semesterId = semesterId;
+  if (semesterNumber && typeof semesterNumber === 'string' && semesterNumber !== '') enrollmentWhere.semesterNumber = Number(semesterNumber);
+  if (program && typeof program === 'string' && program !== '') enrollmentWhere.program = program;
+  if (classGroup && typeof classGroup === 'string' && classGroup !== '') enrollmentWhere.classGroup = classGroup;
+  if (Object.keys(enrollmentWhere).length > 0) where.enrollments = { some: enrollmentWhere };
+  if (search && typeof search === 'string' && search !== '') {
+    where.OR = [
+      { id: { contains: search, mode: 'insensitive' } },
+      { name: { contains: search, mode: 'insensitive' } },
+    ];
+  }
+
+  if (!Object.keys(enrollmentWhere).length && program && typeof program === 'string' && program !== '') {
     where.program = program;
   }
 
-  if (classGroup && typeof classGroup === 'string' && classGroup !== '') {
+  if (!Object.keys(enrollmentWhere).length && classGroup && typeof classGroup === 'string' && classGroup !== '') {
     where.classGroup = classGroup;
   }
 
@@ -490,9 +523,26 @@ export const downloadStudentsReport = async (req: AuthRequest, res: Response) =>
         program: true,
         classGroup: true,
         semesterId: true,
+        enrollments: {
+          where: Object.keys(enrollmentWhere).length ? enrollmentWhere : undefined,
+          include: { semester: { select: { id: true, name: true } } },
+        },
         createdAt: true,
       },
       orderBy: { name: 'asc' },
+    });
+
+    const reportStudents = students.map((student: any) => {
+      const enrollment = student.enrollments?.[0];
+      return {
+        ...student,
+        program: enrollment?.program || student.program,
+        classGroup: enrollment?.classGroup || student.classGroup,
+        semesterId: enrollment?.semesterId || student.semesterId,
+        semesterNumber: enrollment?.semesterNumber || null,
+        semester: enrollment?.semester || null,
+        enrollments: undefined,
+      };
     });
 
     // Set filename based on filters
@@ -507,13 +557,13 @@ export const downloadStudentsReport = async (req: AuthRequest, res: Response) =>
     // Export based on format
     switch (format) {
       case 'csv':
-        return await exportStudentsAsCSV(students, res, filename);
+        return await exportStudentsAsCSV(reportStudents, res, filename);
       case 'excel':
-        return await exportStudentsAsExcel(students, res, filename);
+        return await exportStudentsAsExcel(reportStudents, res, filename);
       case 'pdf':
-        return await exportStudentsAsPDF(students, res, filename);
+        return await exportStudentsAsPDF(reportStudents, res, filename);
       case 'json':
-        return await exportStudentsAsJSON(students, res, filename);
+        return await exportStudentsAsJSON(reportStudents, res, filename);
       default:
         return res.status(400).json({ error: 'Unsupported format. Use csv, excel, pdf, or json.' });
     }
@@ -547,7 +597,7 @@ export const downloadFacultyMarksReport = async (req: AuthRequest, res: Response
           select: {
             id: true,
             name: true,
-            department: true,
+            program: true,
             classGroup: true,
           },
         },
@@ -581,7 +631,7 @@ export const downloadFacultyMarksReport = async (req: AuthRequest, res: Response
       'Subject Name': mark.subject.name,
       'Student ID': mark.student.id,
       'Student Name': mark.student.name,
-      'Student Department': mark.student.department,
+      'Student Program': mark.student.program,
       'Student Class Group': mark.student.classGroup || '',
       'Mark Type': mark.type,
       'Score': mark.score ?? '',
@@ -698,7 +748,7 @@ const exportStudentsAsPDF = async (students: any[], res: Response, filename: str
     doc.fontSize(8);
     doc.text(student.id, 50, yPosition);
     doc.text(student.name, 150, yPosition);
-    doc.text(student.department, 250, yPosition);
+    doc.text(student.program || '', 250, yPosition);
     doc.text(student.classGroup || '', 350, yPosition);
     doc.text(student.semesterId || '', 450, yPosition);
     doc.text(new Date(student.createdAt).toLocaleDateString(), 550, yPosition);
@@ -730,7 +780,7 @@ const exportFacultyMarksAsCSV = async (rows: any[], res: Response, filename: str
     'Subject Name',
     'Student ID',
     'Student Name',
-    'Student Department',
+    'Student Program',
     'Student Class Group',
     'Mark Type',
     'Score',

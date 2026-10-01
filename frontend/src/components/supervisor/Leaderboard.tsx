@@ -14,7 +14,6 @@ import API from '../../services/api';
 interface StudentScore {
   id: string;
   name: string;
-  department: string;
   program?: string;
   classGroup: string;
   totalScore: number;
@@ -106,7 +105,7 @@ export const Leaderboard: React.FC = () => {
                         <div className="flex-1 min-w-0">
                           <p className="font-medium text-gray-900">{student.name}</p>
                           <p className="text-xs text-gray-500 truncate">
-                            {(student.program || student.department || 'Unknown')} • {student.classGroup || 'N/A'}
+                            {(student.program || 'Unknown')} • {student.classGroup || 'N/A'}
                           </p>
                         </div>
                         <div className="flex-shrink-0 text-right text-blue-600 font-semibold">

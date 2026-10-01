@@ -31,6 +31,7 @@ export const registerSchema = z.object({
     department: commonStringFields.department.optional(),
     program: z.enum(STUDENT_PROGRAMS).optional(),
     classGroup: z.string().optional(),
+    semesterId: z.string().nullable().optional(),
     numberOfBacklogs: z.number().int().min(0).optional(),
     backlogSubjects: z.array(z.string()).optional(),
   }).superRefine((value, ctx) => {
@@ -65,6 +66,22 @@ export const registerSchema = z.object({
       });
     }
 
+    if (isStudent && value.department) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['department'],
+        message: 'Department is only used for faculty and supervisors',
+      });
+    }
+
+    if (!isStudent && (value.program !== undefined || value.classGroup !== undefined)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['program'],
+        message: 'Program and class group are only used for students',
+      });
+    }
+
     if (isStudent && !value.program) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -80,5 +97,20 @@ export const registerSchema = z.object({
         message: `Section must belong to the selected ${value.program} program`,
       });
     }
+  }),
+});
+
+export const updateUserSchema = z.object({
+  params: z.object({
+    id: commonIdFields.userIdMin3,
+  }),
+  body: z.object({
+    name: commonStringFields.name.optional(),
+    password: z.string().min(6, 'Password must be at least 6 characters').optional(),
+    role: roleSchemas.all.optional(),
+    department: commonStringFields.department.optional(),
+    program: z.enum(STUDENT_PROGRAMS).optional(),
+    classGroup: z.string().trim().min(1).optional(),
+    semesterId: z.string().nullable().optional(),
   }),
 });

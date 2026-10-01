@@ -46,7 +46,7 @@ export const StudentAttendance: React.FC = () => {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Attendance</h1>
-        <p className="text-gray-500 text-sm mt-1">Semester 5 &middot; Nov 2024</p>
+        <p className="text-gray-500 text-sm mt-1">Current academic period</p>
       </div>
 
       {/* Overall card */}
@@ -68,7 +68,7 @@ export const StudentAttendance: React.FC = () => {
         </div>
         <div className="min-w-0">
           <div className="text-base font-semibold text-gray-900">Overall Attendance</div>
-          <div className="text-sm text-gray-500 mt-0.5">Across all 5 subjects this semester</div>
+          <div className="text-sm text-gray-500 mt-0.5">Across all subjects this semester</div>
           <div className="flex items-start sm:items-center gap-2 mt-2">
             {overall >= 75
               ? <><CheckCircle2 size={14} className="text-green-600" /><span className="text-sm text-green-700 font-medium">You are eligible for examinations</span></>

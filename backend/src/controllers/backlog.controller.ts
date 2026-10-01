@@ -329,7 +329,6 @@ export const getStudentsWithBacklogs = async (req: AuthRequest, res: Response) =
       id: student.id,
       name: student.name,
       usn: student.id, // Assuming USN is stored as id
-      department: student.department || 'N/A',
       program: student.program || 'CSE',
       semester: student.semesterId || 'N/A',
       backlogCount: student.numberOfBacklogs,

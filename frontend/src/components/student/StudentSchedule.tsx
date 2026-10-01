@@ -95,7 +95,7 @@ export const StudentSchedule: React.FC = () => {
       {/* Page heading */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Timetable</h1>
-        <p className="text-gray-500 text-sm mt-1">Semester 5 &middot; Even weeks schedule</p>
+        <p className="text-gray-500 text-sm mt-1">Current academic period schedule</p>
       </div>
 
       {/* ── Today's Schedule Section ── */}

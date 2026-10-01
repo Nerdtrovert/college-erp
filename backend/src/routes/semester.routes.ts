@@ -5,6 +5,7 @@ import {
   updateSemester,
   getSemesterById,
   copySemester,
+  promoteStudentsToSemester,
 } from '../controllers/semester.controller';
 import { authenticate, authorize } from '../middleware/auth';
 import { Role } from '@prisma/client';
@@ -18,5 +19,6 @@ router.post('/', authenticate, authorize(supervisorRolesActual), createSemester)
 router.get('/:id', authenticate, authorize([...supervisorRolesActual, Role.teacher]), getSemesterById);
 router.patch('/:id', authenticate, authorize(supervisorRolesActual), updateSemester);
 router.post('/:id/copy', authenticate, authorize(supervisorRolesActual), copySemester);
+router.post('/:id/promote-students', authenticate, authorize(supervisorRolesActual), promoteStudentsToSemester);
 
 export default router;

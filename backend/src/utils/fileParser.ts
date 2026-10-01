@@ -5,7 +5,7 @@ import { PDFParse } from 'pdf-parse';
 export interface ParsedStudent {
   id: string;
   name: string;
-  department: string;
+  department?: string;
   classGroup: string;
 }
 
@@ -74,7 +74,7 @@ export const extractStudentsFromText = (text: string): ParsedStudent[] => {
     if (isIdLine) {
       // If we already have a block with an ID, save it first
       if (currentBlock.id) {
-        if (currentBlock.name && currentBlock.department && currentBlock.classGroup) {
+        if (currentBlock.name && currentBlock.classGroup) {
           students.push({
             id: currentBlock.id,
             name: currentBlock.name,
@@ -103,7 +103,7 @@ export const extractStudentsFromText = (text: string): ParsedStudent[] => {
       linesSinceLastMatch++;
       // If we see more than 5 unrelated lines, reset current block
       if (linesSinceLastMatch > 5 && currentBlock.id) {
-        if (currentBlock.name && currentBlock.department && currentBlock.classGroup) {
+        if (currentBlock.name && currentBlock.classGroup) {
           students.push({
             id: currentBlock.id,
             name: currentBlock.name,
@@ -116,7 +116,7 @@ export const extractStudentsFromText = (text: string): ParsedStudent[] => {
     }
   }
   // Flush last block
-  if (currentBlock.id && currentBlock.name && currentBlock.department && currentBlock.classGroup) {
+  if (currentBlock.id && currentBlock.name && currentBlock.classGroup) {
     students.push({
       id: currentBlock.id,
       name: currentBlock.name,

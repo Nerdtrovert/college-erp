@@ -8,7 +8,7 @@ import { config } from '../config';
 import { AuthRequest } from '../types';
 import * as path from 'path';
 import * as fs from 'fs';
-import { isStudentProgram, programFromLegacyDepartment, programFromSection } from '../constants/program';
+import { batchYearsFromUsn, isStudentProgram, programFromLegacyDepartment, programFromSection, semesterNumberFromUsn } from '../constants/program';
 
 const removeUploadedFile = async (filePath: string): Promise<void> => {
   try {
@@ -49,6 +49,9 @@ export const login = async (req: Request, res: Response) => {
 
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    if (!user.isActive) {
+      return res.status(401).json({ error: 'Student portal access is inactive. Contact administration for backlog support.' });
     }
 
     // 3. Verify actual role matches expected format
@@ -95,7 +98,7 @@ export const login = async (req: Request, res: Response) => {
 };
 
 export const register = async (req: Request, res: Response) => {
-  const { name, password, role, department, program, classGroup, numberOfBacklogs, backlogSubjects } = req.body;
+  const { name, password, role, department, program, classGroup, semesterId, numberOfBacklogs, backlogSubjects } = req.body;
   const id = role === 'student'
     ? String(req.body.id).toUpperCase()
     : String(req.body.id).trim();
@@ -113,17 +116,45 @@ export const register = async (req: Request, res: Response) => {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create user record
-    const user = await prisma.user.create({
-      data: {
-        id,
-        name,
-        password: hashedPassword,
-        role,
-        department,
-        program: role === 'student' ? program : null,
-        classGroup: role === 'student' ? classGroup : null,
-      },
+    const batch = role === 'student' ? batchYearsFromUsn(id) : null;
+    const enrollmentSemester = role === 'student' && semesterId
+      ? await prisma.semester.findUnique({ where: { id: semesterId } })
+      : null;
+    const semesterNumber = role === 'student' && enrollmentSemester
+      ? semesterNumberFromUsn(id, enrollmentSemester.startDate || '')
+      : null;
+    if (role === 'student' && semesterId && (!enrollmentSemester || !semesterNumber)) {
+      return res.status(400).json({ error: 'Unable to derive semester number from the student USN and semester dates' });
+    }
+
+    const user = await prisma.$transaction(async (tx) => {
+      const createdUser = await tx.user.create({
+        data: {
+          id,
+          name,
+          password: hashedPassword,
+          role,
+          isActive: true,
+          batchStartYear: batch?.startYear ?? null,
+          batchEndYear: batch?.endYear ?? null,
+          department: role === 'student' ? null : department,
+          program: role === 'student' ? program : null,
+          classGroup: role === 'student' ? classGroup : null,
+          semesterId: role === 'student' ? (semesterId ?? null) : null,
+        },
+      });
+      if (role === 'student' && semesterId && semesterNumber) {
+        await tx.studentEnrollment.create({
+          data: {
+            studentId: createdUser.id,
+            semesterId,
+            semesterNumber,
+            program: program!,
+            classGroup: classGroup!,
+          },
+        });
+      }
+      return createdUser;
     });
 
     return res.status(201).json({
@@ -183,7 +214,21 @@ export const getUsersByRole = async (req: AuthRequest, res: Response) => {
         program: true,
         classGroup: true,
         semesterId: true,
+        isActive: true,
+        batchStartYear: true,
+        batchEndYear: true,
         semester: { select: { id: true, name: true } },
+        enrollments: {
+          select: {
+            id: true,
+            semesterId: true,
+            semesterNumber: true,
+            program: true,
+            classGroup: true,
+            semester: { select: { id: true, name: true } },
+          },
+          orderBy: { semester: { createdAt: 'desc' } },
+        },
       },
       orderBy: {
         name: 'asc',
@@ -199,23 +244,72 @@ export const getUsersByRole = async (req: AuthRequest, res: Response) => {
 
 export const updateUser = async (req: Request, res: Response) => {
   const { id } = req.params;
+  const userId = Array.isArray(id) ? id[0] : id;
   const { name, password, role, department, program, classGroup, semesterId } = req.body;
 
   try {
-    const data: any = {};
+    const existing = await prisma.user.findUnique({ where: { id: userId } });
+    if (!existing) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const nextRole = role ?? existing.role;
+    const nextProgram = program ?? existing.program;
+    const nextClassGroup = classGroup ?? existing.classGroup;
+    const isStudent = nextRole === 'student';
+
+    if (isStudent && (!nextProgram || !nextClassGroup)) {
+      return res.status(400).json({ error: 'Students must have both program and class group' });
+    }
+    if (!isStudent && !department && !existing.department) {
+      return res.status(400).json({ error: 'Department is required for faculty and supervisors' });
+    }
+
+    const data: any = {
+      department: isStudent ? null : (department ?? existing.department),
+      isActive: isStudent ? (existing.isActive ?? true) : true,
+      batchStartYear: isStudent ? batchYearsFromUsn(userId)?.startYear : null,
+      batchEndYear: isStudent ? batchYearsFromUsn(userId)?.endYear : null,
+      program: isStudent ? nextProgram : null,
+      classGroup: isStudent ? nextClassGroup : null,
+    };
     if (name) data.name = name;
     if (role) data.role = role;
-    if (department) data.department = department;
-    if (program !== undefined) data.program = program;
-    if (classGroup !== undefined) data.classGroup = classGroup;
     if (semesterId !== undefined) data.semesterId = semesterId;
     if (password) {
       data.password = await bcrypt.hash(password, 10);
     }
 
-    const user = await prisma.user.update({
-      where: { id: id as string },
-      data,
+    const enrollmentSemester = isStudent && semesterId
+      ? await prisma.semester.findUnique({ where: { id: semesterId } })
+      : null;
+    const derivedSemesterNumber = enrollmentSemester
+      ? semesterNumberFromUsn(userId, enrollmentSemester.startDate || '')
+      : null;
+    if (isStudent && semesterId && !derivedSemesterNumber) {
+      return res.status(400).json({ error: 'Unable to derive semester number from the student USN and semester dates' });
+    }
+
+    const user = await prisma.$transaction(async (tx) => {
+      const updatedUser = await tx.user.update({ where: { id: userId }, data });
+      if (isStudent && semesterId && derivedSemesterNumber) {
+        await tx.studentEnrollment.upsert({
+          where: { studentId_semesterId: { studentId: updatedUser.id, semesterId } },
+          update: {
+            semesterNumber: derivedSemesterNumber,
+            program: updatedUser.program!,
+            classGroup: updatedUser.classGroup!,
+          },
+          create: {
+            studentId: updatedUser.id,
+            semesterId,
+            semesterNumber: derivedSemesterNumber,
+            program: updatedUser.program!,
+            classGroup: updatedUser.classGroup!,
+          },
+        });
+      }
+      return updatedUser;
     });
 
     return res.status(200).json({
@@ -228,6 +322,11 @@ export const updateUser = async (req: Request, res: Response) => {
         program: user.program,
         classGroup: user.classGroup,
         semesterId: user.semesterId,
+        enrollments: await prisma.studentEnrollment.findMany({
+          where: { studentId: user.id },
+          include: { semester: { select: { id: true, name: true } } },
+          orderBy: { semester: { createdAt: 'desc' } },
+        }),
       },
     });
   } catch (error: any) {
@@ -290,13 +389,19 @@ export const uploadStudents = async (req: AuthRequest, res: Response) => {
     await removeUploadedFile(req.file.path);
     return res.status(400).json({ error: 'semesterId is required' });
   }
-
   // Verify semester exists
   const semester = await prisma.semester.findUnique({ where: { id: semesterId } });
   if (!semester) {
     await removeUploadedFile(req.file.path);
     return res.status(404).json({ error: 'Semester not found' });
   }
+  const semesterNumberForStudent = (studentId: string): number => {
+    const derived = semesterNumberFromUsn(studentId, semester.startDate || '');
+    if (!derived) {
+      throw new Error(`Unable to derive semester number from USN ${studentId} and the selected semester start date`);
+    }
+    return derived;
+  };
 
   // File type validation - check both extension and MIME type
   const allowedExtensions = ['.xlsx', '.xls', '.docx', '.doc', '.pdf'];
@@ -328,7 +433,7 @@ export const uploadStudents = async (req: AuthRequest, res: Response) => {
     }
     const defaultPassword = await bcrypt.hash('student123', 10);
 
-    let parsedStudents: { id: string; name: string; department: string; program?: string; classGroup: string }[] = [];
+    let parsedStudents: { id: string; name: string; department?: string; program?: string; classGroup: string }[] = [];
 
     if (ext === '.xlsx' || ext === '.xls') {
       // Parse Excel file
@@ -480,6 +585,9 @@ export const uploadStudents = async (req: AuthRequest, res: Response) => {
           name: student.name,
           password: defaultPassword,
           role: 'student' as any,
+          isActive: true,
+          batchStartYear: batchYearsFromUsn(student.id)?.startYear,
+          batchEndYear: batchYearsFromUsn(student.id)?.endYear,
           department: null,
           program: isStudentProgram(student.program) && (programFromSection(student.classGroup) === student.program || !programFromSection(student.classGroup))
             ? student.program
@@ -488,7 +596,18 @@ export const uploadStudents = async (req: AuthRequest, res: Response) => {
           semesterId,
         }));
 
-        await prisma.user.createMany({ data: createData });
+        await prisma.$transaction([
+          prisma.user.createMany({ data: createData }),
+          prisma.studentEnrollment.createMany({
+            data: toCreate.map(student => ({
+              studentId: student.id,
+              semesterId,
+              semesterNumber: semesterNumberForStudent(student.id),
+              program: isStudentProgram(student.program) ? student.program : (programFromSection(student.classGroup) || 'CSE'),
+              classGroup: student.classGroup,
+            })),
+          }),
+        ]);
 
         // Add to success results
         results.success.push(...toCreate.map(student => ({ id: student.id, name: student.name })));
@@ -510,20 +629,34 @@ export const uploadStudents = async (req: AuthRequest, res: Response) => {
         // Update each group
         for (const [key, students] of updateGroups.entries()) {
           const [classGroup, program] = key.split('|');
-          const studentIds = students.map(s => s.id);
 
-          await prisma.user.updateMany({
-            where: {
-              id: { in: studentIds },
-              classGroup
-            },
+          await prisma.$transaction(students.map(student => prisma.user.update({
+            where: { id: student.id },
             data: {
               semesterId,
-              classGroup, // This will be the same for all in group
+              classGroup,
               department: null,
+              isActive: true,
+              batchStartYear: batchYearsFromUsn(student.id)?.startYear,
+              batchEndYear: batchYearsFromUsn(student.id)?.endYear,
               program: isStudentProgram(program) ? program : (programFromSection(classGroup) || 'CSE')
             }
-          });
+          })));
+          await Promise.all(students.map(student => prisma.studentEnrollment.upsert({
+            where: { studentId_semesterId: { studentId: student.id, semesterId } },
+            update: {
+              semesterNumber: semesterNumberForStudent(student.id),
+              program: isStudentProgram(program) ? program : (programFromSection(classGroup) || 'CSE'),
+              classGroup,
+            },
+            create: {
+              studentId: student.id,
+              semesterId,
+              semesterNumber: semesterNumberForStudent(student.id),
+              program: isStudentProgram(program) ? program : (programFromSection(classGroup) || 'CSE'),
+              classGroup,
+            },
+          })));
 
           // Add to updated results
           results.updated.push(...students.map(student => ({ id: student.id, name: student.name })));
@@ -555,7 +688,25 @@ export const uploadStudents = async (req: AuthRequest, res: Response) => {
                 semesterId,
                 classGroup: student.classGroup,
                 department: null,
+                isActive: true,
+                batchStartYear: batchYearsFromUsn(student.id)?.startYear,
+                batchEndYear: batchYearsFromUsn(student.id)?.endYear,
                 program: isStudentProgram(student.program) ? student.program : (programFromSection(student.classGroup) || 'CSE'),
+              },
+            });
+            await prisma.studentEnrollment.upsert({
+              where: { studentId_semesterId: { studentId: student.id, semesterId } },
+              update: {
+                semesterNumber: semesterNumberForStudent(student.id),
+                program: isStudentProgram(student.program) ? student.program : (programFromSection(student.classGroup) || 'CSE'),
+                classGroup: student.classGroup,
+              },
+              create: {
+                studentId: student.id,
+                semesterId,
+                semesterNumber: semesterNumberForStudent(student.id),
+                program: isStudentProgram(student.program) ? student.program : (programFromSection(student.classGroup) || 'CSE'),
+                classGroup: student.classGroup,
               },
             });
             results.updated.push({ id: student.id, name: student.name });
@@ -567,10 +718,22 @@ export const uploadStudents = async (req: AuthRequest, res: Response) => {
                 name: student.name,
                 password: defaultPassword,
                 role: 'student' as any,
+                isActive: true,
+                batchStartYear: batchYearsFromUsn(student.id)?.startYear,
+                batchEndYear: batchYearsFromUsn(student.id)?.endYear,
                 department: null,
                 program: isStudentProgram(student.program) ? student.program : (programFromSection(student.classGroup) || 'CSE'),
                 classGroup: student.classGroup,
                 semesterId,
+              },
+            });
+            await prisma.studentEnrollment.create({
+              data: {
+                studentId: student.id,
+                semesterId,
+                semesterNumber: semesterNumberForStudent(student.id),
+                program: isStudentProgram(student.program) ? student.program : (programFromSection(student.classGroup) || 'CSE'),
+                classGroup: student.classGroup,
               },
             });
             results.success.push({ id: student.id, name: student.name });

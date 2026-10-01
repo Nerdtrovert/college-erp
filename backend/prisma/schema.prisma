@@ -31,6 +31,9 @@ model User {
   name             String
   password         String
   role             Role
+  isActive         Boolean  @default(true)
+  batchStartYear   Int?
+  batchEndYear     Int?
   department       String? // Free-text faculty metadata; students use program instead
   program          String? // Canonical student program: CSE, ISE, AI&DS, or ECE
   classGroup       String? // Section for students (e.g., "CSE-B"). Null for teachers.
@@ -50,11 +53,13 @@ model User {
   adminUploads      AdminUpload[]      @relation("AdminUploads")
   semesterId        String?
   semester          Semester?          @relation(fields: [semesterId], references: [id])
+  enrollments       StudentEnrollment[]
 
   @@index([classGroup])
   @@index([role])
   @@index([role, classGroup])
   @@index([role, program])
+  // Role-specific field ownership is enforced by the database migration.
 }
 
 model Subject {
@@ -93,8 +98,29 @@ model Semester {
   marks              Mark[]
   timetableSlots     TimetableSlot[]
   students           User[]
+  enrollments        StudentEnrollment[]
 
   @@index([status])
+}
+
+model StudentEnrollment {
+  id             String   @id @default(uuid())
+  studentId      String
+  semesterId     String
+  semesterNumber Int
+  program        String
+  classGroup     String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  student  User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  semester Semester @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, semesterId])
+  @@index([semesterId, semesterNumber])
+  @@index([semesterId, program])
+  @@index([semesterId, classGroup])
+  @@index([studentId])
 }
 
 model AttendanceSession {

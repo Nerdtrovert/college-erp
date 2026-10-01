@@ -36,7 +36,7 @@ export const StudentHome: React.FC<Props> = ({ user, onNavigate }) => {
       {/* Header */}
       <div>
         <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900">{getTimeBasedGreeting()}, {user.name.split(' ')[0]} 👋</h1>
-        <p className="text-gray-500 text-sm mt-1">{user.department} &middot; {user.id} &middot; 3rd Year, Semester 5</p>
+        <p className="text-gray-500 text-sm mt-1">{user.program || 'Program'} · {user.classGroup || 'Section'} · {user.id}</p>
       </div>
 
       {/* Alert */}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Copy, Calendar, ShieldAlert, Edit2 } from 'lucide-react';
+import { Plus, Copy, Calendar, ShieldAlert, Edit2, ArrowUpCircle } from 'lucide-react';
 import API from '../../services/api';
 
 export const SemesterManagement: React.FC = () => {
@@ -7,6 +7,7 @@ export const SemesterManagement: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [promotingSemesterId, setPromotingSemesterId] = useState<string | null>(null);
   
   // Modals state
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -118,6 +119,24 @@ export const SemesterManagement: React.FC = () => {
       setTimeout(() => setError(null), 3000);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePromoteStudents = async (semester: any) => {
+    if (!window.confirm(`Promote students into ${semester.name}? Their latest enrollment will be copied, semester numbers will advance by one, and previous history will be preserved.`)) {
+      return;
+    }
+    try {
+      setPromotingSemesterId(semester.id);
+      const response = await API.post(`/semesters/${semester.id}/promote-students`);
+      setSuccess(response.data.message || 'Students promoted successfully!');
+      setTimeout(() => setSuccess(null), 5000);
+    } catch (err: any) {
+      console.error('Failed to promote students:', err);
+      setError(err.response?.data?.error || 'Failed to promote students');
+      setTimeout(() => setError(null), 5000);
+    } finally {
+      setPromotingSemesterId(null);
     }
   };
 
@@ -440,6 +459,14 @@ export const SemesterManagement: React.FC = () => {
                   <Edit2 size={13} />
                   Configure semester
                 </button>
+                <button
+                  onClick={() => handlePromoteStudents(sem)}
+                  disabled={promotingSemesterId === sem.id}
+                  className="mt-2 inline-flex min-h-10 w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 disabled:opacity-50"
+                >
+                  <ArrowUpCircle size={13} />
+                  {promotingSemesterId === sem.id ? 'Promoting...' : 'Promote Students Here'}
+                </button>
               </div>
             ))}
           </div>
@@ -476,6 +503,14 @@ export const SemesterManagement: React.FC = () => {
                       >
                         <Edit2 size={12} />
                         <span>Configure</span>
+                      </button>
+                      <button
+                        onClick={() => handlePromoteStudents(sem)}
+                        disabled={promotingSemesterId === sem.id}
+                        className="ml-2 inline-flex items-center gap-1 text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
+                      >
+                        <ArrowUpCircle size={12} />
+                        {promotingSemesterId === sem.id ? 'Promoting...' : 'Promote'}
                       </button>
                     </td>
                   </tr>
