@@ -452,15 +452,15 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
               <button
                 onClick={fetchReport}
                 disabled={!reportCategory || !reportDetail || (reportDetail === 'specific_cie' && !specificCie) || loading}
-                className="inline-flex h-11 min-w-[14rem] items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                className="glossy-action inline-flex h-11 min-w-[14rem] items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> 
                 {loading ? 'Loading...' : 'Generate Report'}
               </button>
-              <button onClick={exportToPDF} disabled={data.length === 0} title={data.length === 0 ? 'Generate a report first' : 'Export the current filtered report'} className="inline-flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-blue-300 bg-blue-100 px-4 py-2.5 text-sm font-semibold text-blue-800 shadow-sm hover:bg-blue-200 transition-colors disabled:cursor-not-allowed disabled:opacity-50">
+              <button onClick={exportToPDF} disabled={data.length === 0} title={data.length === 0 ? 'Generate a report first' : 'Export the current filtered report'} className="glossy-action inline-flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-blue-300 bg-blue-100 px-4 py-2.5 text-sm font-semibold text-blue-800 shadow-sm hover:bg-blue-200 transition-colors disabled:cursor-not-allowed disabled:opacity-50">
                 <Download size={16} /> PDF
               </button>
-              <button onClick={exportToWord} disabled={data.length === 0} title={data.length === 0 ? 'Generate a report first' : 'Export the current filtered report'} className="inline-flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-green-300 bg-green-100 px-4 py-2.5 text-sm font-semibold text-green-800 shadow-sm hover:bg-green-200 transition-colors disabled:cursor-not-allowed disabled:opacity-50">
+              <button onClick={exportToWord} disabled={data.length === 0} title={data.length === 0 ? 'Generate a report first' : 'Export the current filtered report'} className="glossy-action inline-flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-green-300 bg-green-100 px-4 py-2.5 text-sm font-semibold text-green-800 shadow-sm hover:bg-green-200 transition-colors disabled:cursor-not-allowed disabled:opacity-50">
                 <FileText size={16} /> Word
               </button>
             </div>

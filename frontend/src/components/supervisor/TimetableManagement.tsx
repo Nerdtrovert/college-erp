@@ -212,6 +212,47 @@ export const TimetableManagement: React.FC = () => {
         </div>
       ) : (
         <>
+          {selectedCell && (
+            <div className="bg-white rounded-2xl border border-blue-100 shadow-sm p-5 sm:p-6">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center"><Pencil size={17} /></div>
+                <div>
+                  <h2 className="font-semibold text-gray-900">Edit period</h2>
+                  <p className="text-xs text-gray-500">{slotForm.day} · {PERIODS[Number(slotForm.slotIndex)].label}</p>
+                </div>
+              </div>
+              <form onSubmit={saveSlot} className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Subject code</label>
+                  <input required value={slotForm.subjectCode} onChange={(event) => setSlotForm({ ...slotForm, subjectCode: event.target.value })} placeholder="e.g. CS2301" className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Faculty</label>
+                  <select required value={slotForm.teacherId} onChange={(event) => setSlotForm({ ...slotForm, teacherId: event.target.value })} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-blue-500">
+                    <option value="">Select faculty</option>
+                    {faculty.map((member) => <option key={member.id} value={member.id}>{member.name} ({member.id})</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Co-Teacher</label>
+                  <select value={slotForm.coTeacherId || ''} onChange={(event) => setSlotForm({ ...slotForm, coTeacherId: event.target.value })} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-blue-500">
+                    <option value="">None</option>
+                    {faculty.map((member) => <option key={member.id} value={member.id}>{member.name} ({member.id})</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Room</label>
+                  <input value={slotForm.room} onChange={(event) => setSlotForm({ ...slotForm, room: event.target.value })} placeholder="Optional" className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-blue-500" />
+                </div>
+                <button type="submit" disabled={saving} className="h-[42px] inline-flex items-center justify-center gap-2 rounded-2xl border border-blue-200 bg-blue-100 px-4 text-sm font-semibold text-blue-800 hover:bg-blue-200 disabled:opacity-60">
+                  {saving ? <Clock3 size={16} className="animate-spin" /> : <Save size={16} />}
+                  {saving ? 'Saving...' : 'Save period'}
+                </button>
+              </form>
+              {message && <div className={`mt-4 inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>{message.type === 'success' && <Check size={15} />}{message.text}</div>}
+            </div>
+          )}
+
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
               <div>
@@ -314,46 +355,6 @@ export const TimetableManagement: React.FC = () => {
             </div>
           </div>
 
-          {selectedCell && (
-            <div className="bg-white rounded-2xl border border-blue-100 shadow-sm p-5 sm:p-6">
-              <div className="flex items-center gap-3 mb-5">
-                <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center"><Pencil size={17} /></div>
-                <div>
-                  <h2 className="font-semibold text-gray-900">Edit period</h2>
-                  <p className="text-xs text-gray-500">{slotForm.day} · {PERIODS[Number(slotForm.slotIndex)].label}</p>
-                </div>
-              </div>
-              <form onSubmit={saveSlot} className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Subject code</label>
-                  <input required value={slotForm.subjectCode} onChange={(event) => setSlotForm({ ...slotForm, subjectCode: event.target.value })} placeholder="e.g. CS2301" className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-blue-500" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Faculty</label>
-                  <select required value={slotForm.teacherId} onChange={(event) => setSlotForm({ ...slotForm, teacherId: event.target.value })} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-blue-500">
-                    <option value="">Select faculty</option>
-                    {faculty.map((member) => <option key={member.id} value={member.id}>{member.name} ({member.id})</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Co-Teacher</label>
-                  <select value={slotForm.coTeacherId || ''} onChange={(event) => setSlotForm({ ...slotForm, coTeacherId: event.target.value })} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-blue-500">
-                    <option value="">None</option>
-                    {faculty.map((member) => <option key={member.id} value={member.id}>{member.name} ({member.id})</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Room</label>
-                  <input value={slotForm.room} onChange={(event) => setSlotForm({ ...slotForm, room: event.target.value })} placeholder="Optional" className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-blue-500" />
-                </div>
-                <button type="submit" disabled={saving} className="h-[42px] inline-flex items-center justify-center gap-2 rounded-2xl border border-blue-200 bg-blue-100 px-4 text-sm font-semibold text-blue-800 hover:bg-blue-200 disabled:opacity-60">
-                  {saving ? <Clock3 size={16} className="animate-spin" /> : <Save size={16} />}
-                  {saving ? 'Saving...' : 'Save period'}
-                </button>
-              </form>
-              {message && <div className={`mt-4 inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>{message.type === 'success' && <Check size={15} />}{message.text}</div>}
-            </div>
-          )}
         </>
       )}
     </div>

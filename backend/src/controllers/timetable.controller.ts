@@ -352,8 +352,7 @@ export const getAnyFacultyTimetable = async (req: AuthRequest, res: Response) =>
 };
 
 /**
- * Get current classes for all faculty (for faculty status card)
- * Shows what each faculty is currently teaching based on current day and time
+ * Get current classes for teachers during an active teaching period
  */
 export const getCurrentFacultyStatus = async (req: AuthRequest, res: Response) => {
   try {
@@ -364,7 +363,7 @@ export const getCurrentFacultyStatus = async (req: AuthRequest, res: Response) =
       weekday: 'long',
       hour: '2-digit',
       minute: '2-digit',
-      hour12: false,
+      hourCycle: 'h23',
     }).formatToParts(now);
     const indiaTime = Object.fromEntries(indiaTimeParts.map(({ type, value }) => [type, value]));
     const currentDay = indiaTime.weekday;
@@ -410,59 +409,81 @@ export const getCurrentFacultyStatus = async (req: AuthRequest, res: Response) =
       return res.status(400).json({ error: 'No active semester found' });
     }
 
-    // Get all faculty members (teachers, deans, principals, hods)
-    const facultyMembers = await prisma.user.findMany({
-      where: {
-        role: {
-          in: ['teacher', 'dean', 'principal', 'hod'],
-        },
-      },
-      select: {
-        id: true,
-        name: true,
-        department: true,
-      },
-    });
+    const isTeachingDay = DAYS.some((day) => day.toLowerCase() === currentDay.toLowerCase());
+    const currentPeriodLabel = currentPeriodIndex >= 0
+      ? `${PERIOD_TIMES[currentPeriodIndex][0]}–${PERIOD_TIMES[currentPeriodIndex][1]}`
+      : !isTeachingDay
+        ? 'No classes scheduled today'
+        : currentTimeInMinutes >= 15 * 60 + 45
+          ? 'After college hours'
+          : currentTimeInMinutes >= 13 * 60 && currentTimeInMinutes < 13 * 60 + 45
+            ? 'Lunch break'
+            : currentTimeInMinutes >= 10 * 60 + 30 && currentTimeInMinutes < 11 * 60
+              ? 'Break'
+              : currentTimeInMinutes < 8 * 60 + 30
+                ? 'Before college hours'
+                : 'No classes in session';
 
-    // For each faculty member, check what they're teaching in the current period
-    const facultyStatus = await Promise.all(
-      facultyMembers.map(async (faculty) => {
-        // Check if this faculty is teaching in the current period
-        const timetableSlot = currentPeriodIndex === -1 ? null : await prisma.timetableSlot.findFirst({
-          where: {
-            OR: [
-              { teacherId: faculty.id },
-              { coTeacherId: faculty.id }
-            ],
-            day: currentDay,
-            slotIndex: currentPeriodIndex,
-            semesterId: activeSemester.id,
-            subjectCode: { not: null }, // Only slots with actual subjects
-          },
-          include: {
-            subject: {
-              select: {
-                code: true,
-                name: true,
+    let facultyStatus: {
+      facultyId: string;
+      facultyName: string;
+      department: string;
+      subjectCode: string | null;
+      subjectName: string | null;
+      room: string | null;
+      classGroup: string | null;
+      periodIndex: number;
+      periodLabel: string;
+      status?: 'free';
+    }[] = [];
+
+    if (currentPeriodIndex >= 0) {
+      const facultyMembers = await prisma.user.findMany({
+        where: { role: 'teacher' },
+        select: {
+          id: true,
+          name: true,
+          department: true,
+        },
+      });
+
+      facultyStatus = await Promise.all(
+        facultyMembers.map(async (faculty) => {
+          const timetableSlot = await prisma.timetableSlot.findFirst({
+            where: {
+              OR: [
+                { teacherId: faculty.id },
+                { coTeacherId: faculty.id }
+              ],
+              day: currentDay,
+              slotIndex: currentPeriodIndex,
+              semesterId: activeSemester.id,
+              subjectCode: { not: null },
+            },
+            include: {
+              subject: {
+                select: {
+                  code: true,
+                  name: true,
+                },
               },
             },
-          },
-        });
+          });
 
-        if (timetableSlot && timetableSlot.subject) {
-          return {
-            facultyId: faculty.id,
-            facultyName: faculty.name,
-            department: faculty.department || 'N/A',
-            subjectCode: timetableSlot.subject.code,
-            subjectName: timetableSlot.subject.name,
-            room: timetableSlot.room || 'TBD',
-            classGroup: timetableSlot.classGroup,
-            periodIndex: currentPeriodIndex,
-            periodLabel: currentPeriodIndex === -1 ? 'No active period' : PERIOD_TIMES[currentPeriodIndex][0] + '–' + PERIOD_TIMES[currentPeriodIndex][1],
-          };
-        } else {
-          // Faculty is not teaching in current period
+          if (timetableSlot?.subject) {
+            return {
+              facultyId: faculty.id,
+              facultyName: faculty.name,
+              department: faculty.department || 'N/A',
+              subjectCode: timetableSlot.subject.code,
+              subjectName: timetableSlot.subject.name,
+              room: timetableSlot.room || 'TBD',
+              classGroup: timetableSlot.classGroup,
+              periodIndex: currentPeriodIndex,
+              periodLabel: currentPeriodLabel,
+            };
+          }
+
           return {
             facultyId: faculty.id,
             facultyName: faculty.name,
@@ -472,12 +493,12 @@ export const getCurrentFacultyStatus = async (req: AuthRequest, res: Response) =
             room: null,
             classGroup: null,
             periodIndex: currentPeriodIndex,
-            periodLabel: currentPeriodIndex === -1 ? 'No active period' : PERIOD_TIMES[currentPeriodIndex][0] + '–' + PERIOD_TIMES[currentPeriodIndex][1],
-            status: 'free', // Indicates not currently teaching
+            periodLabel: currentPeriodLabel,
+            status: 'free',
           };
-        }
-      })
-    );
+        })
+      );
+    }
 
     return res.status(200).json({
       currentDay,
@@ -485,9 +506,10 @@ export const getCurrentFacultyStatus = async (req: AuthRequest, res: Response) =
         timeZone: 'Asia/Kolkata',
         hour: '2-digit',
         minute: '2-digit',
+        hour12: true,
       }).format(now),
       currentPeriodIndex,
-      currentPeriodLabel: currentPeriodIndex === -1 ? 'No active period' : PERIOD_TIMES[currentPeriodIndex][0] + '–' + PERIOD_TIMES[currentPeriodIndex][1],
+      currentPeriodLabel,
       semester: {
         id: activeSemester.id,
         name: activeSemester.name,
