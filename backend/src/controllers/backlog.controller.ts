@@ -252,26 +252,36 @@ export const processGradecard = async (req: AuthRequest, res: Response) => {
 };
 
 /**
- * Get all students with their backlog information for a semester
+ * Get all students with their backlog information
+ * If semesterId is provided, filters by that semester
+ * If semesterId is not provided, returns all students
  */
 export const getStudentsWithBacklogs = async (req: AuthRequest, res: Response) => {
   try {
-    const { semesterId } = req.query;
+    const { semesterId, program } = req.query;
 
-    if (!semesterId) {
-      return res.status(400).json({ error: 'Semester ID is required' });
+    // Build where clause
+    const whereClause: any = {
+      role: 'student'
+    };
+
+    // Only add semesterId filter if provided
+    if (semesterId) {
+      whereClause.semesterId = semesterId as string;
+    }
+    if (program && typeof program === 'string') {
+      whereClause.program = program;
     }
 
-    // Get all students for the semester
+    // Get all students (filtered by semester if specified)
     const students = await prisma.user.findMany({
-      where: {
-        role: 'student',
-        semesterId: semesterId as string
-      },
+      where: whereClause,
       select: {
         id: true,
         name: true,
         department: true,
+        program: true,
+        semesterId: true,
         numberOfBacklogs: true,
         backlogSubjects: true
       }
@@ -283,7 +293,8 @@ export const getStudentsWithBacklogs = async (req: AuthRequest, res: Response) =
       name: student.name,
       usn: student.id, // Assuming USN is stored as id
       department: student.department || 'N/A',
-      semester: semesterId,
+      program: student.program || 'CSE',
+      semester: student.semesterId || 'N/A',
       backlogCount: student.numberOfBacklogs,
       backlogSubjects: student.backlogSubjects
     }));

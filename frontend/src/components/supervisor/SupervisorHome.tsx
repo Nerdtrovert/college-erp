@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import API, { getAnyFacultyTimetable, getCurrentFacultyStatus } from '../../services/api';
-import { CalendarDays, CalendarRange, Users, ClipboardList, LayoutDashboard, Clock } from 'lucide-react';
+import { CalendarDays, CalendarRange, Users, ClipboardList, LayoutDashboard, Clock, BarChart3 } from 'lucide-react';
 import { CALENDAR_EVENTS, type CalendarEvent } from '../AcademicCalendar';
 import { getTimeBasedGreeting } from '../../utils/greeting';
 
@@ -19,22 +19,24 @@ export const SupervisorHome: React.FC<Props> = ({ user, onNavigate }) => {
   const [statusLoading, setStatusLoading] = useState(true);
 
   useEffect(() => {
-    // Fetch supervisor's today's schedule
+    // Fetch today's schedule
     const fetchMyTodaySchedule = async () => {
       setScheduleLoading(true);
       try {
-        // Get today's schedule for the logged-in supervisor
-        // We'll use the getAnyFacultyTimetable endpoint with the supervisor's own ID
-        // and get today's date to filter for current day
-        const today = new Date();
-        const dayOfWeek = today.toLocaleDateString('en-US', { weekday: 'long' });
-
-        // For now, we'll get the active semester timetable and filter for today
-        // A more sophisticated approach would be to create a specific endpoint for today's schedule
-        const res = await API.get('/timetable/teacher'); // Gets logged-in teacher's timetable for active semester
-        if (res && res.length > 0) {
+        // Get today's schedule for the logged-in user
+        let schedule: any[];
+        if (user.role === 'teacher') {
+          // For teachers, use the teacher endpoint
+          const response = await API.get('/timetable/teacher');
+          schedule = response.data;
+        } else {
+          // For supervisors (dean, principal, hod), use the faculty endpoint with their ID
+          schedule = await getAnyFacultyTimetable(user.id);
+        }
+        if (schedule && schedule.length > 0) {
           // Filter for today's schedule
-          const todaySchedule = res.filter(daySlot =>
+          const dayOfWeek = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+          const todaySchedule = schedule.filter((daySlot: any) =>
             daySlot.day.toLowerCase() === dayOfWeek.toLowerCase()
           );
           setMyTodaySchedule(todaySchedule);
@@ -49,7 +51,7 @@ export const SupervisorHome: React.FC<Props> = ({ user, onNavigate }) => {
       }
     };
     fetchMyTodaySchedule();
-  }, [user.id]); // Re-fetch when user ID changes
+  }, [user.id, user.role]); // Re-fetch when user identity or role changes
 
   // Fetch faculty status for current time
   useEffect(() => {
@@ -107,11 +109,11 @@ export const SupervisorHome: React.FC<Props> = ({ user, onNavigate }) => {
     <div className="space-y-5 sm:space-y-7">
       <div>
         <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900">{getTimeBasedGreeting()}, {user.name} 👋</h1>
-        <p className="text-gray-500 text-sm mt-1">{user.role === 'dean' ? 'Dean Portal' : 'Principal Portal'} &middot; {user.department}</p>
+        <p className="text-gray-500 text-sm mt-1">{user.role === 'dean' ? 'Dean Portal' : user.role === 'hod' ? 'HOD Portal' : 'Principal Portal'} &middot; {user.department}</p>
       </div>
 
       {/* New Dashboard Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-2">
+      <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2 lg:grid-cols-2">
         {/* My Today's Schedule Card */}
         <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
           <div className="flex items-center justify-between gap-3 mb-4">
@@ -285,44 +287,53 @@ export const SupervisorHome: React.FC<Props> = ({ user, onNavigate }) => {
         </div>
       </div>
 
-      {/* Reports Generator (replacing Quick Actions) */}
-      <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
-        <div className="flex items-center justify-between gap-3 mb-4">
-          <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <ClipboardList size={18} className="text-gray-400" />
-            Reports Generator
-          </h2>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-2">
+        {/* Reports Generator */}
+        <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <ClipboardList size={18} className="text-gray-400" />
+              Reports Generator
+            </h2>
+          </div>
+          <div className="text-center py-6">
+            <p className="text-gray-600 font-medium mb-3">The advanced reporting module is fully connected and ready to use!</p>
+            <p className="text-sm text-gray-500 mb-6 max-w-md mx-auto">Generate detailed insights into student attendance, CIE marks, class progress, and departmental performance.</p>
+            <button
+              onClick={() => onNavigate('reports')}
+              className="inline-flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors shadow-sm"
+            >
+              <BarChart3 size={16} />
+              Launch Reports Dashboard
+            </button>
+          </div>
         </div>
-        <div className="text-center py-8">
-          <p className="text-gray-500">Reports generator functionality coming soon...</p>
-          <p className="text-xs text-gray-400 mt-2">This feature will allow supervisors to generate various reports.</p>
-        </div>
-      </div>
 
-      <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
-        <div className="flex items-center justify-between gap-3 mb-4">
-          <h2 className="font-semibold text-gray-900 flex items-center gap-2">
-            <CalendarDays size={18} className="text-blue-600" />
-            Upcoming Events
-          </h2>
-          <button onClick={() => onNavigate('academic-calendar')} className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline">
-            View calendar
-          </button>
-        </div>
-        <div className="space-y-3">
-          {upcomingEvents.length > 0 ? upcomingEvents.map((event) => (
-            <div key={`${event.date}-${event.title}`} className="flex items-start gap-3 rounded-xl border border-gray-100 bg-gray-50/70 p-3">
-              <div className="min-w-[4.75rem] text-xs font-semibold text-blue-700">{formatEventDate(event.date)}</div>
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-gray-900">{event.title}</p>
-                <p className="mt-0.5 text-xs capitalize text-gray-500">{event.type} event</p>
+        <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+              <CalendarDays size={18} className="text-blue-600" />
+              Upcoming Events
+            </h2>
+            <button onClick={() => onNavigate('academic-calendar')} className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline">
+              View calendar
+            </button>
+          </div>
+          <div className="space-y-3">
+            {upcomingEvents.length > 0 ? upcomingEvents.map((event) => (
+              <div key={`${event.date}-${event.title}`} className="flex items-start gap-3 rounded-xl border border-gray-100 bg-gray-50/70 p-3">
+                <div className="min-w-[4.75rem] text-xs font-semibold text-blue-700">{formatEventDate(event.date)}</div>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-900">{event.title}</p>
+                  <p className="mt-0.5 text-xs capitalize text-gray-500">{event.type} event</p>
+                </div>
               </div>
-            </div>
-          )) : (
-            <p className="rounded-xl border border-dashed border-gray-200 px-4 py-5 text-center text-sm text-gray-500">
-              No upcoming events scheduled.
-            </p>
-          )}
+            )) : (
+              <p className="rounded-xl border border-dashed border-gray-200 px-4 py-5 text-center text-sm text-gray-500">
+                No upcoming events scheduled.
+              </p>
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -30,6 +30,7 @@ export const getStudentById = async (req: AuthRequest, res: Response) => {
         name: true,
         role: true,
         department: true,
+        program: true,
         classGroup: true,
         semesterId: true,
         semester: { select: { id: true, name: true } },
@@ -70,7 +71,7 @@ export const updateStudent = async (req: AuthRequest, res: Response) => {
     return res.status(400).json({ error: 'Student ID is required' });
   }
 
-  const { name, department, classGroup } = req.body;
+  const { name, department, program, classGroup } = req.body;
 
   // Validate that the user is a student
   try {
@@ -92,6 +93,7 @@ export const updateStudent = async (req: AuthRequest, res: Response) => {
       data: {
         name: name ?? undefined,
         department: department ?? undefined,
+        program: program ?? undefined,
         classGroup: classGroup ?? undefined,
       },
       select: {
@@ -99,6 +101,7 @@ export const updateStudent = async (req: AuthRequest, res: Response) => {
         name: true,
         role: true,
         department: true,
+        program: true,
         classGroup: true,
         semesterId: true,
         semester: { select: { id: true, name: true } },
@@ -121,13 +124,13 @@ export const updateStudent = async (req: AuthRequest, res: Response) => {
  */
 export const getAllStudents = async (req: AuthRequest, res: Response) => {
   // Pagination and search parameters
-  const { page = 1, limit = 10, search, department, classGroup } = req.query;
+  const { page = 1, limit = 10, search, program, classGroup } = req.query;
 
   // Handle case where query parameters might be arrays
   const pageStr = Array.isArray(page) ? page[0] : page;
   const limitStr = Array.isArray(limit) ? limit[0] : limit;
   const searchStr = Array.isArray(search) ? search[0] : search;
-  const departmentStr = Array.isArray(department) ? department[0] : department;
+  const programStr = Array.isArray(program) ? program[0] : program;
   const classGroupStr = Array.isArray(classGroup) ? classGroup[0] : classGroup;
 
   const pageNum = Math.max(parseInt(pageStr as string, 10) || 1, 1);
@@ -146,8 +149,8 @@ export const getAllStudents = async (req: AuthRequest, res: Response) => {
     ];
   }
 
-  if (departmentStr && typeof departmentStr === 'string' && departmentStr !== '') {
-    where.department = departmentStr;
+  if (programStr && typeof programStr === 'string' && programStr !== '') {
+    where.program = programStr;
   }
 
   if (classGroupStr && typeof classGroupStr === 'string' && classGroupStr !== '') {
@@ -163,6 +166,7 @@ export const getAllStudents = async (req: AuthRequest, res: Response) => {
           name: true,
           role: true,
           department: true,
+          program: true,
           classGroup: true,
           semesterId: true,
           semester: { select: { id: true, name: true } },
@@ -332,6 +336,7 @@ const computeLeaderboard = async (groupBy: 'department' | 'classGroup' | null, m
       id: true,
       name: true,
       department: true,
+      program: true,
       classGroup: true,
       marks: {
         where: {
@@ -358,13 +363,13 @@ const computeLeaderboard = async (groupBy: 'department' | 'classGroup' | null, m
   // Filter out students with no scores (optional)
   const scoredStudents = studentsWithTotal.filter((s) => s.totalScore > 0);
 
-  // Group by department or classGroup or overall
+  // Group by student program or classGroup or overall
   let grouped: Record<string, any[]> = {};
   if (groupBy === 'department') {
     for (const student of scoredStudents) {
-      const dept = student.department || 'Unknown';
-      if (!grouped[dept]) grouped[dept] = [];
-      grouped[dept].push(student);
+      const program = student.program || 'Unknown';
+      if (!grouped[program]) grouped[program] = [];
+      grouped[program].push(student);
     }
   } else if (groupBy === 'classGroup') {
     for (const student of scoredStudents) {
@@ -387,6 +392,7 @@ const computeLeaderboard = async (groupBy: 'department' | 'classGroup' | null, m
         id: student.id,
         name: student.name,
         department: student.department,
+        program: student.program,
         classGroup: student.classGroup,
         totalScore: student.totalScore,
       }));
@@ -461,13 +467,13 @@ const getActiveSemester = async () => {
  * Download all students report in multiple formats
  */
 export const downloadStudentsReport = async (req: AuthRequest, res: Response) => {
-  const { department, classGroup, format = 'csv' } = req.query;
+  const { program, classGroup, format = 'csv' } = req.query;
 
   // Build where clause
   const where: any = { role: 'student' };
 
-  if (department && typeof department === 'string' && department !== '') {
-    where.department = department;
+  if (program && typeof program === 'string' && program !== '') {
+    where.program = program;
   }
 
   if (classGroup && typeof classGroup === 'string' && classGroup !== '') {
@@ -481,6 +487,7 @@ export const downloadStudentsReport = async (req: AuthRequest, res: Response) =>
         id: true,
         name: true,
         department: true,
+        program: true,
         classGroup: true,
         semesterId: true,
         createdAt: true,
@@ -490,8 +497,8 @@ export const downloadStudentsReport = async (req: AuthRequest, res: Response) =>
 
     // Set filename based on filters
     let filename = 'students-report';
-    if (department && typeof department === 'string' && department !== '') {
-      filename += `-${department}`;
+    if (program && typeof program === 'string' && program !== '') {
+      filename += `-${program}`;
     }
     if (classGroup && typeof classGroup === 'string' && classGroup !== '') {
       filename += `-${classGroup}`;

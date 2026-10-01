@@ -8,6 +8,7 @@ import { config } from '../config';
 import { AuthRequest } from '../types';
 import * as path from 'path';
 import * as fs from 'fs';
+import { isStudentProgram, programFromLegacyDepartment, programFromSection } from '../constants/program';
 
 const removeUploadedFile = async (filePath: string): Promise<void> => {
   try {
@@ -67,6 +68,7 @@ export const login = async (req: Request, res: Response) => {
         role: user.role,
         name: user.name,
         department: user.department,
+        program: user.program,
         classGroup: user.classGroup,
       } as any,
       config.jwtSecret,
@@ -80,6 +82,7 @@ export const login = async (req: Request, res: Response) => {
         role: user.role,
         name: user.name,
         department: user.department,
+        program: user.program,
         classGroup: user.classGroup,
       },
     });
@@ -90,7 +93,7 @@ export const login = async (req: Request, res: Response) => {
 };
 
 export const register = async (req: Request, res: Response) => {
-  const { name, password, role, department, classGroup, numberOfBacklogs, backlogSubjects } = req.body;
+  const { name, password, role, department, program, classGroup, numberOfBacklogs, backlogSubjects } = req.body;
   const id = role === 'student'
     ? String(req.body.id).toUpperCase()
     : String(req.body.id).trim();
@@ -116,6 +119,7 @@ export const register = async (req: Request, res: Response) => {
         password: hashedPassword,
         role,
         department,
+        program: role === 'student' ? program : null,
         classGroup: role === 'student' ? classGroup : null,
       },
     });
@@ -127,6 +131,7 @@ export const register = async (req: Request, res: Response) => {
         role: user.role,
         name: user.name,
         department: user.department,
+        program: user.program,
         classGroup: user.classGroup,
       },
     });
@@ -173,6 +178,7 @@ export const getUsersByRole = async (req: AuthRequest, res: Response) => {
         name: true,
         role: true,
         department: true,
+        program: true,
         classGroup: true,
         semesterId: true,
         semester: { select: { id: true, name: true } },
@@ -191,13 +197,14 @@ export const getUsersByRole = async (req: AuthRequest, res: Response) => {
 
 export const updateUser = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { name, password, role, department, classGroup, semesterId } = req.body;
+  const { name, password, role, department, program, classGroup, semesterId } = req.body;
 
   try {
     const data: any = {};
     if (name) data.name = name;
     if (role) data.role = role;
     if (department) data.department = department;
+    if (program !== undefined) data.program = program;
     if (classGroup !== undefined) data.classGroup = classGroup;
     if (semesterId !== undefined) data.semesterId = semesterId;
     if (password) {
@@ -216,6 +223,7 @@ export const updateUser = async (req: Request, res: Response) => {
         role: user.role,
         name: user.name,
         department: user.department,
+        program: user.program,
         classGroup: user.classGroup,
         semesterId: user.semesterId,
       },
@@ -273,7 +281,7 @@ export const uploadStudents = async (req: AuthRequest, res: Response) => {
     return res.status(400).json({ error: 'No file uploaded' });
   }
 
-  const { semesterId, defaultDepartment, defaultClassGroup } = req.body;
+  const { semesterId, defaultDepartment, defaultProgram, defaultClassGroup } = req.body;
 
   if (!semesterId) {
     // Clean up uploaded file
@@ -318,7 +326,7 @@ export const uploadStudents = async (req: AuthRequest, res: Response) => {
     }
     const defaultPassword = await bcrypt.hash('student123', 10);
 
-    let parsedStudents: { id: string; name: string; department: string; classGroup: string }[] = [];
+    let parsedStudents: { id: string; name: string; department: string; program?: string; classGroup: string }[] = [];
 
     if (ext === '.xlsx' || ext === '.xls') {
       // Parse Excel file
@@ -351,6 +359,14 @@ export const uploadStudents = async (req: AuthRequest, res: Response) => {
             defaultDepartment ||
             'Computer Science & Engineering'
           ).trim(),
+          program: String(
+            row['Program'] ||
+            row['Course'] ||
+            row['Branch'] ||
+            defaultProgram ||
+            programFromLegacyDepartment(String(row['Department'] || row['Dept'] || row['Branch'] || '')) ||
+            'CSE'
+          ).trim(),
           classGroup: String(
             row['Section'] ||
             row['Class'] ||
@@ -372,6 +388,7 @@ export const uploadStudents = async (req: AuthRequest, res: Response) => {
       parsedStudents = parsedStudents.map((s: any) => ({
         ...s,
         department: s.department || defaultDepartment || 'Computer Science & Engineering',
+        program: s.program || defaultProgram || programFromLegacyDepartment(s.department) || 'CSE',
         classGroup: s.classGroup || defaultClassGroup || 'CSE-B',
         numberOfBacklogs: s.numberOfBacklogs || 0,
         backlogSubjects: s.backlogSubjects || [],
@@ -384,6 +401,7 @@ export const uploadStudents = async (req: AuthRequest, res: Response) => {
       parsedStudents = parsedStudents.map((s: any) => ({
         ...s,
         department: s.department || defaultDepartment || 'Computer Science & Engineering',
+        program: s.program || defaultProgram || programFromLegacyDepartment(s.department) || 'CSE',
         classGroup: s.classGroup || defaultClassGroup || 'CSE-B',
         numberOfBacklogs: s.numberOfBacklogs || 0,
         backlogSubjects: s.backlogSubjects || [],
@@ -460,7 +478,10 @@ export const uploadStudents = async (req: AuthRequest, res: Response) => {
           name: student.name,
           password: defaultPassword,
           role: 'student' as any,
-          department: student.department,
+          department: null,
+          program: isStudentProgram(student.program) && (programFromSection(student.classGroup) === student.program || !programFromSection(student.classGroup))
+            ? student.program
+            : (programFromSection(student.classGroup) || 'CSE'),
           classGroup: student.classGroup,
           semesterId,
         }));
@@ -471,13 +492,13 @@ export const uploadStudents = async (req: AuthRequest, res: Response) => {
         results.success.push(...toCreate.map(student => ({ id: student.id, name: student.name })));
       }
 
-      // Batch update existing students (grouped by classGroup and department for efficiency)
+      // Batch update existing students grouped by section and program.
       if (toUpdate.length > 0) {
         // Group students by classGroup and department for batch updates
         const updateGroups = new Map<string, typeof parsedStudents>();
 
         for (const student of toUpdate) {
-          const key = `${student.classGroup}|${student.department}`;
+          const key = `${student.classGroup}|${student.program}`;
           if (!updateGroups.has(key)) {
             updateGroups.set(key, []);
           }
@@ -486,19 +507,19 @@ export const uploadStudents = async (req: AuthRequest, res: Response) => {
 
         // Update each group
         for (const [key, students] of updateGroups.entries()) {
-          const [classGroup, department] = key.split('|');
+          const [classGroup, program] = key.split('|');
           const studentIds = students.map(s => s.id);
 
           await prisma.user.updateMany({
             where: {
               id: { in: studentIds },
-              classGroup,
-              department
+              classGroup
             },
             data: {
               semesterId,
               classGroup, // This will be the same for all in group
-              department   // This will be the same for all in group
+              department: null,
+              program: isStudentProgram(program) ? program : (programFromSection(classGroup) || 'CSE')
             }
           });
 
@@ -531,7 +552,8 @@ export const uploadStudents = async (req: AuthRequest, res: Response) => {
               data: {
                 semesterId,
                 classGroup: student.classGroup,
-                department: student.department,
+                department: null,
+                program: isStudentProgram(student.program) ? student.program : (programFromSection(student.classGroup) || 'CSE'),
               },
             });
             results.updated.push({ id: student.id, name: student.name });
@@ -543,7 +565,8 @@ export const uploadStudents = async (req: AuthRequest, res: Response) => {
                 name: student.name,
                 password: defaultPassword,
                 role: 'student' as any,
-                department: student.department,
+                department: null,
+                program: isStudentProgram(student.program) ? student.program : (programFromSection(student.classGroup) || 'CSE'),
                 classGroup: student.classGroup,
                 semesterId,
               },

@@ -5,7 +5,8 @@ export interface JWTPayload {
   id: string;
   role: Role;
   name: string;
-  department: string;
+  department?: string | null;
+  program?: string | null;
   classGroup?: string | null;
 }
 

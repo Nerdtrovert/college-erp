@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { idSchema, roleSchema, stringField, roleSchemas, commonIdFields, commonStringFields } from './shared.validation';
+import { sectionMatchesProgram, STUDENT_PROGRAMS } from '../constants/program';
 
 export const loginSchema = z.object({
   body: z.object({
@@ -27,7 +28,8 @@ export const registerSchema = z.object({
     name: commonStringFields.name,
     password: z.string().min(6, 'Password must be at least 6 characters'),
     role: roleSchemas.all, // student or teacher
-    department: commonStringFields.department,
+    department: commonStringFields.department.optional(),
+    program: z.enum(STUDENT_PROGRAMS).optional(),
     classGroup: z.string().optional(),
     numberOfBacklogs: z.number().int().min(0).optional(),
     backlogSubjects: z.array(z.string()).optional(),
@@ -52,6 +54,30 @@ export const registerSchema = z.object({
         code: z.ZodIssueCode.custom,
         path: ['classGroup'],
         message: 'Class group is required for students',
+      });
+    }
+
+    if (!isStudent && !value.department) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['department'],
+        message: 'Department is required for faculty and supervisors',
+      });
+    }
+
+    if (isStudent && !value.program) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['program'],
+        message: 'Program is required for students',
+      });
+    }
+
+    if (isStudent && value.program && value.classGroup && !sectionMatchesProgram(value.program, value.classGroup)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['classGroup'],
+        message: `Section must belong to the selected ${value.program} program`,
       });
     }
   }),

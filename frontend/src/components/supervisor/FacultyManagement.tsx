@@ -306,31 +306,14 @@ export const FacultyManagement: React.FC = () => {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Department</label>
-                <select
+                <input
+                  type="text"
                   value={newFaculty.department}
                   onChange={(e) => setNewFaculty({...newFaculty, department: e.target.value})}
                   className="w-full px-3.5 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-gray-50 focus:bg-white transition-colors"
                   required
-                >
-                                    <option value="" disabled>Select Department</option>
-                  <option value="Computer Science & Engineering">Computer Science & Engineering</option>
-                  <option value="Information Science">Information Science</option>
-                  <option value="Electronics & Communication">Electronics & Communication</option>
-                  <option value="Artificial Intelligence">Artificial Intelligence</option>
-                  <option value="Mathematics">Mathematics</option>
-                  <option value="Physics">Physics</option>
-                  <option value="Chemistry">Chemistry</option>
-                  <option value="Academics">Academics (Dean)</option>
-                  <option value="Student Affairs">Student Affairs (Dean)</option>
-                  <option value="Administration">Administration (Principal)</option>
-                  <option value="Mathematics">Mathematics</option>
-                  <option value="Electronics & Communication">Electronics & Communication</option>
-                  <option value="Physics">Physics</option>
-                  <option value="Chemistry">Chemistry</option>
-                  <option value="Academics">Academics</option>
-                  <option value="Student Affairs">Student Affairs</option>
-                  <option value="Administration">Administration</option>
-                </select>
+                  placeholder="e.g. Physics"
+                />
               </div>
             </div>
             
@@ -407,31 +390,14 @@ export const FacultyManagement: React.FC = () => {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Department</label>
-                <select
+                <input
+                  type="text"
                   value={editingFaculty.department}
                   onChange={(e) => setEditingFaculty({...editingFaculty, department: e.target.value})}
                   className="w-full px-3.5 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-gray-50 focus:bg-white transition-colors"
                   required
-                >
-                                    <option value="" disabled>Select Department</option>
-                  <option value="Computer Science & Engineering">Computer Science & Engineering</option>
-                  <option value="Information Science">Information Science</option>
-                  <option value="Electronics & Communication">Electronics & Communication</option>
-                  <option value="Artificial Intelligence">Artificial Intelligence</option>
-                  <option value="Mathematics">Mathematics</option>
-                  <option value="Physics">Physics</option>
-                  <option value="Chemistry">Chemistry</option>
-                  <option value="Academics">Academics (Dean)</option>
-                  <option value="Student Affairs">Student Affairs (Dean)</option>
-                  <option value="Administration">Administration (Principal)</option>
-                  <option value="Mathematics">Mathematics</option>
-                  <option value="Electronics & Communication">Electronics & Communication</option>
-                  <option value="Physics">Physics</option>
-                  <option value="Chemistry">Chemistry</option>
-                  <option value="Academics">Academics</option>
-                  <option value="Student Affairs">Student Affairs</option>
-                  <option value="Administration">Administration</option>
-                </select>
+                  placeholder="e.g. Physics"
+                />
               </div>
             </div>
             

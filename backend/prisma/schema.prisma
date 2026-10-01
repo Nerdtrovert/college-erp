@@ -31,7 +31,8 @@ model User {
   name             String
   password         String
   role             Role
-  department       String
+  department       String? // Free-text faculty metadata; students use program instead
+  program          String? // Canonical student program: CSE, ISE, AI&DS, or ECE
   classGroup       String? // Section for students (e.g., "CSE-B"). Null for teachers.
   numberOfBacklogs Int      @default(0)
   backlogSubjects  String[] @default([])
@@ -52,6 +53,7 @@ model User {
   @@index([classGroup])
   @@index([role])
   @@index([role, classGroup])
+  @@index([role, program])
 }
 
 model Subject {
