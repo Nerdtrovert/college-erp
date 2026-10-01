@@ -1,14 +1,8 @@
+import { useEffect, useState } from 'react';
 import { CalendarDays, BarChart2, Bell, TrendingUp, AlertTriangle, CheckCircle } from 'lucide-react';
 import type { User } from '../../types';
 import { getTimeBasedGreeting } from '../../utils/greeting';
-
-const SUBJECT_ATTENDANCE = [
-  { name: 'Data Structures', code: 'CS2301', percent: 87, present: 26, total: 30 },
-  { name: 'Operating Systems', code: 'CS2302', percent: 73, present: 22, total: 30 },
-  { name: 'Computer Networks', code: 'CS2303', percent: 90, present: 27, total: 30 },
-  { name: 'Database Systems', code: 'CS2304', percent: 67, present: 20, total: 30 },
-  { name: 'Software Engineering', code: 'CS2305', percent: 83, present: 25, total: 30 },
-];
+import API from '../../services/api';
 
 const ANNOUNCEMENTS = [
   { title: 'Mid-semester exams begin Nov 18', time: '2 days ago', type: 'exam' },
@@ -28,8 +22,27 @@ interface Props {
 }
 
 export const StudentHome: React.FC<Props> = ({ user, onNavigate }) => {
-  const overall = Math.round(SUBJECT_ATTENDANCE.reduce((s, a) => s + a.percent, 0) / SUBJECT_ATTENDANCE.length);
-  const lowCount = SUBJECT_ATTENDANCE.filter(a => a.percent < 75).length;
+  const [subjectAttendance, setSubjectAttendance] = useState<Array<{
+    name: string;
+    code: string;
+    present: number;
+    total: number;
+  }>>([]);
+
+  useEffect(() => {
+    API.get('/attendance/student')
+      .then((response) => setSubjectAttendance(response.data))
+      .catch((error) => console.error('Failed to load student attendance summary:', error));
+  }, []);
+
+  const overall = subjectAttendance.length > 0
+    ? Math.round(subjectAttendance.reduce((sum, subject) => (
+      sum + (subject.total > 0 ? (subject.present / subject.total) * 100 : 100)
+    ), 0) / subjectAttendance.length)
+    : 0;
+  const lowCount = subjectAttendance.filter((subject) => (
+    subject.total > 0 && (subject.present / subject.total) * 100 < 75
+  )).length;
 
   return (
     <div className="space-y-5 sm:space-y-7">
@@ -57,7 +70,7 @@ export const StudentHome: React.FC<Props> = ({ user, onNavigate }) => {
         {[
           { label: 'Overall Attendance', value: `${overall}%`, icon: <CalendarDays size={18} />, color: overall >= 85 ? 'text-green-600 bg-green-50' : overall >= 75 ? 'text-amber-600 bg-amber-50' : 'text-red-600 bg-red-50' },
           { label: 'CGPA (Current)', value: '8.4', icon: <TrendingUp size={18} />, color: 'text-blue-600 bg-blue-50' },
-          { label: 'Subjects', value: '5', icon: <BarChart2 size={18} />, color: 'text-purple-600 bg-purple-50' },
+          { label: 'Subjects', value: String(subjectAttendance.length), icon: <BarChart2 size={18} />, color: 'text-purple-600 bg-purple-50' },
           { label: 'Announcements', value: '3', icon: <Bell size={18} />, color: 'text-orange-600 bg-orange-50' },
         ].map((s) => (
           <div key={s.label} className="bg-white rounded-xl sm:rounded-2xl p-3.5 sm:p-5 shadow-sm border border-gray-100">
@@ -78,30 +91,33 @@ export const StudentHome: React.FC<Props> = ({ user, onNavigate }) => {
             <button onClick={() => onNavigate('attendance')} className="text-xs text-blue-600 hover:underline">View all</button>
           </div>
           <div className="space-y-4">
-            {SUBJECT_ATTENDANCE.map((s) => (
-              <div key={s.code}>
+            {subjectAttendance.map((subject) => {
+              const percent = subject.total > 0 ? Math.round((subject.present / subject.total) * 100) : 100;
+              return (
+              <div key={subject.code}>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-1.5">
                   <div className="min-w-0">
-                    <span className="text-sm font-medium text-gray-800">{s.name}</span>
-                    <span className="text-xs text-gray-400 ml-2">{s.code}</span>
+                    <span className="text-sm font-medium text-gray-800">{subject.name}</span>
+                    <span className="text-xs text-gray-400 ml-2">{subject.code}</span>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs text-gray-500">{s.present}/{s.total}</span>
-                    <span className="text-sm font-semibold text-gray-800">{s.percent}%</span>
-                    <AttendanceBadge percent={s.percent} />
+                    <span className="text-xs text-gray-500">{subject.present}/{subject.total}</span>
+                    <span className="text-sm font-semibold text-gray-800">{percent}%</span>
+                    <AttendanceBadge percent={percent} />
                   </div>
                 </div>
                 <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all"
                     style={{
-                      width: `${s.percent}%`,
-                      background: s.percent >= 85 ? '#16a34a' : s.percent >= 75 ? '#d97706' : '#dc2626'
+                      width: `${percent}%`,
+                      background: percent >= 85 ? '#16a34a' : percent >= 75 ? '#d97706' : '#dc2626'
                     }}
                   />
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -126,7 +142,7 @@ export const StudentHome: React.FC<Props> = ({ user, onNavigate }) => {
           <div className="mt-6 pt-4 border-t border-gray-100">
             <div className="flex items-start sm:items-center gap-2 text-green-700">
               <CheckCircle size={15} />
-              <span className="text-xs font-medium">Next exam: Nov 18 — Data Structures</span>
+              <span className="text-xs font-medium">Check the academic calendar for upcoming exams.</span>
             </div>
           </div>
         </div>

@@ -2,17 +2,7 @@ import { useMemo, useState, useEffect } from 'react';
 import API from '../../services/api';
 
 // Unified color palette for subjects - each subject gets a consistent visual style
-const subjectColors: Record<string, { bg: string; text: string; border: string; borderLeft: string; timeColor: string }> = {
-  'Data Structures & Algorithms': { bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-100', borderLeft: 'border-l-blue-400', timeColor: 'text-blue-500' },
-  'Operating Systems': { bg: 'bg-orange-50', text: 'text-orange-600', border: 'border-orange-100', borderLeft: 'border-l-orange-400', timeColor: 'text-orange-500' },
-  'Computer Networks': { bg: 'bg-green-50', text: 'text-green-600', border: 'border-green-100', borderLeft: 'border-l-green-500', timeColor: 'text-green-600' },
-  'Database Systems': { bg: 'bg-red-50', text: 'text-red-500', border: 'border-red-100', borderLeft: 'border-l-red-400', timeColor: 'text-red-500' },
-  'Software Engineering': { bg: 'bg-purple-50', text: 'text-purple-600', border: 'border-purple-100', borderLeft: 'border-l-purple-400', timeColor: 'text-purple-500' },
-  'Mathematics': { bg: 'bg-yellow-50', text: 'text-yellow-700', border: 'border-yellow-100', borderLeft: 'border-l-yellow-500', timeColor: 'text-yellow-600' },
-  'DS Lab': { bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-100', borderLeft: 'border-l-blue-400', timeColor: 'text-blue-500' },
-  'Networks Lab': { bg: 'bg-green-50', text: 'text-green-600', border: 'border-green-100', borderLeft: 'border-l-green-500', timeColor: 'text-green-600' },
-  'OS Lab': { bg: 'bg-purple-50', text: 'text-purple-500', border: 'border-purple-100', borderLeft: 'border-l-purple-400', timeColor: 'text-purple-500' },
-};
+const subjectColors: Record<string, { bg: string; text: string; border: string; borderLeft: string; timeColor: string }> = {};
 
 const defaultColor = { bg: 'bg-gray-50', text: 'text-gray-600', border: 'border-gray-100', borderLeft: 'border-l-gray-300', timeColor: 'text-gray-500' };
 

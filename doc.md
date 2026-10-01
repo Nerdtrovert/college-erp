@@ -17,8 +17,10 @@ Run commands from the repository root:
 | `npm run db:stop` | Stop PostgreSQL containers | Database volume remains |
 
 `db:sync` is the normal command after pulling schema changes. It does not reset the
-database. Before running `db:clear`, `db:setup`, or `db:setup:dev`, export or back up
-any data that must be retained.
+database. `db:seed` regenerates Prisma Client before running, but the database schema
+must still be synchronized first with `db:sync` (or reset with `db:setup:dev`).
+Before running `db:clear`, `db:setup`, or `db:setup:dev`, export or back up any data
+that must be retained.
 
 ## Student academic data
 

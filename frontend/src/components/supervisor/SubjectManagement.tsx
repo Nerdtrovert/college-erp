@@ -96,7 +96,7 @@ export const SubjectManagement: React.FC = () => {
               <input
                 type="text"
                 required
-                placeholder="e.g., CS2301"
+                placeholder="e.g., SUBJECT101"
                 value={form.code}
                 onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-gray-50 focus:bg-white transition-colors"
@@ -108,7 +108,7 @@ export const SubjectManagement: React.FC = () => {
               <input
                 type="text"
                 required
-                placeholder="e.g., Data Structures & Algorithms"
+                placeholder="e.g., Current subject name"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-gray-50 focus:bg-white transition-colors"

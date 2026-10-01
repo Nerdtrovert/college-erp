@@ -2,17 +2,7 @@ import { useMemo, useState, useEffect } from 'react';
 import API from '../../services/api';
 
 // Color palette for subjects - each subject gets a unique, soft pastel style
-const subjectColors: Record<string, { bg: string; text: string; border: string }> = {
-  'Data Structures': { bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-100' },
-  'Operating Systems': { bg: 'bg-orange-50', text: 'text-orange-600', border: 'border-orange-100' },
-  'Computer Networks': { bg: 'bg-green-50', text: 'text-green-600', border: 'border-green-100' },
-  'Database Systems': { bg: 'bg-red-50', text: 'text-red-500', border: 'border-red-100' },
-  'Software Engineering': { bg: 'bg-purple-50', text: 'text-purple-600', border: 'border-purple-100' },
-  'Mathematics': { bg: 'bg-yellow-50', text: 'text-yellow-700', border: 'border-yellow-100' },
-  'DS Lab': { bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-100' },
-  'Networks Lab': { bg: 'bg-green-50', text: 'text-green-600', border: 'border-green-100' },
-  'OS Lab': { bg: 'bg-purple-50', text: 'text-purple-500', border: 'border-purple-100' },
-};
+const subjectColors: Record<string, { bg: string; text: string; border: string }> = {};
 
 const defaultColor = { bg: 'bg-gray-50', text: 'text-gray-600', border: 'border-gray-100' };
 
@@ -53,43 +43,13 @@ const timeRanges = [
 ];
 
 // Border-left color classes for today cards
-const subjectBorderLeft: Record<string, string> = {
-  'Data Structures': 'border-l-red-400',
-  'Operating Systems': 'border-l-purple-400',
-  'Computer Networks': 'border-l-green-500',
-  'Database Systems': 'border-l-red-400',
-  'Software Engineering': 'border-l-purple-400',
-  'Mathematics': 'border-l-yellow-500',
-  'DS Lab': 'border-l-blue-400',
-  'Networks Lab': 'border-l-green-500',
-  'OS Lab': 'border-l-purple-400',
-};
+const subjectBorderLeft: Record<string, string> = {};
 
 // Text color for time labels in today section
-const subjectTimeColor: Record<string, string> = {
-  'Data Structures': 'text-red-500',
-  'Operating Systems': 'text-purple-500',
-  'Computer Networks': 'text-green-600',
-  'Database Systems': 'text-red-500',
-  'Software Engineering': 'text-purple-500',
-  'Mathematics': 'text-yellow-600',
-  'DS Lab': 'text-blue-500',
-  'Networks Lab': 'text-green-600',
-  'OS Lab': 'text-purple-500',
-};
+const subjectTimeColor: Record<string, string> = {};
 
 // Background color for today cards
-const subjectTodayBg: Record<string, string> = {
-  'Data Structures': 'bg-red-50',
-  'Operating Systems': 'bg-purple-50',
-  'Computer Networks': 'bg-green-50',
-  'Database Systems': 'bg-red-50',
-  'Software Engineering': 'bg-purple-50',
-  'Mathematics': 'bg-yellow-50',
-  'DS Lab': 'bg-blue-50',
-  'Networks Lab': 'bg-green-50',
-  'OS Lab': 'bg-purple-50',
-};
+const subjectTodayBg: Record<string, string> = {};
 
 interface TeacherTimetableProps {
   teacherId?: string;

@@ -7,7 +7,7 @@
     "db:stop": "docker compose -f database/docker-compose.yml down",
     "db:sync": "cd backend && npm run prisma:generate && npx prisma db push",
     "db:deploy": "cd backend && npm run prisma:generate && npx prisma migrate deploy",
-    "db:seed": "cd backend && npx tsc prisma/seed.ts --ignoreConfig --esModuleInterop --module commonjs --target es2020 --outDir prisma/dist --skipLibCheck --types node && node prisma/dist/prisma/seed.js",
+    "db:seed": "cd backend && npm run prisma:generate && npx tsc prisma/seed.ts --ignoreConfig --esModuleInterop --module commonjs --target es2020 --outDir prisma/dist --skipLibCheck --types node && node prisma/dist/prisma/seed.js",
     "db:setup": "npm run db:start && npm run db:sync && npm run db:constraints && npm run db:clear",
     "db:clear": "cd backend && npx tsx prisma/clear.ts",
     "db:constraints": "cd backend && npx tsx prisma/enforce-role-fields.ts",

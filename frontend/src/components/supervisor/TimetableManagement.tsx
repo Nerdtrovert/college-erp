@@ -224,7 +224,7 @@ export const TimetableManagement: React.FC = () => {
               <form onSubmit={saveSlot} className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Subject code</label>
-                  <input required value={slotForm.subjectCode} onChange={(event) => setSlotForm({ ...slotForm, subjectCode: event.target.value })} placeholder="e.g. CS2301" className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-blue-500" />
+                  <input required value={slotForm.subjectCode} onChange={(event) => setSlotForm({ ...slotForm, subjectCode: event.target.value })} placeholder="e.g. SUBJECT101" className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-blue-500" />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Faculty</label>

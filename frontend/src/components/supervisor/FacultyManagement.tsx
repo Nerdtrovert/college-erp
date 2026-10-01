@@ -715,11 +715,11 @@ export const FacultyManagement: React.FC = () => {
               <form onSubmit={handleAssignSubject} className="space-y-3">
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Subject Code</label>
-                  <input type="text" required placeholder="e.g. CS2301" value={newSubject.code} onChange={e => setNewSubject({...newSubject, code: e.target.value})} className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
+                  <input type="text" required placeholder="e.g. SUBJECT101" value={newSubject.code} onChange={e => setNewSubject({...newSubject, code: e.target.value})} className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Subject Name</label>
-                  <input type="text" required placeholder="e.g. Data Structures" value={newSubject.name} onChange={e => setNewSubject({...newSubject, name: e.target.value})} className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
+                  <input type="text" required placeholder="e.g. Current subject name" value={newSubject.name} onChange={e => setNewSubject({...newSubject, name: e.target.value})} className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Class / Section</label>
