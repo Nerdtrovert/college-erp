@@ -1,6 +1,9 @@
-import * as xlsx from 'xlsx';
+import { Workbook } from 'exceljs';
+import { Readable } from 'stream';
 import mammoth from 'mammoth';
 import { PDFParse } from 'pdf-parse';
+import * as xlsx from 'xlsx';
+import { OCRService } from './ocr.service';
 
 export interface ParsedStudent {
   id: string;
@@ -11,29 +14,107 @@ export interface ParsedStudent {
 
 /**
  * Parse Excel file buffer and return sheet data as array of records
+ * Includes basic OCR detection for image-based content in Excel
  */
-export const parseExcel = (buffer: Buffer): any[] => {
-  const workbook = xlsx.read(buffer, { type: 'buffer' });
-  const sheetName = workbook.SheetNames[0];
-  const worksheet = workbook.Sheets[sheetName];
-  return xlsx.utils.sheet_to_json(worksheet);
+export const parseExcel = async (buffer: Buffer): Promise<any[]> => {
+  // Check if this might be an image-based Excel file that needs OCR
+  // Note: Full Excel OCR (extracting images from cells and running OCR) is complex
+  // and not implemented here. This version focuses on standard Excel parsing.
+
+  if (buffer.subarray(0, 8).equals(Buffer.from('D0CF11E0A1B11AE1', 'hex'))) {
+    const workbook = xlsx.read(buffer, { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0];
+    return sheetName ? xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]) : [];
+  }
+
+  const workbook = new Workbook();
+  const stream = Readable.from(buffer);
+  await workbook.xlsx.read(stream);
+  const worksheet = workbook.worksheets[0];
+  if (!worksheet) return [];
+  return worksheetToJson(worksheet);
 };
 
 /**
+ * Convert ExcelJS worksheet to JSON array (similar to xlsx.utils.sheet_to_json)
+ */
+function worksheetToJson(worksheet: any): any[] {
+  const jsonArray: any[] = [];
+  const headers: string[] = [];
+
+  // Get headers from first row
+  const firstRow = worksheet.getRow(1);
+  if (firstRow) {
+    firstRow.eachCell((cell: any, colNumber: number) => {
+      headers.push(cell.value?.toString() ?? '');
+    });
+  }
+
+  // Process data rows starting from row 2
+  worksheet.eachRow((row: any, rowNumber: number) => {
+    if (rowNumber === 1) return; // Skip header row
+
+    const rowData: any = {};
+    for (let colNumber = 1; colNumber <= headers.length; colNumber += 1) {
+      const header = headers[colNumber - 1];
+      if (header) rowData[header] = row.getCell(colNumber).value;
+    }
+
+    // Only add row if it has data
+    if (Object.keys(rowData).length > 0) {
+      jsonArray.push(rowData);
+    }
+  });
+
+  return jsonArray;
+}
+
+/**
  * Parse Word (.docx) file buffer and return plain text
+ * Includes basic OCR detection for scanned documents in Word format
  */
 export const parseWord = async (buffer: Buffer): Promise<string> => {
-  const result = await mammoth.extractRawText({ buffer });
-  return result.value;
+  // First try regular Word text extraction
+  try {
+    const result = await mammoth.extractRawText({ buffer });
+    const regularText = result.value;
+
+    // If we got sufficient text, return it
+    if (OCRService.isTextSufficient(regularText)) {
+      return regularText;
+    }
+  } catch (error) {
+    console.warn('Regular Word parsing failed:', error);
+  }
+
+  // If regular extraction failed or returned insufficient text,
+  // note that OCR for Word documents is complex (need to extract images first)
+  console.log('Word document may require OCR - image extraction from docx not implemented');
+  throw new Error('Word document appears to be image-based and requires OCR, but OCR for Word documents is not yet implemented. Please save as PDF and try again.');
 };
 
 /**
  * Parse PDF file buffer and return plain text
+ * Uses OCR fallback for image-based PDFs
  */
 export const parsePDF = async (buffer: Buffer): Promise<string> => {
-  const parser = new PDFParse({ data: buffer });
-  const result = await parser.getText();
-  return result.text;
+  // First try regular PDF text extraction
+  try {
+    const parser = new PDFParse({ data: buffer });
+    const result = await parser.getText();
+    const regularText = result.text;
+
+    // If we got sufficient text, return it
+    if (OCRService.isTextSufficient(regularText)) {
+      return regularText;
+    }
+  } catch (error) {
+    console.warn('Regular PDF parsing failed, trying OCR:', error);
+  }
+
+  // If regular extraction failed or returned insufficient text, try OCR
+  console.log('Attempting OCR for PDF...');
+  return OCRService.ocrPDF(buffer);
 };
 
 /**

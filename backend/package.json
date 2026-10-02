@@ -23,7 +23,6 @@
     "@prisma/client": "^6.19.3",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
-    "docx": "^9.7.1",
     "dotenv": "^17.4.2",
     "exceljs": "^4.4.0",
     "express": "^5.2.1",
@@ -35,7 +34,7 @@
     "multer": "^2.2.0",
     "pdf-parse": "^2.4.5",
     "pdfkit": "^0.19.1",
-    "xlsx": "^0.18.5",
+    "xlsx": "file:xlsx-0.20.2.tgz",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -52,6 +51,10 @@
     "prisma": "^6.19.3",
     "ts-node": "^10.9.2",
     "tsx": "^4.23.0",
-    "typescript": "^7.0.2"
+    "typescript": "^5.7.0"
+  },
+  "overrides": {
+    "deepmerge-ts": "^8.0.0",
+    "uuid": "^11.1.0"
   }
 }

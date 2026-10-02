@@ -3,13 +3,12 @@ import prisma from '../prisma/client';
 import { AuthRequest } from '../types';
 import * as fs from 'fs';
 import * as path from 'path';
-import { v4 as uuidv4 } from 'uuid';
 import multer from 'multer';
 
 // Document parsing imports
-import pdfParse from 'pdf-parse';
 import mammoth from 'mammoth';
-import * as xlsx from 'xlsx';
+import { Workbook } from 'exceljs';
+import { parseExcel, parsePDF, parseWord } from '../utils/fileParser';
 
 // Configure multer for file upload
 const storage = multer.diskStorage({
@@ -63,6 +62,27 @@ const ALLOWED_FILE_TYPES = [
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document' // .docx
 ];
 
+const removeFiles = async (files: Express.Multer.File[]): Promise<void> => {
+  await Promise.all(files.map(async file => {
+    try {
+      await fs.promises.unlink(file.path);
+    } catch (error: any) {
+      if (error.code !== 'ENOENT') {
+        console.error('Unable to remove uploaded gradecard:', error);
+      }
+    }
+  }));
+};
+
+const normalizeStudentName = (name: string): string =>
+  name.trim().replace(/\s+/g, ' ').toLowerCase();
+
+const normalizeSubjectCode = (value: unknown): string => {
+  const text = String(value || '').trim().toUpperCase();
+  const codeMatch = text.match(/\b[A-Z]{2,}[A-Z0-9]*\d{3,}\b/);
+  return (codeMatch?.[0] || text.replace(/[^A-Z0-9]/g, '')).trim();
+};
+
 /**
  * Upload and parse gradecard document (PDF/Excel/Word)
  * Extracts student grades and identifies F grades
@@ -70,87 +90,89 @@ const ALLOWED_FILE_TYPES = [
 export const uploadGradecard = async (req: AuthRequest, res: Response) => {
   try {
     // Run multer middleware
-    upload.single('file')(req as any, res as any, async (err: any) => {
+    upload.fields([{ name: 'files', maxCount: 25 }, { name: 'file', maxCount: 1 }])(req as any, res as any, async (err: any) => {
       if (err) {
         return res.status(400).json({ error: err.message });
       }
 
       try {
-        // Check if file was uploaded
-        if (!req.file) {
-          return res.status(400).json({ error: 'No file uploaded' });
+        const uploadedFields = (req.files as Record<string, Express.Multer.File[]> | undefined) || {};
+        const files = [...(uploadedFields.files || []), ...(uploadedFields.file || [])];
+        if (files.length === 0) {
+          return res.status(400).json({ error: 'No gradecard files uploaded' });
         }
 
-        const file = req.file;
-        const { semesterId } = req.body;
+        const studentsByIdentity = new Map<string, any>();
+        for (const file of files) {
+          let parsedData: any;
 
-        // Validate semesterId
-        if (!semesterId) {
-          // Clean up uploaded file
-          if (fs.existsSync(file.path)) {
-            fs.unlinkSync(file.path);
+          if (file.mimetype === 'application/pdf') {
+            const dataBuffer = await fs.promises.readFile(file.path);
+            const pdfText = await parsePDF(dataBuffer);
+            parsedData = parsePDFText(pdfText);
+          } else if (
+            file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+            file.mimetype === 'application/vnd.ms-excel'
+          ) {
+            const dataBuffer = await fs.promises.readFile(file.path);
+            if (file.mimetype === 'application/vnd.ms-excel') {
+              parsedData = parseExcelRows(await parseExcel(dataBuffer));
+            } else {
+              const workbook = new Workbook();
+              await workbook.xlsx.readFile(file.path);
+              parsedData = parseExcelSheet(workbook);
+            }
+          } else if (
+            file.mimetype === 'application/msword' ||
+            file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+          ) {
+            const dataBuffer = await fs.promises.readFile(file.path);
+            const wordText = await parseWord(dataBuffer);
+            parsedData = parseWordText(wordText);
           }
-          return res.status(400).json({ error: 'Semester ID is required' });
-        }
 
-        // Parse the document based on file type
-        let gradecardData: any = null;
-
-        if (file.mimetype === 'application/pdf') {
-          // Parse PDF
-          const dataBuffer = fs.readFileSync(file.path);
-          const pdfData = await pdfParse(dataBuffer);
-          gradecardData = parsePDFText(pdfData.text);
-        } else if (
-          file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
-          file.mimetype === 'application/vnd.ms-excel'
-        ) {
-          // Parse Excel
-          const workbook = xlsx.readFile(file.path, { cellDates: true });
-          gradecardData = parseExcelSheet(workbook);
-        } else if (
-          file.mimetype === 'application/msword' ||
-          file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-        ) {
-          // Parse Word document
-          const result = await mammoth.extractRawText({ path: file.path });
-          gradecardData = parseWordText(result.value);
-        }
-
-        if (!gradecardData) {
-          // Clean up uploaded file
-          if (fs.existsSync(file.path)) {
-            fs.unlinkSync(file.path);
+          for (const student of parsedData?.students || []) {
+            const identity = String(student.usn || student.name || '').trim().toUpperCase();
+            if (!identity) continue;
+            const existing = studentsByIdentity.get(identity);
+            studentsByIdentity.set(identity, {
+              ...existing,
+              ...student,
+              subjects: [...(existing?.subjects || []), ...(student.subjects || [])],
+            });
           }
-          return res.status(400).json({ error: 'Unable to parse document. Please check the file format.' });
         }
 
-        // Add metadata
-        gradecardData.semesterId = semesterId;
+        const gradecardData: any = { students: Array.from(studentsByIdentity.values()) };
+        if (gradecardData.students.length === 0) {
+          await removeFiles(files);
+          return res.status(400).json({
+            error: 'No readable student grade records were found. The file must contain selectable text or spreadsheet data with USN/name and subject grades; image-only PDFs require OCR before upload.'
+          });
+        }
+
         gradecardData.uploadedAt = new Date().toISOString();
         gradecardData.uploadedBy = req.user?.id;
 
-        // Clean up uploaded file after parsing
-        if (fs.existsSync(file.path)) {
-          fs.unlinkSync(file.path);
-        }
+        await removeFiles(files);
 
         return res.status(200).json(gradecardData);
       } catch (parseError) {
         console.error('Error parsing gradecard:', parseError);
         // Clean up uploaded file if it exists
-        if (req.file && fs.existsSync(req.file.path)) {
-          fs.unlinkSync(req.file.path);
-        }
-        return res.status(500).json({ error: 'Internal server error while parsing gradecard' });
+        const uploadedFields = (req.files as Record<string, Express.Multer.File[]> | undefined) || {};
+        const files = [...(uploadedFields.files || []), ...(uploadedFields.file || [])];
+        await removeFiles(files);
+        const message = parseError instanceof Error ? parseError.message : 'Unable to parse gradecard';
+        return res.status(400).json({ error: `Unable to parse gradecard: ${message}` });
       }
     });
   } catch (error) {
     console.error('Error uploading gradecard:', error);
     // Clean up uploaded file if it exists
-    if (req.file && fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
-    }
+    const uploadedFields = (req.files as Record<string, Express.Multer.File[]> | undefined) || {};
+    const files = [...(uploadedFields.files || []), ...(uploadedFields.file || [])];
+    await removeFiles(files);
     return res.status(500).json({ error: 'Internal server error while uploading gradecard' });
   }
 };
@@ -160,19 +182,10 @@ export const uploadGradecard = async (req: AuthRequest, res: Response) => {
  */
 export const processGradecard = async (req: AuthRequest, res: Response) => {
   try {
-    const { semesterId, gradecardData } = req.body;
+    const { gradecardData } = req.body;
 
-    if (!semesterId || !gradecardData) {
-      return res.status(400).json({ error: 'Semester ID and gradecard data are required' });
-    }
-
-    // Validate that the semester exists
-    const semester = await prisma.semester.findUnique({
-      where: { id: semesterId }
-    });
-
-    if (!semester) {
-      return res.status(404).json({ error: 'Semester not found' });
+    if (!gradecardData || !Array.isArray(gradecardData.students)) {
+      return res.status(400).json({ error: 'Gradecard data is required' });
     }
 
     // Process each student in the gradecard
@@ -181,23 +194,27 @@ export const processGradecard = async (req: AuthRequest, res: Response) => {
 
     for (const studentData of gradecardData.students) {
       try {
-        // Find student by USN or name
-        let student = await prisma.user.findFirst({
-          where: {
-            OR: [
-              { id: studentData.usn }, // Assuming USN is stored as id
-              { name: studentData.name }
-            ],
-            role: 'student'
-          }
+        // USN is the unique identity; the name is an additional verification.
+        const usn = String(studentData.usn || '').trim().toUpperCase();
+        const name = String(studentData.name || '').trim();
+        if (!usn || !name) {
+          processedStudents.push({
+            ...studentData,
+            status: 'not_found',
+            message: 'Both student USN and name are required for verification'
+          });
+          continue;
+        }
+        const student = await prisma.user.findFirst({
+          where: { id: usn, role: 'student' }
         });
 
-        if (!student) {
+        if (!student || normalizeStudentName(student.name) !== normalizeStudentName(name)) {
           // Skip if student not found
           processedStudents.push({
             ...studentData,
             status: 'not_found',
-            message: 'Student not found in system'
+            message: student ? 'USN found but submitted name does not match' : 'Student USN not found in system'
           });
           continue;
         }
@@ -216,33 +233,24 @@ export const processGradecard = async (req: AuthRequest, res: Response) => {
         }
 
         // Backlog status is determined only by the grade: F is a backlog and P is not.
-        const backlogSubjects = studentData.subjects
-          .filter((subj: any) => String(subj.grade || '').trim().toUpperCase() === 'F')
-          .map((subj: any) => subj.subjectCode);
+        const uploadedSubjects = studentData.subjects
+          .map((subject: any) => ({
+            code: normalizeSubjectCode(subject.subjectCode || subject.subjectName),
+            grade: String(subject.grade || '').trim().toUpperCase()
+          }))
+          .filter((subject: { code: string; grade: string }) => subject.code && (subject.grade === 'F' || subject.grade === 'P'));
+        const updatedBacklogSubjects = Array.from(new Set(currentBacklogSubjects.map(normalizeSubjectCode).filter(Boolean)));
 
-        // Calculate differences for cross-checking
-        const subjectsToAdd = backlogSubjects.filter(
-          (subject: string) => !currentBacklogSubjects.includes(subject)
-        );
-        const subjectsToRemove = currentBacklogSubjects.filter(
-          (subject: string) => !backlogSubjects.includes(subject)
-        );
+        for (const subject of uploadedSubjects) {
+          if (subject.grade === 'F' && !updatedBacklogSubjects.includes(subject.code)) {
+            updatedBacklogSubjects.push(subject.code);
+          } else if (subject.grade === 'P') {
+            const index = updatedBacklogSubjects.indexOf(subject.code);
+            if (index >= 0) updatedBacklogSubjects.splice(index, 1);
+          }
+        }
 
-        // Calculate new backlog count
-        const currentBacklogCount = student.numberOfBacklogs || 0;
-        const newBacklogCount =
-          currentBacklogCount + subjectsToAdd.length - subjectsToRemove.length;
-
-        // Ensure backlog count doesn't go below zero
-        const finalBacklogCount = Math.max(0, newBacklogCount);
-
-        // Calculate new backlog subjects array
-        const updatedBacklogSubjects = [
-          ...currentBacklogSubjects.filter(
-            (subject) => !subjectsToRemove.includes(subject)
-          ),
-          ...subjectsToAdd
-        ];
+        const finalBacklogCount = updatedBacklogSubjects.length;
 
         // Update student backlog count and subjects
         const updatedStudent = await prisma.user.update({
@@ -404,9 +412,10 @@ function parsePDFText(text: string): any {
       if (subjectMatch) {
         const subjectName = subjectMatch[2].trim();
         if (subjectName) {
+          const codeMatch = subjectName.match(/\b[A-Z]{2,}[A-Z0-9]*\d{3,}\b/i);
           const subject: any = {
             subjectName: subjectName,
-            subjectCode: subjectName.replace(/\s+/g, '').toUpperCase().substring(0, 10), // Simple code generation
+            subjectCode: codeMatch?.[0].toUpperCase() || subjectName.replace(/\s+/g, '').toUpperCase().substring(0, 10),
             credits: 4 // Default credits
           };
           currentSubjects.push(subject);
@@ -462,18 +471,32 @@ function parsePDFText(text: string): any {
 }
 
 /**
+ * Convert ExcelJS worksheet to 2D array of values (similar to xlsx utils but returning raw values)
+ */
+function worksheetTo2DArray(worksheet: any): any[][] {
+  const data: any[][] = [];
+  const columnCount = worksheet.columnCount || 0;
+
+  worksheet.eachRow((row: any) => {
+    const rowData = [];
+    for (let columnNumber = 1; columnNumber <= columnCount; columnNumber += 1) {
+      rowData.push(row.getCell(columnNumber).value);
+    }
+    data.push(rowData);
+  });
+
+  return data;
+}
+
+/**
  * Parse Excel sheet to extract student grade data
  */
-function parseExcelSheet(workbook: xlsx.WorkBook): any {
+function parseExcelSheet(workbook: any): any {
   // Simplified Excel parser
   const students: any[] = [];
 
-  workbook.SheetNames.forEach((sheetName) => {
-    const worksheet = workbook.Sheets[sheetName];
-    const rows = xlsx.utils.sheet_to_json<any[]>(worksheet, {
-      header: 1,
-      defval: ''
-    });
+  workbook.worksheets.forEach((worksheet: any) => {
+    const rows = worksheetTo2DArray(worksheet);
 
     // Assume first row contains headers
     if (rows.length < 2) return;
@@ -547,9 +570,10 @@ function parseExcelSheet(workbook: xlsx.WorkBook): any {
 
       // Convert collected mark data to subject objects
       for (const [subjectName, marks] of Object.entries(subjectMarks)) {
+        const codeMatch = subjectName.match(/\b[A-Z]{2,}[A-Z0-9]*\d{3,}\b/i);
         const subject: any = {
           subjectName: subjectName,
-          subjectCode: subjectName.replace(/\s+/g, '').toUpperCase().substring(0, 10), // Simple code generation
+          subjectCode: codeMatch?.[0].toUpperCase() || subjectName.replace(/\s+/g, '').toUpperCase().substring(0, 10),
           credits: 4 // Default credits
         };
 
@@ -572,6 +596,65 @@ function parseExcelSheet(workbook: xlsx.WorkBook): any {
   if (students.length === 0) {
     return { students: [] };
   }
+
+  return { students };
+}
+
+function parseExcelRows(rows: any[]): any {
+  const students = rows.map(row => {
+    const student: any = { name: '', usn: '', semester: '', subjects: [] };
+    const subjectMarks: Record<string, Record<string, number | string>> = {};
+
+    for (const [rawHeader, rawValue] of Object.entries(row)) {
+      if (rawValue === undefined || rawValue === null || String(rawValue).trim() === '') continue;
+      const header = String(rawHeader).toLowerCase().trim();
+      const value = String(rawValue).trim();
+
+      if (header.includes('name')) {
+        student.name = value;
+        continue;
+      }
+      if (header.includes('usn') || header.includes('roll') || header === 'id') {
+        student.usn = value;
+        continue;
+      }
+      if (header.includes('semester')) {
+        student.semester = value;
+        continue;
+      }
+
+      const match = header.match(/^(.+?)[_\s-](internal|int|internalmarks?|external|ext|externalmarks?|total|tot|totalmarks?|grade|result|status)$/i);
+      if (!match) continue;
+      const subjectName = match[1].trim();
+      const field = match[2].toLowerCase();
+      if (!subjectMarks[subjectName]) subjectMarks[subjectName] = {};
+
+      if (['grade', 'result', 'status'].includes(field)) {
+        const grade = value.toUpperCase();
+        if (grade === 'F' || grade === 'P') subjectMarks[subjectName].grade = grade;
+      } else {
+        const numericValue = Number(value);
+        if (Number.isNaN(numericValue)) continue;
+        if (field.startsWith('internal') || field === 'int') subjectMarks[subjectName].internal = numericValue;
+        else if (field.startsWith('external') || field === 'ext') subjectMarks[subjectName].external = numericValue;
+        else subjectMarks[subjectName].total = numericValue;
+      }
+    }
+
+    for (const [subjectName, marks] of Object.entries(subjectMarks)) {
+      const codeMatch = subjectName.match(/\b[A-Z]{2,}[A-Z0-9]*\d{3,}\b/i);
+      student.subjects.push({
+        subjectName,
+        subjectCode: codeMatch?.[0].toUpperCase() || subjectName.replace(/\s+/g, '').toUpperCase().substring(0, 10),
+        ...(marks.grade ? { grade: marks.grade } : {}),
+        ...(marks.internal !== undefined ? { internalMarks: marks.internal } : {}),
+        ...(marks.external !== undefined ? { externalMarks: marks.external } : {}),
+        ...(marks.total !== undefined ? { totalMarks: marks.total } : {}),
+      });
+    }
+
+    return student;
+  }).filter(student => student.name || student.usn);
 
   return { students };
 }
