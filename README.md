@@ -1,171 +1,65 @@
-# College ERP Portal
+# College ERP
 
-Welcome to the College ERP Portal. This project is a state-of-the-art academic resource planning system designed to streamline database management, course materials distribution, announcement publishing, student/teacher timetables, internal grading, and attendance tracking.
+**A unified, automated academic management system for modern educational institutions.**
 
-The repository is split into a robust Express.js backend API and a fast Vite React frontend client, coordinated by a central workspace setup.
+## About the Project
+College ERP is a comprehensive, production-ready full-stack application designed to streamline academic administration. It bridges the gap between students, faculty, and administrators by centralizing data, automating grade document processing, and eliminating manual entry redundancies. Built for colleges and universities, this ERP adapts to institutional workflows while providing a secure and scalable digital campus environment.
 
-## Technology Stack & Architectural Decisions
+## Key Features & Modules
 
-### 1. Node.js & Express (Backend Server)
-We selected Node.js due to its asynchronous, event-driven nature which is excellent for handling high volumes of concurrent I/O operations (such as multi-student logging or bulk attendance saving). Express.js serves as our minimalist web framework, providing a routing tree, middleware processing hooks, and cross-origin resource support without adding bloated packages.
+### Academic & Student Management
+- **Student & Faculty Management**: Comprehensive role-based access (Student, Teacher, HOD, Principal, Dean) with robust profiles.
+- **Academic & Semester Management**: Organize active, upcoming, and archived semesters and handle batch enrollments.
+- **Attendance Tracking**: Manage subject-wise attendance sessions and individual student records.
+- **Timetable Management**: Define structured day and slot-based schedules, assigning rooms and faculty to sections.
+- **Announcements & Study Materials**: Centralized campus notices with category filtering, alongside faculty-uploaded course materials.
+- **Authentication**: Secure login system with role-based routing and password encryption.
 
-### 2. Prisma ORM (Object-Relational Mapping)
-Prisma v6 acts as the data access layer between Node.js and PostgreSQL. It enforces strong type-safety at the compiler level. By writing a unified schema file, Prisma automatically generates TypeScript typings representing our models. This prevents database queries from breaking at runtime and makes writing relational queries intuitive through autocomplete.
+### Automated Results & Document Processing
+- **Marks & Results Management**: Detailed tracking of internal assessments (IA1, IA2), assignments, and laboratory scores.
+- **Grade-Card Document Upload & Parsing**: Bulk process student results directly from university grade-cards and spreadsheets.
+  - **Native Document Parsing**: Built-in parsers for extracting data from PDF, DOCX, Excel, and CSV files natively.
+  - **OCR Support**: Integrated Optical Character Recognition (OCR) to process scanned or image-based documents.
+- **Student Verification**: Validates uploaded grade data against database records using a strict combination of USN/Roll Number and Student Name.
+- **Automatic Backlog Detection**: Intelligently identifies student backlogs and tracks failed subject codes based on parsed results.
+- **Dashboards & Reporting**: Features specialized reports such as "Verge of Backlog" warnings and consolidated Attendance & Assignment status reports.
 
-### 3. PostgreSQL & Docker (Database)
-PostgreSQL is used as the relational database due to its ACID compliance and handling of structured relationships (e.g. cascading updates for student grades and subject references). Using containerization via Docker Compose ensures that developers do not have to install or configure PostgreSQL natively. Spawning a local Postgres server requires a single command, keeping local environments identical.
+## Technology Stack
 
-### 4. React, TypeScript & Vite (Frontend)
-The client dashboard is built on React for responsive UI components. TypeScript is integrated across the client to validate forms and data structures. Vite is used as the build tool to achieve near-instantaneous hot module replacement during development. Axios coordinates communication with the backend APIs using central interceptors to automatically transmit JWT authorization tokens.
+- **Frontend**: React (via Vite) with TypeScript for a fast, responsive Single Page Application.
+- **Backend API**: Node.js and Express.js RESTful API, fully typed with TypeScript.
+- **Database**: PostgreSQL (containerized via Docker) managed with the Prisma ORM for type-safe database queries and migrations.
+- **Document Processing Toolkit**: Leverages `pdf-parse`, `mammoth`, `exceljs`, and PaddleOCR via `@gutenye/ocr-node` for robust data extraction.
 
-### 5. Styling and Tailwind CSS
-Tailwind CSS is utilized to build a custom responsive layout. The design features sleek modern components, dynamic cards, glassmorphic filters, and interactive hover effects. We use customized color maps to designate distinct visual cues for attendance percentages and grading assessments.
+## High-Level Architecture
+The application employs a standard client-server architecture. The Vite-powered React frontend communicates with the Express backend via secure HTTP requests. The API layer enforces role-based authorization, validates payloads, and processes complex business logic—including heavy tasks like OCR and document parsing natively in the Node runtime. The database layer utilizes PostgreSQL managed through Prisma to ensure strict relational integrity.
 
-## Developer Prerequisites
+## Security & Data Handling
+- **Authentication**: Secure, stateless user sessions utilizing JSON Web Tokens (JWT).
+- **Password Protection**: Industry-standard password hashing using `bcryptjs`.
+- **API Security**: Implements `helmet` for robust HTTP header protections against common web vulnerabilities (XSS, Clickjacking).
+- **CORS Configuration**: Restricts backend API access strictly to authorized client domains.
+- **Data Integrity**: Database constraints and cascading deletes maintain clean relational mapping across all records.
 
-Before setting up the project locally, please ensure your system has these dependencies installed:
+## Deployment Architecture
+Designed for scalable production deployments:
+- **Containerized Database**: PostgreSQL operates in a Docker container, ensuring consistent environments and simple cloud portability.
+- **Optimized Frontend Builds**: Vite compiles highly optimized, minified static assets suitable for CDN or standard web server delivery.
+- **Stateless Backend**: The Node API relies entirely on stateless JWT authentication, making it trivial to scale horizontally across multiple instances behind a load balancer.
+- **Scalability**: The structured relational schema and stateless API allow the system to efficiently handle concurrent traffic typical of mid-to-large institutions.
 
-- **Node.js (v20+ recommended)**: The server runtime environment.
-- **NPM (v10+ recommended)**: The package manager to download and manage node modules.
-- **Docker Desktop**: Required to run the PostgreSQL container. Download it from the official Docker website.
-- **Git**: For source control management.
+## Why Institutions Can Adopt It
+- **Centralized Academic Data**: Establishes a single source of truth for student enrollments, faculty assignments, and grading metrics.
+- **Automated Document Processing**: Eradicates manual data entry for grade-cards via powerful native parsing and OCR capabilities.
+- **Consistent Validation**: Automated validation checks (USN + Name verification) prevent data entry errors and mismatched records.
+- **Reduced Administrative Workload**: Empowers faculty to directly manage attendance and marks while giving administrators macro-level insights.
+- **Extensibility**: A clean, modular TypeScript architecture allows institutional IT teams to easily build custom workflows.
 
-## Directory Layout
+## For Colleges & Institutions
+College ERP provides a robust technical foundation that can be adapted to an institution's existing academic workflows. The system is designed to be aligned with specific departmental structures, local grading terminologies, and deployment requirements. By integrating with existing infrastructure, it enables a tailored digital transformation without disrupting core academic processes. 
 
-```
-college-erp/
-├── backend/            # Express REST API application
-│   ├── prisma/         # Prisma DB schema & seed data
-│   └── src/            # Controllers, middleware, routes, and validations
-├── database/           # PostgreSQL Docker configuration
-├── frontend/           # Vite React user dashboard
-├── README.md           # Developer documentation
-└── package.json        # Workspace dev scripts
-```
+*(Note: The platform provides essential technical capabilities but does not make out-of-the-box claims regarding enterprise-scale SLAs, guaranteed uptime, or specific government compliance certifications. Custom adaptations should be thoroughly evaluated by your institutional IT department.)*
 
-## Developer Onboarding Guide
-
-Setting up a new development environment is straightforward:
-
-1. **Install Dependencies**: Run `npm install` inside the `backend` and `frontend` directories to download the packages.
-2. **Configure Environment Variables**: 
-   - Copy `backend/.env.example` to `backend/.env`. The default local configuration connects to the Docker database at `localhost:5432`.
-   - **Note for Windows users (or if port 5432 is in use)**: If you already run a local PostgreSQL instance on your machine, copy the root `.env.example` to `.env` in the repository root and change `DB_PORT=5433`. The startup script will automatically configure Docker and update your `backend/.env` connection URL on run.
-3. **Database Setup**: With Docker Desktop running, run `npm run db:setup` from the repository root. This starts PostgreSQL, generates the Prisma client, creates the database schema. You can then optionally run `npm run db:seed` to insert mock data.
-4. **State Persistence**: The database container maps a volume on your machine. This means records are preserved when you stop the services.
-
-## Main Project Models
-
-A new developer should understand the central data representations stored in the PostgreSQL database:
-
-- **User**: Credentials, hashed passwords, roles (student/teacher), and base metadata.
-- **Subject**: Master records for courses including name, code, class group, and teacher associations.
-- **AttendanceSession & Record**: History tracking of classes conducted, mapped to student present/absent states.
-- **Mark**: Assessment logs scoring students on IA-1, IA-2, Assignment, and Lab parts.
-- **Announcement**: Targeted communications published by faculty for sections.
-- **Note**: Base64 converted study materials uploaded by instructors and hosted locally.
-- **TimetableSlot**: A 5-day, 8-period slot database table defining rooms, sections, and subjects.
-
-## Seed User Profiles
-
-Use these seeded records to log in and inspect the dashboard portals:
-
-### Student Portal
-- **Username (Roll)**: `CS21B042`
-- **Password**: `student123`
-- *Inspect*: Attendance stats, timetable grids, and graded internal assessments.
-
-### Teacher Portal
-- **Username (Faculty ID)**: `FAC2018`
-- **Password**: `teacher123`
-- *Inspect*: Mark student attendance, insert student test marks, and upload study documents.
-
-## Production Deployment & Builds
-
-When deploying to production, compile the optimized web app and server using:
-1. Run `npm run build` in the `frontend` folder to output static assets inside `dist/`.
-2. Run `npm run build` in the `backend` folder to compile TypeScript files to Node-runnable Javascript inside `dist/`.
-3. Update connection URLs in `backend/.env` pointing to your cloud PostgreSQL database instance.
-
-## Developer Best Practices
-
-To keep the codebase clean, follow these guidelines:
-- **Type Safety**: Avoid using the `any` keyword in TypeScript wherever possible. Declare clear interface shapes for API responses.
-- **Database Mutations**: When changing schema fields, run `npx prisma db push` and ensure seed data is updated in `prisma/seed.ts`.
-- **API Security**: Secure routes by adding the auth token interceptors. Always authenticate roles before processing CRUD routes.
-- **Form Submissions**: When uploading files in React, wrap files inside a `FormData` object to enable parsing on the backend server.
-
-## Troubleshooting Commands
-
-If you face connection issues with PostgreSQL, run these diagnostic checks:
-- Check active containers: `docker ps`
-- Fetch container logs: `docker logs college-erp-postgres`
-- Verify database connection: `npx prisma db pull --schema=backend/prisma/schema.prisma`
-- Clear stale volume storage: `docker volume prune`
-
-## Docker Configuration Details
-
-The Docker Compose template defines a containerized instance running `postgres:15-alpine`. This lightweight image guarantees minimal resource usage while keeping full database functionality. The container runs on port `5432` and utilizes a bridge network mapping for isolated and secure network transport between backend servers and the database engine.
-
-## Prisma Engine Execution
-
-Prisma communicates using its query engine binary. In development, the engine is loaded automatically during command calls. When running Prisma commands, Prisma reads the environment properties from the nearest `.env` file. In this project, all workspace triggers are routed through context-switching scripts, eliminating directory mismatches.
-
-## Frontend Bundling Details
-
-Vite compiles CSS files dynamically using PostCSS configurations. Tailwind CSS utilities are bundled into an optimized minified single asset during production builds. This ensures that unused CSS utilities are purged, resulting in faster load times and enhanced performance metrics across mobile devices.
-
-## Security Policies
-
-The Express application uses Helmet to set headers protecting against common attacks (e.g. cross-site scripting and clickjacking). CORS configurations are set up to only allow trusted clients, preventing malicious origin requests.
-
-## Future Features Roadmap
-
-- **Real-time Notifications**: Integrate web sockets for immediate announcements updates.
-- **Grade Analytics**: Add visual charts showcasing student performance trends.
-- **Parent Portal**: Enable parents to check attendance records and semester grades.
-- **Online Fees Payment**: Secure integration with payment gateway APIs.
-
-## Contributing Guidelines
-
-We welcome contributions to this ERP portal. To contribute, fork this repository, create a descriptive branch, commit your updates, and open a pull request. Make sure all files compile cleanly and typescript validation checks pass.
-
----
-
-## Testing Status
-
-All backend endpoints and frontend interfaces compile and validate cleanly with zero compiler warnings.
-## Setup & Database Management Commands
-
-To ensure smooth development and deployment, this project uses several custom database scripts. Run these from the **root directory**.
-
-### 1. New Developer Onboarding
-```bash
-npm run db:setup
-# Or, if you want mock data:
-npm run db:setup:dev
-```
-**What it does:** Starts the PostgreSQL container, generates the Prisma client, and pushes the schema. The `:dev` variant also executes the `seed.ts` script.
-**When to use it:** When setting up the project for the very first time, or if you want to completely initialize a fresh local database environment.
-
-### 2. Everyday Development (Safe Sync)
-```bash
-npm run db:sync
-```
-**What it does:** Generates the updated Prisma Client and safely pushes any new schema changes (like adding new columns) to your local PostgreSQL database.
-**When to use it:** Run this every time you modify `backend/prisma/schema.prisma`. It will securely inject new fields without wiping your existing manual test data. 
-
-### 3. Production Deployment
-```bash
-npm run db:deploy
-```
-**What it does:** Uses Prisma's standard migration tool to safely apply version-controlled migration histories to a remote database.
-**When to use it:** Run this as part of your CI/CD pipeline or deployment script when pushing the app to production. Do not use `db:push` or `db:setup` in production, as they can cause data loss or schema drift.
-
-### Standard Startup
-Start these in separate terminal windows:
-```bash
-npm run db:start            # 1. Start the Docker database
-npm run dev:backend         # 2. Start the Express server on port 5001
-npm run dev:frontend        # 3. Start the Vite React app on port 5173
-```
+## Project Status / Contact / Adoption
+- **Project Status**: Active Development / Production-Ready Foundation. Core modules (Authentication, Attendance, Marks, Document Parsing) are fully implemented.
+- **Adoption**: Educational institutions interested in evaluating, customizing, or deploying this ERP are encouraged to review the codebase. For adoption inquiries or integration support, please contact the repository maintainers or fork the project to begin your custom implementation.

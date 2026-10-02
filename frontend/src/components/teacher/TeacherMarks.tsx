@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Save, CheckCircle2, ChevronDown, Download, Upload } from 'lucide-react';
 import API from '../../services/api';
-import * as XLSX from 'xlsx';
+import { parseExcelFile } from '../../utils/excelParser';
 
 const STANDALONE_ASSESSMENTS = [
   { id: 'cie1', label: 'CIE-1', max: 50 },
@@ -106,17 +106,8 @@ export const TeacherMarks: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (evt) => {
+    parseExcelFile(file).then((rows) => {
       try {
-        const data = evt.target?.result;
-        if (!data) return;
-
-        const workbook = XLSX.read(data, { type: 'binary' });
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
-        const rows = XLSX.utils.sheet_to_json<any>(sheet);
-
         const newMarks = { ...marks };
         let matchCount = 0;
 
@@ -149,8 +140,10 @@ export const TeacherMarks: React.FC = () => {
         console.error('Error parsing Excel file:', err);
         alert('Failed to parse Excel file. Please ensure it has Roll No and Marks columns.');
       }
-    };
-    reader.readAsBinaryString(file);
+    }).catch((err) => {
+      console.error('Error parsing Excel file:', err);
+      alert('Failed to parse Excel file. Please ensure it has Roll No and Marks columns.');
+    });
     // Reset file input value to allow re-upload of same file
     e.target.value = '';
   };

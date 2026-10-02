@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { UserPlus, Upload, BookOpen, Plus, Search, Building, Briefcase, GraduationCap, Shield, Edit2, Trash2, ShieldAlert } from 'lucide-react';
 import API from '../../services/api';
-import * as XLSX from 'xlsx';
+import { parseExcelFile } from '../../utils/excelParser';
 
 interface ModalLayerProps {
   open: boolean;
@@ -157,8 +157,8 @@ export const FacultyManagement: React.FC = () => {
     }
     try {
       setLoading(true);
-      const workbook = XLSX.read(await facultyFile.arrayBuffer(), { type: 'array' });
-      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets[workbook.SheetNames[0]]);
+      const rows = await parseExcelFile(facultyFile);
+
       let imported = 0;
       for (const row of rows) {
         const id = String(row.ID || row.Email || row.email || '').trim();

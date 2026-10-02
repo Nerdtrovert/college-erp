@@ -83,6 +83,47 @@ const normalizeSubjectCode = (value: unknown): string => {
   return (codeMatch?.[0] || text.replace(/[^A-Z0-9]/g, '')).trim();
 };
 
+const extractExplicitSubjectCode = (value: unknown): string => {
+  const match = String(value || '').toUpperCase().match(/\b[A-Z]{2,}[A-Z0-9]*\d{3,}\b/);
+  return match?.[0] || '';
+};
+
+/**
+ * Determine grade from internal, external, and total marks based on passing criteria
+ * Returns 'P' for pass, 'F' for fail, or undefined if insufficient data
+ *
+ * Passing criteria (all must be true for PASS):
+ *   internal >= 20
+ *   external >= 18
+ *   total >= 40
+ */
+const determineGradeFromMarks = (subject: any): 'P' | 'F' | undefined => {
+  // If we already have an explicit grade, use it
+  if (subject.grade === 'P' || subject.grade === 'F') {
+    return subject.grade;
+  }
+
+  // Check if we have all three mark components
+  const internal = subject.internalMarks;
+  const external = subject.externalMarks;
+  const total = subject.totalMarks;
+
+  // If any mark component is missing, we cannot determine grade from marks
+  if (internal === undefined || external === undefined || total === undefined) {
+    return undefined;
+  }
+
+  // Apply passing criteria: ALL conditions must be true for PASS
+  const internalPass = internal >= 20;
+  const externalPass = external >= 18;
+  const totalPass = total >= 40;
+
+  return (internalPass && externalPass && totalPass) ? 'P' : 'F';
+};
+
+const isBusinessLogicSubject = (value: unknown): boolean =>
+  /\bbusiness\s+logic\b/i.test(String(value || ''));
+
 /**
  * Upload and parse gradecard document (PDF/Excel/Word)
  * Extracts student grades and identifies F grades
@@ -233,15 +274,51 @@ export const processGradecard = async (req: AuthRequest, res: Response) => {
         }
 
         // Backlog status is determined only by the grade: F is a backlog and P is not.
+        // Determine grade from explicit P/F or from marks if explicit grade not present
         const uploadedSubjects = studentData.subjects
-          .map((subject: any) => ({
-            code: normalizeSubjectCode(subject.subjectCode || subject.subjectName),
-            grade: String(subject.grade || '').trim().toUpperCase()
-          }))
-          .filter((subject: { code: string; grade: string }) => subject.code && (subject.grade === 'F' || subject.grade === 'P'));
+          .map((subject: any) => {
+            const explicitCode = extractExplicitSubjectCode(subject.subjectCode);
+            const subjectName = String(subject.subjectName || '').trim();
+            const code = isBusinessLogicSubject(subjectName)
+              ? explicitCode
+              : (explicitCode || normalizeSubjectCode(subject.subjectCode || subjectName));
+
+            // Determine grade: use explicit grade if present, otherwise calculate from marks
+            const calculatedGrade = determineGradeFromMarks(subject);
+            const grade = calculatedGrade !== undefined ? calculatedGrade : String(subject.grade || '').trim().toUpperCase();
+
+            return {
+              code,
+              name: subjectName,
+              grade
+            };
+          })
+          .filter((subject: { code: string; name: string; grade: string }) =>
+            (subject.code || isBusinessLogicSubject(subject.name)) &&
+            (subject.grade === 'F' || subject.grade === 'P')
+          );
+        const businessLogicWithoutCode = studentData.subjects
+          .filter((subject: any) => isBusinessLogicSubject(subject.subjectName) && !extractExplicitSubjectCode(subject.subjectCode));
+        if (businessLogicWithoutCode.length > 0) {
+          const businessLogicSubjects = await prisma.subject.findMany({
+            where: { name: { contains: 'Business Logic', mode: 'insensitive' } },
+            select: { code: true }
+          });
+          if (businessLogicSubjects.length === 1) {
+            const businessLogicCode = businessLogicSubjects[0].code;
+            for (const subject of uploadedSubjects) {
+              if (!subject.code && isBusinessLogicSubject(subject.name)) {
+                subject.code = businessLogicCode;
+              }
+            }
+          }
+        }
+        const resolvedUploadedSubjects = uploadedSubjects.filter(
+          (subject: { code: string; grade: string }) => subject.code && (subject.grade === 'F' || subject.grade === 'P')
+        );
         const updatedBacklogSubjects = Array.from(new Set(currentBacklogSubjects.map(normalizeSubjectCode).filter(Boolean)));
 
-        for (const subject of uploadedSubjects) {
+        for (const subject of resolvedUploadedSubjects) {
           if (subject.grade === 'F' && !updatedBacklogSubjects.includes(subject.code)) {
             updatedBacklogSubjects.push(subject.code);
           } else if (subject.grade === 'P') {

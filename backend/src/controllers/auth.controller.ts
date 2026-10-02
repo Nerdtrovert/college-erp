@@ -437,7 +437,7 @@ export const uploadStudents = async (req: AuthRequest, res: Response) => {
 
     if (ext === '.xlsx' || ext === '.xls') {
       // Parse Excel file
-      const rows = parseExcel(fileBuffer);
+      const rows = await parseExcel(fileBuffer);
       parsedStudents = rows
         .map((row: any) => ({
           id: String(

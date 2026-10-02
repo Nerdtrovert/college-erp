@@ -90,6 +90,26 @@ export const BacklogsManagement: React.FC<Props> = () => {
     }
   };
 
+  const handleUpdateBacklogSubjects = async (studentId: string, newSubjectsStr: string) => {
+    const newSubjects = newSubjectsStr.split(',').map(s => s.trim().toUpperCase()).filter(s => s);
+    const newCount = newSubjects.length;
+
+    const previousSubjects = data.find(student => student.id === studentId)?.backlogSubjects ?? [];
+    const previousCount = data.find(student => student.id === studentId)?.numberOfBacklogs ?? 0;
+
+    // Optimistically update the UI
+    setData(prev => prev.map(s => s.id === studentId ? { ...s, backlogSubjects: newSubjects, numberOfBacklogs: newCount } : s));
+
+    try {
+      await API.put(`/reports/backlogs/${studentId}`, { numberOfBacklogs: newCount, backlogSubjects: newSubjects });
+    } catch (err) {
+      console.error('Failed to update backlog subjects', err);
+      // Revert optimistic update on error
+      setData(prev => prev.map(s => s.id === studentId ? { ...s, backlogSubjects: previousSubjects, numberOfBacklogs: previousCount } : s));
+      setError('Failed to update backlog subjects. Please try again.');
+    }
+  };
+
   // Extract all unique subject codes for table headers
   // Export to PDF
   const exportToPDF = () => {
@@ -298,25 +318,21 @@ export const BacklogsManagement: React.FC<Props> = () => {
                 <input
                   type="file"
                   accept=".pdf,.xlsx,.xls,.doc,.docx"
+                  multiple
                   id="gradecard-upload"
                   className="block w-full text-sm text-gray-900 border border-gray-200 rounded-xl cursor-pointer bg-gray-50 focus:outline-none file:mr-4 file:py-2.5 file:px-4 file:rounded-l-xl file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 transition-colors"
                 />
                 <button
                   onClick={async () => {
                     const fileInput = document.getElementById('gradecard-upload') as HTMLInputElement;
-                    const file = fileInput?.files?.[0];
-                    if (!file) {
-                      alert('Please select a file first.');
-                      return;
-                    }
-                    if (!filters.semesterId) {
-                      alert('Please select a semester above before uploading.');
+                    const files = Array.from(fileInput?.files || []);
+                    if (files.length === 0) {
+                      alert('Please select at least one file first.');
                       return;
                     }
 
                     const formData = new FormData();
-                    formData.append('file', file);
-                    formData.append('semesterId', filters.semesterId);
+                    files.forEach(file => formData.append('files', file));
 
                     try {
                       setLoading(true);
@@ -327,7 +343,6 @@ export const BacklogsManagement: React.FC<Props> = () => {
 
                       // Step 2: Process the parsed data
                       const processRes = await API.post('/backlogs/process', {
-                        semesterId: filters.semesterId,
                         gradecardData: { students: uploadRes.data.students }
                       });
 
@@ -350,7 +365,7 @@ export const BacklogsManagement: React.FC<Props> = () => {
                   Process Upload
                 </button>
               </div>
-              <p className="text-xs text-gray-400 mt-1.5">Automatically extracts 'F' grades and assigns backlogs to students.</p>
+              <p className="text-xs text-gray-400 mt-1.5">Select one or more files. USNs/names are matched automatically and 'F' grades update each student's backlog record.</p>
             </div>
           </div>
 
@@ -407,12 +422,26 @@ export const BacklogsManagement: React.FC<Props> = () => {
                     <td className="px-6 py-4 text-sm text-gray-700">{student.semester?.name || '-'}</td>
                     <td className="px-6 py-4 text-sm text-gray-700">{student.classGroup || '-'}</td>
                     <td className="px-6 py-4 text-sm font-semibold text-red-600">{student.numberOfBacklogs > 0 ? student.numberOfBacklogs : '-'}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600 truncate max-w-xs">{student.backlogSubjects?.join(', ') || '-'}</td>
+                    <td className="px-6 py-4">
+                      <input
+                        type="text"
+                        key={student.backlogSubjects?.join(', ') || 'empty'}
+                        defaultValue={student.backlogSubjects?.join(', ') || ''}
+                        onBlur={(event) => {
+                          if (event.target.value !== (student.backlogSubjects?.join(', ') || '')) {
+                            handleUpdateBacklogSubjects(student.id, event.target.value);
+                          }
+                        }}
+                        className="w-full min-w-[150px] rounded border border-gray-300 px-2 py-1 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="e.g. CS2101, CS2102"
+                      />
+                    </td>
                     <td className="px-6 py-4">
                       <input
                         type="number"
                         min="0"
-                        value={student.numberOfBacklogs}
+                        key={`num-${student.numberOfBacklogs}`}
+                        defaultValue={student.numberOfBacklogs}
                         onBlur={(event) => {
                           if (event.target.value !== String(student.numberOfBacklogs)) {
                             handleUpdateBacklog(student.id, event.target.value);

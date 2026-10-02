@@ -3,7 +3,7 @@ import { Readable } from 'stream';
 import mammoth from 'mammoth';
 import { PDFParse } from 'pdf-parse';
 import * as xlsx from 'xlsx';
-import { OCRService } from './ocr.service';
+import { ocrPDF, isTextSufficient } from './ocr.service';
 
 export interface ParsedStudent {
   id: string;
@@ -80,7 +80,7 @@ export const parseWord = async (buffer: Buffer): Promise<string> => {
     const regularText = result.value;
 
     // If we got sufficient text, return it
-    if (OCRService.isTextSufficient(regularText)) {
+    if (await isTextSufficient(regularText)) {
       return regularText;
     }
   } catch (error) {
@@ -96,6 +96,7 @@ export const parseWord = async (buffer: Buffer): Promise<string> => {
 /**
  * Parse PDF file buffer and return plain text
  * Uses OCR fallback for image-based PDFs
+ * Now returns structured OCR data but extracts text for backward compatibility
  */
 export const parsePDF = async (buffer: Buffer): Promise<string> => {
   // First try regular PDF text extraction
@@ -105,17 +106,20 @@ export const parsePDF = async (buffer: Buffer): Promise<string> => {
     const regularText = result.text;
 
     // If we got sufficient text, return it
-    if (OCRService.isTextSufficient(regularText)) {
+    if (await isTextSufficient(regularText)) {
       return regularText;
     }
+    // Log insufficient regular text for debugging
+    console.warn(`Regular PDF text insufficient (${regularText.length} chars): "${regularText.substring(0, 100)}${regularText.length > 100 ? '...' : '"'}`);
   } catch (error) {
     console.warn('Regular PDF parsing failed, trying OCR:', error);
   }
 
   // If regular extraction failed or returned insufficient text, try OCR
   console.log('Attempting OCR for PDF...');
-  return OCRService.ocrPDF(buffer);
-};
+  const ocrResult = await ocrPDF(buffer);
+  return ocrResult.text;
+}
 
 /**
  * Clean student details (remove labels, extra spaces, etc.)

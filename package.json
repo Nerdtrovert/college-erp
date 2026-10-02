@@ -18,6 +18,5 @@
     "db:setup:dev": "npm run db:setup && npm run db:seed:run"
   },
   "dependencies": {
-    "framer-motion": "^12.43.0"
   }
 }
