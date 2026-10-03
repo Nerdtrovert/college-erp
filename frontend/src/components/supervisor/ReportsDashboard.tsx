@@ -64,31 +64,56 @@ const ReportsDashboard: React.FC<Props> = () => {
   const [attendanceThreshold, setAttendanceThreshold] = useState('75');
 
   useEffect(() => {
-    const fetchSemesters = async () => {
+    const fetchSemesterOptions = async () => {
       try {
-        const response = await API.get('/semesters');
-        setSemesters(Array.isArray(response.data) ? response.data : []);
+        const [semesterResponse, studentResponse] = await Promise.all([
+          API.get('/semesters'),
+          API.get('/auth/users?role=student')
+        ]);
+        
+        const semestersData = Array.isArray(semesterResponse.data) ? semesterResponse.data : [];
+        setSemesters(semestersData);
+        
+        const activeSem = semestersData.find(semester => semester.status === 'ACTIVE');
+        setActiveSemester(activeSem || null);
+        
+        const activeSemesterNumbers = new Set<number>();
+        if (activeSem) {
+          (studentResponse.data as any[]).forEach(student => {
+            const enrollment = student.enrollments?.find((item: any) => item.semesterId === activeSem.id);
+            if (enrollment?.semesterNumber) activeSemesterNumbers.add(enrollment.semesterNumber);
+          });
+        }
+        
+        const numbers = Array.from(activeSemesterNumbers)
+          .filter(n => n % 2 !== 0) // only ODD semesters
+          .sort((a, b) => a - b);
+        setSemesterNumbers(numbers);
+        if (activeSem) {
+          setFilters(prev => ({ ...prev, semesterId: prev.semesterId || activeSem.id, semesterNumber: prev.semesterNumber || '' }));
+        }
       } catch (err) {
         console.error('Failed to load semesters for reports:', err);
         setError('Unable to load semester options. Refresh the page and try again.');
       }
     };
-    void fetchSemesters();
+    void fetchSemesterOptions();
   }, []);
 
-  const semesterOptions = semesters.flatMap((semester) =>
-    Array.from({ length: 5 }, (_, index) => index + 1).map((semesterNumber) => {
+  const semesterOptions = [
+    { value: `${activeSemester?.id || ''}|`, label: 'All Semesters (Currently Active)' },
+    ...semesterNumbers.map(semesterNumber => {
       const ordinal = semesterNumber === 1 ? '1st'
         : semesterNumber === 2 ? '2nd'
-          : semesterNumber === 3 ? '3rd'
-            : `${semesterNumber}th`;
+        : semesterNumber === 3 ? '3rd'
+        : `${semesterNumber}th`;
       return {
-        value: `${semester.id}|${semesterNumber}`,
-        label: `${ordinal} Semester ${semester.name}`,
+        value: `${activeSemester?.id || ''}|${semesterNumber}`,
+        label: `${ordinal} Sem students`,
       };
-    }),
-  );
-  const selectedSemesterValue = filters.semesterId && filters.semesterNumber
+    })
+  ].filter(opt => opt.value.split('|')[0] !== ''); // Ensure we have an active semester ID
+  const selectedSemesterValue = filters.semesterId
     ? `${filters.semesterId}|${filters.semesterNumber}`
     : '';
 
@@ -98,12 +123,8 @@ const ReportsDashboard: React.FC<Props> = () => {
       setError("Please select a report category and type.");
       return;
     }
-    if (!filters.classGroup) {
-      setError('Please select a section before generating the report.');
-      return;
-    }
-    if (!filters.semesterId || !filters.semesterNumber) {
-      setError('Please select a semester and academic year before generating the report.');
+    if (!filters.semesterId) {
+      setError('Please select a semester before generating the report.');
       return;
     }
     const requestId = ++reportRequestId.current;
@@ -437,15 +458,12 @@ const ReportsDashboard: React.FC<Props> = () => {
           <div className="grid grid-cols-1 items-start gap-4 px-4 sm:grid-cols-2 lg:grid-cols-3">
             <div className="min-w-0">
               <label className="mb-2 block min-h-4 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Semester <span className="text-red-600" aria-hidden="true">*</span>
+                Semester
               </label>
               <DropdownSelect
-                ariaLabel="Select required semester and academic year"
+                ariaLabel="Filter by semester"
                 value={selectedSemesterValue}
-                options={[
-                  { value: '', label: 'Select semester and year...' },
-                  ...semesterOptions,
-                ]}
+                options={semesterOptions}
                 onChange={(value: string | React.ChangeEvent<HTMLSelectElement>) => {
                   updateSemesterFilter(typeof value === 'string' ? value : value.target.value);
                 }}
@@ -472,13 +490,13 @@ const ReportsDashboard: React.FC<Props> = () => {
             </div>
             <div className="min-w-0">
               <label className="mb-2 block min-h-4 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Section <span className="text-red-600" aria-hidden="true">*</span>
+                Section
               </label>
               <DropdownSelect
-                ariaLabel="Select required section"
+                ariaLabel="Filter by section"
                 value={filters.classGroup}
                 options={[
-                  { value: '', label: 'Select section...' },
+                  { value: '', label: 'All Sections' },
                   ...Array.from(new Set(
                     filters.program
                       ? SECTION_OPTIONS[filters.program as keyof typeof SECTION_OPTIONS]
@@ -495,7 +513,7 @@ const ReportsDashboard: React.FC<Props> = () => {
             <div className="flex flex-wrap items-center gap-2 sm:col-span-2 lg:col-span-3">
               <button
                 onClick={fetchReport}
-                disabled={!reportCategory || !reportDetail || !filters.classGroup || !filters.semesterId || !filters.semesterNumber || loading}
+                disabled={!reportCategory || !reportDetail || !filters.semesterId || loading}
                 className="glossy-action inline-flex h-11 min-w-[14rem] items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> 
