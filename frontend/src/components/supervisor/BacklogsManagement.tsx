@@ -35,6 +35,15 @@ interface ReportStudent {
 
 interface Props {}
 
+interface SemesterRecord {
+  id: string;
+  status: string;
+}
+
+interface EnrolledStudent {
+  enrollments?: Array<{ semesterId: string; semesterNumber: number }>;
+}
+
 export const BacklogsManagement: React.FC<Props> = () => {
   const [data, setData] = useState<ReportStudent[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -43,11 +52,39 @@ export const BacklogsManagement: React.FC<Props> = () => {
 
   // Filters State (simplified for backlogs only)
   const [filters, setFilters] = useState({
-    semesterId: '',
+    semesterNumber: '',
     program: '',
     classGroup: ''
   });
-  const [semesters, setSemesters] = useState<{ id: string; name: string }[]>([]);
+  const [semesterNumbers, setSemesterNumbers] = useState<number[]>([]);
+
+  const fetchSemesterOptions = async () => {
+    try {
+      const [semesterResponse, studentResponse] = await Promise.all([
+        API.get('/semesters'),
+        API.get('/auth/users?role=student')
+      ]);
+      const activeSemester = (semesterResponse.data as SemesterRecord[]).find(semester => semester.status === 'ACTIVE');
+      const activeSemesterNumbers = new Set<number>();
+      if (activeSemester) {
+        (studentResponse.data as EnrolledStudent[]).forEach(student => {
+          const enrollment = student.enrollments?.find(item => item.semesterId === activeSemester.id);
+          if (enrollment?.semesterNumber) activeSemesterNumbers.add(enrollment.semesterNumber);
+        });
+      }
+      const numbers = Array.from(activeSemesterNumbers).sort((a, b) => a - b);
+      setSemesterNumbers(numbers);
+      setFilters(previous => ({
+        ...previous,
+        semesterNumber: previous.semesterNumber && numbers.includes(Number(previous.semesterNumber))
+          ? previous.semesterNumber
+          : ''
+      }));
+    } catch (err) {
+      console.error('Failed to load active semester student options:', err);
+      setError('Unable to load semester filters.');
+    }
+  };
 
   // Fetch backlogs report (using the verge-of-backlog endpoint but displaying actual backlog data)
   const fetchBacklogsReport = async (e?: React.MouseEvent) => {
@@ -57,8 +94,8 @@ export const BacklogsManagement: React.FC<Props> = () => {
     setLoading(true);
     setError(null);
     try {
+      await fetchSemesterOptions();
       const queryParams = new URLSearchParams();
-      if (filters.semesterId) queryParams.append('semesterId', filters.semesterId);
       if (filters.program) queryParams.append('program', filters.program);
       if (filters.classGroup) queryParams.append('classGroup', filters.classGroup);
       // Always show students with backlogs when generating report
@@ -114,7 +151,7 @@ export const BacklogsManagement: React.FC<Props> = () => {
   // Extract all unique subject codes for table headers
   // Export to PDF
   const exportToPDF = () => {
-    if (data.length === 0) {
+    if (displayedData.length === 0) {
       setError('Generate a backlogs report with results before exporting.');
       return;
     }
@@ -128,7 +165,7 @@ export const BacklogsManagement: React.FC<Props> = () => {
     let tableData: any[] = [];
 
     head = [['ID', 'Name', 'Current Sem', 'Section', '# Backlogs', 'Backlog Subjects']];
-    tableData = data.map(s => [
+    tableData = displayedData.map(s => [
       s.id,
       s.name,
       s.currentSemester || '-',
@@ -151,14 +188,14 @@ export const BacklogsManagement: React.FC<Props> = () => {
   };
 
   const exportToWord = async () => {
-    if (data.length === 0) {
+    if (displayedData.length === 0) {
       setError('Generate a backlogs report with results before exporting.');
       return;
     }
 
     const createCell = (text: any) => new docx.TableCell({ children: [new docx.Paragraph({ text: String(text ?? '-') })] });
 
-    const tableRows = data.map((student: any) => {
+    const tableRows = displayedData.map((student: any) => {
       let cells = [
         createCell(student.id),
         createCell(student.name),
@@ -191,21 +228,14 @@ export const BacklogsManagement: React.FC<Props> = () => {
   };
 
   useEffect(() => {
-    const fetchSemesters = async () => {
-      try {
-        const response = await API.get('/semesters');
-        setSemesters(response.data || []);
-      } catch (err) {
-        console.error('Failed to load semesters:', err);
-        setError('Unable to load semesters. Report filters may be incomplete.');
-      }
-    };
-    fetchSemesters();
     fetchBacklogsReport(); // Auto-fetch on initial load
   }, []);
 
-  const totalBacklogs = data.reduce((sum, student) => sum + (student.numberOfBacklogs || 0), 0);
-  const studentsWithBacklogs = data.filter(student => student.numberOfBacklogs > 0).length;
+  const displayedData = filters.semesterNumber
+    ? data.filter(student => student.currentSemester === Number(filters.semesterNumber))
+    : data;
+  const displayedTotalBacklogs = displayedData.reduce((sum, student) => sum + (student.numberOfBacklogs || 0), 0);
+  const studentsWithBacklogs = displayedData.filter(student => student.numberOfBacklogs > 0).length;
 
   return (
     <div className="flex-1 overflow-auto bg-gray-50/50">
@@ -233,7 +263,7 @@ export const BacklogsManagement: React.FC<Props> = () => {
             <p className="text-xs font-semibold text-blue-600 tracking-wide uppercase">
               Total Backlogs
             </p>
-            <p className="mt-2 text-3xl font-bold text-blue-700">{totalBacklogs}</p>
+            <p className="mt-2 text-3xl font-bold text-blue-700">{displayedTotalBacklogs}</p>
           </div>
 
         </div>
@@ -254,13 +284,17 @@ export const BacklogsManagement: React.FC<Props> = () => {
             <div className="min-w-0">
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Semester</label>
               <DropdownSelect
-                name="semesterId"
-                value={filters.semesterId}
+                name="semesterNumber"
+                value={filters.semesterNumber}
                 onChange={handleFilterChange}
                 className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500"
               >
-                <option value="">All Semesters (Default Active)</option>
-                {semesters.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                <option value="">All Semesters (Currently Active)</option>
+                {semesterNumbers.map(number => (
+                  <option key={number} value={number}>
+                    {number}{number === 1 ? 'st' : number === 2 ? 'nd' : number === 3 ? 'rd' : 'th'} Sem students
+                  </option>
+                ))}
               </DropdownSelect>
 
             </div>
@@ -303,10 +337,10 @@ export const BacklogsManagement: React.FC<Props> = () => {
               <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
               {loading ? 'Loading...' : 'Generate Backlogs Report'}
             </button>
-            <button onClick={exportToPDF} disabled={data.length === 0} title={data.length === 0 ? 'Generate a report first' : 'Export the current backlogs report'} className="glossy-action inline-flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-blue-300 bg-blue-100 px-4 py-2.5 text-sm font-semibold text-blue-800 shadow-sm hover:bg-blue-200 transition-colors disabled:cursor-not-allowed disabled:opacity-50">
+            <button onClick={exportToPDF} disabled={displayedData.length === 0} title={displayedData.length === 0 ? 'Generate a report first' : 'Export the current backlogs report'} className="glossy-action inline-flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-blue-300 bg-blue-100 px-4 py-2.5 text-sm font-semibold text-blue-800 shadow-sm hover:bg-blue-200 transition-colors disabled:cursor-not-allowed disabled:opacity-50">
               <Download size={16} /> PDF
             </button>
-            <button onClick={exportToWord} disabled={data.length === 0} title={data.length === 0 ? 'Generate a report first' : 'Export the current backlogs report'} className="glossy-action inline-flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-green-300 bg-green-100 px-4 py-2.5 text-sm font-semibold text-green-800 shadow-sm hover:bg-green-200 transition-colors disabled:cursor-not-allowed disabled:opacity-50">
+            <button onClick={exportToWord} disabled={displayedData.length === 0} title={displayedData.length === 0 ? 'Generate a report first' : 'Export the current backlogs report'} className="glossy-action inline-flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-green-300 bg-green-100 px-4 py-2.5 text-sm font-semibold text-green-800 shadow-sm hover:bg-green-200 transition-colors disabled:cursor-not-allowed disabled:opacity-50">
               <FileText size={16} /> Word
             </button>
           </div>
@@ -393,7 +427,7 @@ export const BacklogsManagement: React.FC<Props> = () => {
               <p className="mt-1 text-sm text-gray-500 max-w-sm mx-auto">Set your filters above, then click Generate Backlogs Report to fetch the data.</p>
 
             </div>
-          ) : data.length === 0 ? (
+          ) : displayedData.length === 0 ? (
             <div className="text-center py-16">
               <FileText size={32} className="mx-auto mb-3 text-gray-300" aria-hidden="true" />
               <p className="font-medium text-gray-700">No students match these filters</p>
@@ -414,7 +448,7 @@ export const BacklogsManagement: React.FC<Props> = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50 bg-white">
-                {data.map((student) => (
+                {displayedData.map((student) => (
                   <tr key={student.id} className="hover:bg-gray-50/50 transition-colors">
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">{student.id}</td>
                     <td className="px-6 py-4 text-sm text-gray-700 whitespace-nowrap">{student.name}</td>

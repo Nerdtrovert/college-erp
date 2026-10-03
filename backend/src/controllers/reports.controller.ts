@@ -7,7 +7,7 @@ import { isSubjectAtRisk } from '../utils/academicRisk';
 import { calculateProjectedSgpa } from '../utils/projectedSgpa';
 
 const getStudentReportWhere = (
-  semesterId: string,
+  semesterId: string | undefined,
   program?: string,
   classGroup?: string,
   teacherClassGroups?: string[],
@@ -22,12 +22,12 @@ const getStudentReportWhere = (
 
   const scopedClassGroup = classGroup || (teacherClassGroups ? { in: teacherClassGroups } : undefined);
   const enrollmentWhere: Prisma.StudentEnrollmentWhereInput = {
-    semesterId,
+    ...(semesterId ? { semesterId } : {}),
     ...(program ? { program } : {}),
     ...(scopedClassGroup ? { classGroup: scopedClassGroup } : {}),
   };
   const legacyStudentWhere: Prisma.UserWhereInput = {
-    semesterId,
+    ...(semesterId ? { semesterId } : {}),
     ...(program ? { program } : {}),
     ...(classGroup ? { classGroup } : {}),
     ...(!classGroup && teacherClassGroups ? { classGroup: { in: teacherClassGroups } } : {}),
@@ -39,7 +39,7 @@ const getStudentReportWhere = (
       { enrollments: { some: enrollmentWhere } },
       {
         AND: [
-          { enrollments: { none: { semesterId } } },
+          { enrollments: { none: semesterId ? { semesterId } : {} } },
           legacyStudentWhere,
         ],
       },
@@ -52,11 +52,30 @@ const getSemesterEnrollment = (student: any, semesterId: string) =>
 
 const getReportStudentDetails = (student: any, semesterId: string) => {
   const enrollment = getSemesterEnrollment(student, semesterId);
+  
+  if (enrollment) {
+    return {
+      program: enrollment.program ?? student.program,
+      classGroup: enrollment.classGroup ?? student.classGroup,
+      semester: enrollment.semester ?? student.semester,
+      currentSemester: enrollment.semesterNumber,
+    };
+  }
+  
+  if (student.semesterId === semesterId) {
+    return {
+      program: student.program,
+      classGroup: student.classGroup,
+      semester: student.semester,
+      currentSemester: undefined,
+    };
+  }
+
   return {
-    program: enrollment?.program ?? student.program,
-    classGroup: enrollment?.classGroup ?? student.classGroup,
-    semester: enrollment?.semester ?? student.semester,
-    currentSemester: enrollment?.semesterNumber,
+    program: student.program,
+    classGroup: null,
+    semester: null,
+    currentSemester: undefined,
   };
 };
 
@@ -120,7 +139,7 @@ export const getVergeOfBacklogReport = async (req: AuthRequest, res: Response) =
 
     const where: Prisma.UserWhereInput = {
       ...getStudentReportWhere(
-        activeSemesterId,
+        hasBacklogs === 'yes' ? undefined : activeSemesterId,
         program || undefined,
         classGroup || undefined,
         teacherClassGroups,

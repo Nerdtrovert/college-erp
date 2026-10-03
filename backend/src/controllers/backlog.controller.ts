@@ -82,12 +82,12 @@ const normalizeStudentName = (name: string): string =>
 
 const normalizeSubjectCode = (value: unknown): string => {
   const text = String(value || '').trim().toUpperCase();
-  const codeMatch = text.match(/\b[A-Z]{2,}[A-Z0-9]*\d{3,}\b/);
+  const codeMatch = text.match(/\b[A-Z]{2,}[A-Z0-9]*\d{3,}[A-Z]*\b/);
   return (codeMatch?.[0] || text.replace(/[^A-Z0-9]/g, '')).trim();
 };
 
 const extractExplicitSubjectCode = (value: unknown): string => {
-  const match = String(value || '').toUpperCase().match(/\b[A-Z]{2,}[A-Z0-9]*\d{3,}\b/);
+  const match = String(value || '').toUpperCase().match(/\b[A-Z]{2,}[A-Z0-9]*\d{3,}[A-Z]*\b/);
   return match?.[0] || '';
 };
 
@@ -247,123 +247,143 @@ export const processGradecard = async (req: AuthRequest, res: Response) => {
         if (!usn || !name) {
           processedStudents.push({
             ...studentData,
-            status: 'not_found',
+            status: 'validation_failed',
             message: 'Both student USN and name are required for verification'
           });
           continue;
         }
-        const student = await prisma.user.findFirst({
-          where: { id: usn, role: 'student' }
-        });
 
-        if (!student || normalizeStudentName(student.name) !== normalizeStudentName(name)) {
-          // Skip if student not found
-          processedStudents.push({
-            ...studentData,
-            status: 'not_found',
-            message: student ? 'USN found but submitted name does not match' : 'Student USN not found in system'
+        const txResult = await prisma.$transaction(async (tx) => {
+          const student = await tx.user.findFirst({
+            where: { id: usn, role: 'student' }
           });
-          continue;
-        }
 
-        // Get current backlog subjects from database
-        let currentBacklogSubjects: string[] = [];
-        if (student.backlogSubjects) {
-          if (Array.isArray(student.backlogSubjects)) {
-            currentBacklogSubjects = student.backlogSubjects.map((subject: unknown) => String(subject).trim()).filter(Boolean);
-          } else {
-            currentBacklogSubjects = String(student.backlogSubjects)
-              .split(',')
-              .map((subject: string) => subject.trim())
-              .filter(Boolean);
+          if (!student) {
+            return { status: 'student_not_found', message: 'Student USN not found in system' };
           }
-        }
+          
+          if (normalizeStudentName(student.name) !== normalizeStudentName(name)) {
+            return { status: 'name_mismatch', message: 'USN found but submitted name does not match' };
+          }
 
-        // An explicit P/F/A is authoritative; marks are used only when absent.
-        const uploadedSubjects = studentData.subjects
-          .map((subject: any) => {
-            const explicitCode = extractExplicitSubjectCode(subject.subjectCode);
-            const subjectName = String(subject.subjectName || '').trim();
-            const code = isBusinessLogicSubject(subjectName)
-              ? explicitCode
-              : (explicitCode || normalizeSubjectCode(subject.subjectCode || subjectName));
+          // Get current backlog subjects from database
+          let currentBacklogSubjects: string[] = [];
+          if (student.backlogSubjects) {
+            if (Array.isArray(student.backlogSubjects)) {
+              currentBacklogSubjects = student.backlogSubjects.map((subject: unknown) => String(subject).trim()).filter(Boolean);
+            } else {
+              currentBacklogSubjects = String(student.backlogSubjects)
+                .split(',')
+                .map((subject: string) => subject.trim())
+                .filter(Boolean);
+            }
+          }
 
-            // Determine grade: use explicit grade if present, otherwise calculate from marks
-            const calculatedGrade = determineGradeFromMarks(subject);
-            const grade = calculatedGrade !== undefined ? calculatedGrade : String(subject.grade || '').trim().toUpperCase();
+          // An explicit P/F/A is authoritative; marks are used only when absent.
+          const uploadedSubjects = studentData.subjects
+            .map((subject: any) => {
+              const explicitCode = extractExplicitSubjectCode(subject.subjectCode);
+              const subjectName = String(subject.subjectName || '').trim();
+              const code = isBusinessLogicSubject(subjectName)
+                ? explicitCode
+                : (explicitCode || normalizeSubjectCode(subject.subjectCode || subjectName));
 
-            return {
-              code,
-              name: subjectName,
-              grade
-            };
-          })
-          .filter((subject: { code: string; name: string; grade: string }) =>
-            (subject.code || isBusinessLogicSubject(subject.name)) &&
-            (subject.grade === 'F' || subject.grade === 'P' || subject.grade === 'A')
-          );
-        const businessLogicWithoutCode = studentData.subjects
-          .filter((subject: any) => isBusinessLogicSubject(subject.subjectName) && !extractExplicitSubjectCode(subject.subjectName));
-        if (businessLogicWithoutCode.length > 0) {
-          const businessLogicSubjects = await prisma.subject.findMany({
-            where: { name: { contains: 'Business Logic', mode: 'insensitive' } },
-            select: { code: true }
-          });
-          if (businessLogicSubjects.length === 1) {
-            const businessLogicCode = businessLogicSubjects[0].code;
-            for (const subject of uploadedSubjects) {
-              if (!subject.code && isBusinessLogicSubject(subject.name)) {
-                subject.code = businessLogicCode;
+              // Determine grade: use explicit grade if present, otherwise calculate from marks
+              const calculatedGrade = determineGradeFromMarks(subject);
+              const grade = calculatedGrade !== undefined ? calculatedGrade : String(subject.grade || '').trim().toUpperCase();
+
+              return {
+                code,
+                name: subjectName,
+                grade
+              };
+            })
+            .filter((subject: { code: string; name: string; grade: string }) =>
+              (subject.code || isBusinessLogicSubject(subject.name)) &&
+              (subject.grade === 'F' || subject.grade === 'P' || subject.grade === 'A')
+            );
+
+          const businessLogicWithoutCode = studentData.subjects
+            .filter((subject: any) => isBusinessLogicSubject(subject.subjectName) && !extractExplicitSubjectCode(subject.subjectName));
+            
+          if (businessLogicWithoutCode.length > 0) {
+            const businessLogicSubjects = await tx.subject.findMany({
+              where: { name: { contains: 'Business Logic', mode: 'insensitive' } },
+              select: { code: true }
+            });
+            if (businessLogicSubjects.length === 1) {
+              const businessLogicCode = businessLogicSubjects[0].code;
+              for (const subject of uploadedSubjects) {
+                if (!subject.code && isBusinessLogicSubject(subject.name)) {
+                  subject.code = businessLogicCode;
+                }
               }
             }
           }
-        }
-        const resolvedUploadedSubjects = uploadedSubjects.filter(
-          (subject: { code: string; grade: string }) =>
-            subject.code && (subject.grade === 'F' || subject.grade === 'P' || subject.grade === 'A')
-        );
-        const updatedBacklogSubjects = Array.from(new Set(currentBacklogSubjects.map(normalizeSubjectCode).filter(Boolean)));
 
-        for (const subject of resolvedUploadedSubjects) {
-          if ((subject.grade === 'F' || subject.grade === 'A') && !updatedBacklogSubjects.includes(subject.code)) {
-            updatedBacklogSubjects.push(subject.code);
-          } else if (subject.grade === 'P') {
-            const index = updatedBacklogSubjects.indexOf(subject.code);
-            if (index >= 0) updatedBacklogSubjects.splice(index, 1);
+          const resolvedUploadedSubjects = uploadedSubjects.filter(
+            (subject: { code: string; grade: string }) =>
+              subject.code && (subject.grade === 'F' || subject.grade === 'P' || subject.grade === 'A')
+          );
+
+          if (resolvedUploadedSubjects.length === 0 && studentData.subjects.length > 0) {
+            return { status: 'no_backlog_records', message: 'No valid P/F/A subjects found for calculation' };
           }
+
+          const updatedBacklogSubjects = Array.from(new Set(currentBacklogSubjects.map(normalizeSubjectCode).filter(Boolean)));
+
+          for (const subject of resolvedUploadedSubjects) {
+            if ((subject.grade === 'F' || subject.grade === 'A') && !updatedBacklogSubjects.includes(subject.code)) {
+              updatedBacklogSubjects.push(subject.code);
+            } else if (subject.grade === 'P') {
+              const index = updatedBacklogSubjects.indexOf(subject.code);
+              if (index >= 0) updatedBacklogSubjects.splice(index, 1);
+            }
+          }
+
+          const finalBacklogCount = updatedBacklogSubjects.length;
+
+          // Update student backlog count and subjects
+          const updatedStudent = await tx.user.update({
+            where: { id: student.id },
+            data: {
+              numberOfBacklogs: finalBacklogCount,
+              backlogSubjects: updatedBacklogSubjects
+            }
+          });
+
+          return { status: 'update_succeeded', updatedStudent, finalBacklogCount, updatedBacklogSubjects };
+        });
+
+        if (txResult.status === 'update_succeeded') {
+          processedStudents.push({
+            ...studentData,
+            status: 'processed',
+            backlogCount: txResult.finalBacklogCount!,
+            backlogSubjects: txResult.updatedBacklogSubjects!
+          });
+
+          updatedStudents.push({
+            id: txResult.updatedStudent!.id,
+            name: txResult.updatedStudent!.name,
+            usn: txResult.updatedStudent!.id,
+            backlogCount: txResult.updatedStudent!.numberOfBacklogs,
+            backlogSubjects: txResult.updatedStudent!.backlogSubjects
+          });
+        } else {
+          processedStudents.push({
+            ...studentData,
+            status: txResult.status,
+            message: txResult.message
+          });
         }
 
-        const finalBacklogCount = updatedBacklogSubjects.length;
-
-        // Update student backlog count and subjects
-        const updatedStudent = await prisma.user.update({
-          where: { id: student.id },
-          data: {
-            numberOfBacklogs: finalBacklogCount,
-            backlogSubjects: updatedBacklogSubjects
-          }
-        });
-
-        processedStudents.push({
-          ...studentData,
-          status: 'processed',
-          backlogCount: finalBacklogCount,
-          backlogSubjects: updatedBacklogSubjects
-        });
-
-        updatedStudents.push({
-          id: updatedStudent.id,
-          name: updatedStudent.name,
-          usn: updatedStudent.id,
-          backlogCount: updatedStudent.numberOfBacklogs,
-          backlogSubjects: updatedStudent.backlogSubjects
-        });
-      } catch (studentError) {
+      } catch (studentError: any) {
         console.error(`Error processing student ${studentData.name}:`, studentError);
         processedStudents.push({
           ...studentData,
-          status: 'error',
-          message: 'Failed to process student record'
+          status: 'database_update_failed',
+          message: studentError.message || 'Failed to process student record'
         });
       }
     }
@@ -437,7 +457,39 @@ export const getStudentsWithBacklogs = async (req: AuthRequest, res: Response) =
  * Parse PDF text to extract student grade data
  */
 function parsePDFText(text: string): any {
-  const lines = text.split('\n');
+  const rawLines = text.split('\n');
+
+  // Pre-processing: reconstruct subject codes whose alphabetic suffix was
+  // split onto a separate line by the PDF renderer.  For example, the VTU
+  // result PDF may render "BESCK204C" as two lines: "BESCK204" and "C".
+  // We merge a short (1-2 uppercase letter) line back into the preceding
+  // line when that line starts with a subject-code-like token ending in
+  // digits.  This is safe because real subject-name continuation lines are
+  // typically much longer than 2 characters.
+  const lines: string[] = [];
+  for (let j = 0; j < rawLines.length; j++) {
+    const cur = rawLines[j];
+    const curTrimmed = cur.trim();
+    if (
+      curTrimmed.length >= 1 &&
+      curTrimmed.length <= 2 &&
+      /^[A-Z]{1,2}$/.test(curTrimmed) &&
+      lines.length > 0
+    ) {
+      const prevTrimmed = lines[lines.length - 1].trim();
+      // Check if the previous line is exclusively a subject code token that
+      // ends in a digit — i.e. the suffix was split off.  We require no
+      // additional text after the code to avoid merging into a complete
+      // subject row that happens to end with digits.
+      if (/^[A-Z]+[A-Z0-9]*\d+\s*$/.test(prevTrimmed)) {
+        // Append the suffix directly to the previous line (no space — it is
+        // part of the same token).
+        lines[lines.length - 1] = lines[lines.length - 1].replace(/(\S)\s*$/, '$1' + curTrimmed);
+        continue;
+      }
+    }
+    lines.push(cur);
+  }
   const students: any[] = [];
   let currentStudent: any = null;
   let currentSubjects: any[] = [];
@@ -545,7 +597,7 @@ function parsePDFText(text: string): any {
     // Parse subject table - look for subject code patterns and process accordingly
     else if (currentStudent) {
       // Check if this line starts with a subject code pattern
-      const subjectCodePattern = /^[A-Z]+[A-Z0-9]*\d+[A-Z0-9]*\s/;
+      const subjectCodePattern = /^[A-Z]+[A-Z0-9]*\d+[A-Z0-9]*(?:\s|$)/;
       const marksPattern = /^\d+/; // Lines that start with digits are marks lines
 
       if (subjectCodePattern.test(trimmedLine)) {
@@ -642,25 +694,30 @@ function parsePDFText(text: string): any {
 
             // Check if next line exists and is a name continuation line
             let nameContinued = false;
-            if (i + 1 < lines.length) {
+            while (i + 1 < lines.length) {
               const nextLine = lines[i + 1].trim();
+              if (!nextLine) {
+                i++;
+                continue;
+              }
               // If next line doesn't start with subject code and doesn't look like marks, it's likely name continuation
-              const nextLineIsSubjectCode = /^[A-Z]+[A-Z0-9]*\d+[A-Z0-9]*\s/.test(nextLine);
-              const nextLineIsMarks = /^\d+/.test(nextLine);
+              const nextLineIsSubjectCode = /^[A-Z]+[A-Z0-9]*\d+[A-Z0-9]*(?:\s|$)/.test(nextLine);
+              const nextLineIsMarks = /^\d+/.test(nextLine) || /\b(P|F|A)\b/i.test(nextLine) || /^NE\b/i.test(nextLine);
 
               if (!nextLineIsSubjectCode && !nextLineIsMarks && nextLine.length > 0) {
                 // This is a name continuation line
                 subjectName += ' ' + nextLine;
                 nameContinued = true;
                 i++; // Skip the next line since we've consumed it
+              } else {
+                break;
               }
             }
 
             // Now look for the marks line (should be after the name continuation)
             let marksLineIndex = i + 1;
-            if (nameContinued) {
-              marksLineIndex = i + 1; // We already incremented i above for the name continuation
-            }
+            // Removed redundant block since we properly incremented i in the loop
+
 
             // Skip empty lines to find the marks line
             while (marksLineIndex < lines.length && lines[marksLineIndex].trim() === '') {
@@ -671,7 +728,7 @@ function parsePDFText(text: string): any {
               const marksLine = lines[marksLineIndex].trim();
               const explicitResultMatch = marksLine.match(/\b(P|F|A)\b/i);
               // A result row can start with NE rather than a numeric mark.
-              if (/^\d+/.test(marksLine) || explicitResultMatch) {
+              if (/^\d+/.test(marksLine) || explicitResultMatch || /^NE\b/i.test(marksLine)) {
                 // Parse the marks line to extract internal, external, total, grade
                 const internalMatch = marksLine.match(/Internal(?:Marks?):?\s*(\d+(?:\.\d+)?)/i);
                 const externalMatch = marksLine.match(/External(?:Marks?):?\s*(\d+(?:\.\d+)?)/i);
@@ -858,7 +915,7 @@ function parseExcelSheet(workbook: any): any {
 
               if (gradeMatch) {
                 const grade = strValue.toUpperCase();
-                if (grade === 'F' || grade === 'P') {
+                if (grade === 'F' || grade === 'P' || grade === 'A') {
                   subjectMarks[subjectName].grade = grade;
                 }
               } else if (!isNaN(numericValue)) {
@@ -877,7 +934,7 @@ function parseExcelSheet(workbook: any): any {
 
       // Convert collected mark data to subject objects
       for (const [subjectName, marks] of Object.entries(subjectMarks)) {
-        const codeMatch = subjectName.match(/\b[A-Z]{2,}[A-Z0-9]*\d{3,}\b/i);
+        const codeMatch = subjectName.match(/\b[A-Z]{2,}[A-Z0-9]*\d{3,}[A-Z]*\b/i);
         const subject: any = {
           subjectName: subjectName,
           subjectCode: codeMatch?.[0].toUpperCase() || subjectName.replace(/\s+/g, '').toUpperCase().substring(0, 10),
@@ -888,7 +945,7 @@ function parseExcelSheet(workbook: any): any {
         if (marks.internal !== undefined) subject.internalMarks = marks.internal;
         if (marks.external !== undefined) subject.externalMarks = marks.external;
         if (marks.total !== undefined) subject.totalMarks = marks.total;
-        if (marks.grade === 'F' || marks.grade === 'P') subject.grade = marks.grade;
+        if (marks.grade === 'F' || marks.grade === 'P' || marks.grade === 'A') subject.grade = marks.grade;
 
         student.subjects.push(subject);
       }
@@ -938,7 +995,7 @@ function parseExcelRows(rows: any[]): any {
 
       if (['grade', 'result', 'status'].includes(field)) {
         const grade = value.toUpperCase();
-        if (grade === 'F' || grade === 'P') subjectMarks[subjectName].grade = grade;
+        if (grade === 'F' || grade === 'P' || grade === 'A') subjectMarks[subjectName].grade = grade;
       } else {
         const numericValue = Number(value);
         if (Number.isNaN(numericValue)) continue;
@@ -949,7 +1006,7 @@ function parseExcelRows(rows: any[]): any {
     }
 
     for (const [subjectName, marks] of Object.entries(subjectMarks)) {
-      const codeMatch = subjectName.match(/\b[A-Z]{2,}[A-Z0-9]*\d{3,}\b/i);
+      const codeMatch = subjectName.match(/\b[A-Z]{2,}[A-Z0-9]*\d{3,}[A-Z]*\b/i);
       student.subjects.push({
         subjectName,
         subjectCode: codeMatch?.[0].toUpperCase() || subjectName.replace(/\s+/g, '').toUpperCase().substring(0, 10),
