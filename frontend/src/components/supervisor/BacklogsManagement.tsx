@@ -3,10 +3,9 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { saveAs } from 'file-saver';
 import * as docx from 'docx';
-import { AlertTriangle, Download, FileText, RefreshCw, Loader, CheckCircle } from 'lucide-react';
+import { AlertTriangle, Download, FileText, RefreshCw, Loader } from 'lucide-react';
 import API from '../../services/api';
 import { PROGRAM_LABELS, STUDENT_PROGRAMS, type StudentProgram } from '../../constants/program';
-import { Button } from '../ui/button';
 import { DropdownSelect } from '../ui/DropdownSelect';
 
 interface ReportStudent {
@@ -35,11 +34,17 @@ interface ReportStudent {
 
 interface Props {}
 
+interface SubjectOption {
+  code: string;
+  name: string;
+}
+
 export const BacklogsManagement: React.FC<Props> = () => {
   const [data, setData] = useState<ReportStudent[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
+  const [subjectNames, setSubjectNames] = useState<Record<string, string>>({});
 
   // Filters State (simplified for backlogs only)
   const [filters, setFilters] = useState({
@@ -111,6 +116,12 @@ export const BacklogsManagement: React.FC<Props> = () => {
     }
   };
 
+  const formatBacklogSubjects = (codes: string[] = []) =>
+    codes.map((code) => {
+      const name = subjectNames[code.toUpperCase()];
+      return name ? `${name} (${code})` : code;
+    });
+
   // Extract all unique subject codes for table headers
   // Export to PDF
   const exportToPDF = () => {
@@ -134,7 +145,7 @@ export const BacklogsManagement: React.FC<Props> = () => {
       s.currentSemester || '-',
       s.classGroup || '-',
       s.numberOfBacklogs,
-      s.backlogSubjects?.join(', ') || '-'
+      formatBacklogSubjects(s.backlogSubjects).join(', ') || '-'
     ]);
 
     autoTable(doc, {
@@ -165,7 +176,7 @@ export const BacklogsManagement: React.FC<Props> = () => {
         createCell(student.currentSemester || '-'),
         createCell(student.classGroup || '-'),
         createCell(student.numberOfBacklogs),
-        createCell(student.backlogSubjects?.join(', ') || '-')
+        createCell(formatBacklogSubjects(student.backlogSubjects).join(', ') || '-')
       ];
 
       return new docx.TableRow({ children: cells });
@@ -193,11 +204,16 @@ export const BacklogsManagement: React.FC<Props> = () => {
   useEffect(() => {
     const fetchSemesters = async () => {
       try {
-        const response = await API.get('/semesters');
-        setSemesters(response.data || []);
+        const [semesterResponse, subjectResponse] = await Promise.all([
+          API.get('/semesters'),
+          API.get('/subjects'),
+        ]);
+        setSemesters(semesterResponse.data || []);
+        const subjects = Array.isArray(subjectResponse.data) ? subjectResponse.data as SubjectOption[] : [];
+        setSubjectNames(Object.fromEntries(subjects.map((subject) => [subject.code.toUpperCase(), subject.name])));
       } catch (err) {
-        console.error('Failed to load semesters:', err);
-        setError('Unable to load semesters. Report filters may be incomplete.');
+        console.error('Failed to load backlog filters and subject names:', err);
+        setError('Unable to load semester or subject details. Refresh the page and try again.');
       }
     };
     fetchSemesters();
@@ -422,18 +438,36 @@ export const BacklogsManagement: React.FC<Props> = () => {
                     <td className="px-6 py-4 text-sm text-gray-700">{student.classGroup || '-'}</td>
                     <td className="px-6 py-4 text-sm font-semibold text-red-600">{student.numberOfBacklogs > 0 ? student.numberOfBacklogs : '-'}</td>
                     <td className="px-6 py-4">
-                      <input
-                        type="text"
-                        key={student.backlogSubjects?.join(', ') || 'empty'}
-                        defaultValue={student.backlogSubjects?.join(', ') || ''}
-                        onBlur={(event) => {
-                          if (event.target.value !== (student.backlogSubjects?.join(', ') || '')) {
-                            handleUpdateBacklogSubjects(student.id, event.target.value);
-                          }
-                        }}
-                        className="w-full min-w-[150px] rounded border border-gray-300 px-2 py-1 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="e.g. CS2101, CS2102"
-                      />
+                      <div className="min-w-56 space-y-2">
+                        {student.backlogSubjects?.length ? (
+                          <ul className="flex flex-wrap gap-1.5" aria-label={`Backlog subjects for ${student.name}`}>
+                            {formatBacklogSubjects(student.backlogSubjects).map((subject, index) => (
+                              <li
+                                key={`${student.backlogSubjects[index]}-${index}`}
+                                title={subject}
+                                className="max-w-64 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-900"
+                              >
+                                <span className="block truncate">{subject}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <span className="text-sm text-gray-400">No subjects listed</span>
+                        )}
+                        <input
+                          type="text"
+                          key={student.backlogSubjects?.join(', ') || 'empty'}
+                          defaultValue={student.backlogSubjects?.join(', ') || ''}
+                          aria-label={`Edit backlog subject codes for ${student.name}`}
+                          onBlur={(event) => {
+                            if (event.target.value !== (student.backlogSubjects?.join(', ') || '')) {
+                              handleUpdateBacklogSubjects(student.id, event.target.value);
+                            }
+                          }}
+                          className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Enter codes, separated by commas"
+                        />
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                       <input

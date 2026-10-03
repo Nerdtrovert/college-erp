@@ -10,7 +10,7 @@ export const PROGRAM_LABELS: Record<StudentProgram, string> = {
 };
 
 export const SECTION_OPTIONS: Record<StudentProgram, string[]> = {
-  CSE: ['CSE-A', 'CSE-B', 'CSE'],
+  CSE: ['CSE-A', 'CSE-B'],
   ISE: ['ISE'],
   'AI&DS': ['AI&DS-A', 'AI&DS-B'],
   ECE: ['ECE'],
