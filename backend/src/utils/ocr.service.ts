@@ -15,6 +15,39 @@ interface OcrInstance {
 
 let ocrInstance: OcrInstance | null = null;
 
+type OcrTextBlock = {
+  text: string;
+  confidence: number;
+  bbox: [number, number, number, number];
+};
+
+/**
+ * PaddleOCR returns positioned text blocks. Rebuild visual lines before passing
+ * text downstream: joining every block with a space loses the table structure
+ * required by the common grade-card parser.
+ */
+const blocksToText = (blocks: OcrTextBlock[]): string => {
+  const sorted = [...blocks].sort((a, b) =>
+    a.bbox[1] === b.bbox[1] ? a.bbox[0] - b.bbox[0] : a.bbox[1] - b.bbox[1]
+  );
+  const lines: OcrTextBlock[][] = [];
+
+  for (const block of sorted) {
+    const currentLine = lines[lines.length - 1];
+    const blockHeight = Math.max(1, block.bbox[3] - block.bbox[1]);
+    const tolerance = Math.max(8, blockHeight * 0.75);
+    if (currentLine && Math.abs(currentLine[0].bbox[1] - block.bbox[1]) <= tolerance) {
+      currentLine.push(block);
+    } else {
+      lines.push([block]);
+    }
+  }
+
+  return lines
+    .map(line => line.sort((a, b) => a.bbox[0] - b.bbox[0]).map(block => block.text).join(' '))
+    .join('\n');
+};
+
 // Initialize OCR instance lazily
 async function getOcrInstance(): Promise<OcrInstance> {
   if (!ocrInstance) {
@@ -478,7 +511,6 @@ export async function ocrPDF(buffer: Buffer): Promise<{
       wordIndex?: number;
     }> = [];
 
-    let ocrPageText = '';
     let totalConfidence = 0;
 
     if (ocrResult.texts && Array.isArray(ocrResult.texts)) {
@@ -494,23 +526,23 @@ export async function ocrPDF(buffer: Buffer): Promise<{
               item.box[1][1]  // y2
             ]
           });
-          ocrPageText += item.text + ' ';
           totalConfidence += item.mean;
         }
       }
     }
 
     const averageConfidence = blocks.length > 0 ? totalConfidence / blocks.length : 0;
+    const ocrPageText = blocksToText(blocks);
 
     pages.push({
       pageNumber: pageNum,
       source: 'ocr',
-      text: ocrPageText.trim(),
+      text: ocrPageText,
       confidence: averageConfidence,
       blocks
     });
 
-    fullText += ocrPageText.trim() + '\n\n';
+    fullText += ocrPageText + '\n\n';
   }
 
   return {
@@ -576,7 +608,6 @@ export async function ocrImage(buffer: Buffer): Promise<{
     wordIndex?: number;
   }> = [];
 
-  let fullText = '';
   let totalConfidence = 0;
 
   if (ocrResult.texts && Array.isArray(ocrResult.texts)) {
@@ -592,16 +623,16 @@ export async function ocrImage(buffer: Buffer): Promise<{
             item.box[1][1]  // y2
           ]
         });
-        fullText += item.text + ' ';
         totalConfidence += item.mean;
       }
     }
   }
 
   const averageConfidence = blocks.length > 0 ? totalConfidence / blocks.length : 0;
+  const fullText = blocksToText(blocks);
 
   return {
-    text: fullText.trim(),
+    text: fullText,
     confidence: averageConfidence,
     blocks
   };

@@ -140,11 +140,7 @@ export const StudentManagement: React.FC = () => {
     formData.append('defaultClassGroup', defaultClassGroup);
 
     try {
-      const res = await API.post('/auth/students/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      const res = await API.post('/auth/students/upload', formData);
       showToast(res.data.message || 'Students imported successfully!', 'success');
       setUploadSummary(res.data.summary ? { ...res.data.summary, details: res.data.details } : null);
       setFile(null);

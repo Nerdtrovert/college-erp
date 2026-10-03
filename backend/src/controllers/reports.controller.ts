@@ -93,6 +93,7 @@ export const getVergeOfBacklogReport = async (req: AuthRequest, res: Response) =
         classGroup: true,
         semesterId: true,
         semester: { select: { id: true, name: true } },
+        enrollments: { select: { semesterNumber: true, semesterId: true } },
         numberOfBacklogs: true,
         backlogSubjects: true,
         marks: {
@@ -198,12 +199,16 @@ export const getVergeOfBacklogReport = async (req: AuthRequest, res: Response) =
         });
       }
 
+      const currentEnrollment = student.enrollments?.find(e => e.semesterId === student.semesterId) || student.enrollments?.[0];
+      const currentSemester = currentEnrollment?.semesterNumber;
+
       return {
         id: student.id,
         name: student.name,
         program: student.program,
         classGroup: student.classGroup,
         semester: student.semester,
+        currentSemester,
         numberOfBacklogs: student.numberOfBacklogs || 0,
         backlogSubjects: student.backlogSubjects || '',
         totalScore: parseFloat(totalScoreAll.toFixed(2)),

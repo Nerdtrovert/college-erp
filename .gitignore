@@ -6,6 +6,10 @@ node_modules/
 dist/
 **/dist/
 
+# TypeScript build output belongs in dist/, never beside source files.
+backend/src/**/*.js
+backend/src/**/*.js.map
+
 # Logs
 *.log
 *.err

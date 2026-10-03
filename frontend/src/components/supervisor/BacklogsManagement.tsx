@@ -12,7 +12,7 @@ interface ReportStudent {
   id: string;
   name: string;
   program?: StudentProgram;
-  semester?: { id: string; name: string };
+  currentSemester?: number;
   classGroup?: string;
   numberOfBacklogs: number;
   backlogSubjects: string[];
@@ -126,11 +126,11 @@ export const BacklogsManagement: React.FC<Props> = () => {
     let head: any[] = [];
     let tableData: any[] = [];
 
-    head = [['ID', 'Name', 'Semester', 'Section', '# Backlogs', 'Backlog Subjects']];
+    head = [['ID', 'Name', 'Current Sem', 'Section', '# Backlogs', 'Backlog Subjects']];
     tableData = data.map(s => [
       s.id,
       s.name,
-      s.semester?.name || '-',
+      s.currentSemester || '-',
       s.classGroup || '-',
       s.numberOfBacklogs,
       s.backlogSubjects?.join(', ') || '-'
@@ -161,7 +161,7 @@ export const BacklogsManagement: React.FC<Props> = () => {
       let cells = [
         createCell(student.id),
         createCell(student.name),
-        createCell(student.semester?.name || '-'),
+        createCell(student.currentSemester || '-'),
         createCell(student.classGroup || '-'),
         createCell(student.numberOfBacklogs),
         createCell(student.backlogSubjects?.join(', ') || '-')
@@ -337,9 +337,7 @@ export const BacklogsManagement: React.FC<Props> = () => {
                     try {
                       setLoading(true);
                       // Step 1: Upload and parse
-                      const uploadRes = await API.post('/backlogs/upload', formData, {
-                        headers: { 'Content-Type': 'multipart/form-data' }
-                      });
+                      const uploadRes = await API.post('/backlogs/upload', formData);
 
                       // Step 2: Process the parsed data
                       const processRes = await API.post('/backlogs/process', {
@@ -407,7 +405,7 @@ export const BacklogsManagement: React.FC<Props> = () => {
                 <tr className="bg-gray-50/80 border-b border-gray-100">
                   <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">ID</th>
                   <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Name</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Semester</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Current Sem</th>
                   <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Section</th>
                   <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider"># Backlogs</th>
                   <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Backlog Subjects</th>
@@ -419,7 +417,7 @@ export const BacklogsManagement: React.FC<Props> = () => {
                   <tr key={student.id} className="hover:bg-gray-50/50 transition-colors">
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">{student.id}</td>
                     <td className="px-6 py-4 text-sm text-gray-700 whitespace-nowrap">{student.name}</td>
-                    <td className="px-6 py-4 text-sm text-gray-700">{student.semester?.name || '-'}</td>
+                    <td className="px-6 py-4 text-sm text-gray-700">{student.currentSemester || '-'}</td>
                     <td className="px-6 py-4 text-sm text-gray-700">{student.classGroup || '-'}</td>
                     <td className="px-6 py-4 text-sm font-semibold text-red-600">{student.numberOfBacklogs > 0 ? student.numberOfBacklogs : '-'}</td>
                     <td className="px-6 py-4">
