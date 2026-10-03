@@ -6,6 +6,7 @@ import * as docx from 'docx';
 import { AlertTriangle, Download, FileText, RefreshCw } from 'lucide-react';
 import API from '../../services/api';
 import { PROGRAM_LABELS, STUDENT_PROGRAMS, type StudentProgram } from '../../constants/program';
+import { DropdownSelect } from '../ui/DropdownSelect';
 
 interface SubjectMarkDetail {
   subjectCode: string;
@@ -321,7 +322,7 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
             <div>
               <label className="block text-xs font-semibold text-blue-600 uppercase tracking-wide mb-2">1. Report Category</label>
-              <select
+              <DropdownSelect
                 value={reportCategory}
                 onChange={(e) => {
                   const val = e.target.value as 'marks' | 'backlogs' | 'attendance' | '';
@@ -334,12 +335,12 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
                 <option value="backlogs">At Risk & Backlogs</option>
                 <option value="marks">Performance & Marks</option>
                 <option value="attendance">Attendance & Assignments</option>
-              </select>
+              </DropdownSelect>
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-blue-600 uppercase tracking-wide mb-2">2. Specific Report</label>
-              <select
+              <DropdownSelect
                 value={reportDetail}
                 onChange={(e) => setReportDetail(e.target.value as any)}
                 disabled={!reportCategory}
@@ -365,13 +366,13 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
                     <option value="missing_assignments">Missing Assignments List</option>
                   </>
                 )}
-              </select>
+              </DropdownSelect>
             </div>
 
             {reportDetail === 'specific_cie' && (
               <div>
                 <label className="block text-xs font-semibold text-blue-600 uppercase tracking-wide mb-2">3. Which CIE?</label>
-                <select
+                <DropdownSelect
                   value={specificCie}
                   onChange={(e) => setSpecificCie(e.target.value as any)}
                   className="w-full px-4 py-2.5 rounded-xl border border-blue-200 text-sm font-medium text-blue-900 bg-white shadow-sm focus:outline-none focus:border-blue-500"
@@ -380,14 +381,14 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
                   <option value="cie1">CIE-1 Only</option>
                   <option value="cie2">CIE-2 Only</option>
                   <option value="cie3">CIE-3 Only</option>
-                </select>
+                </DropdownSelect>
               </div>
             )}
             
             {reportCategory === 'backlogs' && user?.role !== 'teacher' && (
               <div>
                 <label className="block text-xs font-semibold text-blue-600 uppercase tracking-wide mb-2">3. Include</label>
-                <select
+                <DropdownSelect
                   name="hasBacklogs"
                   value={filters.hasBacklogs}
                   onChange={handleFilterChange}
@@ -396,7 +397,7 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
                   <option value="all">All Students</option>
                   <option value="yes">Yes (Has Backlogs)</option>
                   <option value="no">No (Clear Record)</option>
-                </select>
+                </DropdownSelect>
               </div>
             )}
             {reportDetail === 'low_attendance' && (
@@ -414,7 +415,7 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div className="min-w-0">
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Semester</label>
-              <select
+              <DropdownSelect
                 name="semesterId"
                 value={filters.semesterId}
                 onChange={handleFilterChange}
@@ -422,11 +423,11 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
               >
                 <option value="">All Semesters (Default Active)</option>
                 {semesters.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
+              </DropdownSelect>
             </div>
             <div className="min-w-0">
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Program</label>
-              <select
+              <DropdownSelect
                 name="program"
                 value={filters.program}
                 onChange={handleFilterChange}
@@ -434,7 +435,7 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
               >
                 <option value="">All Programs</option>
                 {STUDENT_PROGRAMS.map(program => <option key={program} value={program}>{PROGRAM_LABELS[program]}</option>)}
-              </select>
+              </DropdownSelect>
             </div>
             <div className="min-w-0">
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Section</label>

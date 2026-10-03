@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BookOpen, Plus, Save, User, ClipboardList } from 'lucide-react';
 import API from '../../services/api';
+import { DropdownSelect } from '../ui/DropdownSelect';
 
 export const SubjectManagement: React.FC = () => {
   const [subjects, setSubjects] = useState<any[]>([]);
@@ -129,19 +130,19 @@ export const SubjectManagement: React.FC = () => {
 
             <div>
               <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Subject Type (Evaluation Schema)</label>
-              <select
+              <DropdownSelect
                 value={form.type}
                 onChange={(e) => setForm({ ...form, type: e.target.value })}
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-gray-50 focus:bg-white transition-colors"
               >
                 <option value="STANDALONE">Standalone (CIE: Best 2 of 3 scaled to 25 + 25 Assignment)</option>
                 <option value="INTEGRATED">Integrated (CIE: Best 2 of 3 scaled to 15 + 10 Assignment + 25 Lab)</option>
-              </select>
+              </DropdownSelect>
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Faculty Member</label>
-              <select
+              <DropdownSelect
                 required
                 value={form.facultyId}
                 onChange={(e) => setForm({ ...form, facultyId: e.target.value })}
@@ -153,12 +154,12 @@ export const SubjectManagement: React.FC = () => {
                     {member.name} ({member.id})
                   </option>
                 ))}
-              </select>
+              </DropdownSelect>
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Co-Teacher (Optional)</label>
-              <select
+              <DropdownSelect
                 value={form.coFacultyId}
                 onChange={(e) => setForm({ ...form, coFacultyId: e.target.value })}
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-gray-50 focus:bg-white transition-colors"
@@ -169,7 +170,7 @@ export const SubjectManagement: React.FC = () => {
                     {member.name} ({member.id})
                   </option>
                 ))}
-              </select>
+              </DropdownSelect>
             </div>
 
             <button

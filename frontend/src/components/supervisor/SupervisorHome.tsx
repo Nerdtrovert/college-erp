@@ -43,6 +43,7 @@ interface FacultyStatusResponse {
 
 export const SupervisorHome: React.FC<Props> = ({ user, onNavigate }) => {
   const [upcomingEvents, setUpcomingEvents] = useState<CalendarEvent[]>([]);
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>(CALENDAR_EVENTS);
   const [myTodaySchedule, setMyTodaySchedule] = useState<ScheduleDay[] | null>(null);
   const [facultyStatus, setFacultyStatus] = useState<FacultyStatusResponse | null>(null);
   const [scheduleLoading, setScheduleLoading] = useState(true);
@@ -123,6 +124,7 @@ export const SupervisorHome: React.FC<Props> = ({ user, onNavigate }) => {
         events = CALENDAR_EVENTS;
       }
     }
+    setCalendarEvents(events);
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -143,6 +145,12 @@ export const SupervisorHome: React.FC<Props> = ({ user, onNavigate }) => {
     );
   const currentlyTeaching = facultyStatus?.facultyStatus.filter((faculty) => faculty.status !== 'free') ?? [];
   const currentlyFree = facultyStatus?.facultyStatus.filter((faculty) => faculty.status === 'free') ?? [];
+  const today = new Date();
+  const todayDateKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const isWorkingDay = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].includes(facultyStatus?.currentDay ?? '');
+  const isHoliday = calendarEvents.some(
+    (event) => event.date === todayDateKey && (event.type === 'government' || /holiday/i.test(event.title)),
+  );
 
   return (
     <div className="space-y-5 sm:space-y-7">
@@ -315,7 +323,7 @@ export const SupervisorHome: React.FC<Props> = ({ user, onNavigate }) => {
         </div>
       </div>
 
-      {!statusLoading && facultyStatus && facultyStatus.currentPeriodIndex >= 0 && (
+      {!statusLoading && facultyStatus && facultyStatus.currentPeriodIndex >= 0 && isWorkingDay && !isHoliday && (
         <section className="min-w-0 rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm sm:p-6" aria-labelledby="available-faculty-heading">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>

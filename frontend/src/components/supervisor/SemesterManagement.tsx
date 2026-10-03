@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Copy, Calendar, ShieldAlert, Edit2, ArrowUpCircle } from 'lucide-react';
 import API from '../../services/api';
+import { DropdownSelect } from '../ui/DropdownSelect';
 
 export const SemesterManagement: React.FC = () => {
   const [semesters, setSemesters] = useState<any[]>([]);
@@ -234,7 +235,7 @@ export const SemesterManagement: React.FC = () => {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Status</label>
-                <select
+                <DropdownSelect
                   value={newSemester.status}
                   onChange={(e) => setNewSemester({...newSemester, status: e.target.value})}
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-gray-50 focus:bg-white transition-colors"
@@ -242,7 +243,7 @@ export const SemesterManagement: React.FC = () => {
                   <option value="ACTIVE">Active</option>
                   <option value="UPCOMING">Upcoming</option>
                   <option value="ARCHIVED">Archived</option>
-                </select>
+                </DropdownSelect>
               </div>
             </div>
 
@@ -276,7 +277,7 @@ export const SemesterManagement: React.FC = () => {
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Source Semester</label>
-                <select
+                <DropdownSelect
                   value={copySemesterData.sourceSemesterId}
                   onChange={(e) => setCopySemesterData({...copySemesterData, sourceSemesterId: e.target.value})}
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-gray-50 focus:bg-white transition-colors"
@@ -288,7 +289,7 @@ export const SemesterManagement: React.FC = () => {
                       {sem.name} ({sem.status})
                     </option>
                   ))}
-                </select>
+                </DropdownSelect>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">New Semester Name</label>
@@ -323,7 +324,7 @@ export const SemesterManagement: React.FC = () => {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Status</label>
-                <select
+                <DropdownSelect
                   value={copySemesterData.status}
                   onChange={(e) => setCopySemesterData({...copySemesterData, status: e.target.value})}
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-gray-50 focus:bg-white transition-colors"
@@ -331,7 +332,7 @@ export const SemesterManagement: React.FC = () => {
                   <option value="ACTIVE">Active</option>
                   <option value="UPCOMING">Upcoming</option>
                   <option value="ARCHIVED">Archived</option>
-                </select>
+                </DropdownSelect>
               </div>
             </div>
 
@@ -395,7 +396,7 @@ export const SemesterManagement: React.FC = () => {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Status</label>
-                <select
+                <DropdownSelect
                   value={editingSemester.status}
                   onChange={(e) => setEditingSemester({...editingSemester, status: e.target.value})}
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-gray-50 focus:bg-white transition-colors"
@@ -403,7 +404,7 @@ export const SemesterManagement: React.FC = () => {
                   <option value="ACTIVE">Active</option>
                   <option value="UPCOMING">Upcoming</option>
                   <option value="ARCHIVED">Archived</option>
-                </select>
+                </DropdownSelect>
               </div>
             </div>
 

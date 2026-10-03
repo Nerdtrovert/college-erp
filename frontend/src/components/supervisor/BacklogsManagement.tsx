@@ -7,6 +7,7 @@ import { AlertTriangle, Download, FileText, RefreshCw, Loader, CheckCircle } fro
 import API from '../../services/api';
 import { PROGRAM_LABELS, STUDENT_PROGRAMS, type StudentProgram } from '../../constants/program';
 import { Button } from '../ui/button';
+import { DropdownSelect } from '../ui/DropdownSelect';
 
 interface ReportStudent {
   id: string;
@@ -252,7 +253,7 @@ export const BacklogsManagement: React.FC<Props> = () => {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="min-w-0">
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Semester</label>
-              <select
+              <DropdownSelect
                 name="semesterId"
                 value={filters.semesterId}
                 onChange={handleFilterChange}
@@ -260,12 +261,12 @@ export const BacklogsManagement: React.FC<Props> = () => {
               >
                 <option value="">All Semesters (Default Active)</option>
                 {semesters.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
+              </DropdownSelect>
 
             </div>
             <div className="min-w-0">
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Program</label>
-              <select
+              <DropdownSelect
                 name="program"
                 value={filters.program}
                 onChange={handleFilterChange}
@@ -273,7 +274,7 @@ export const BacklogsManagement: React.FC<Props> = () => {
               >
                 <option value="">All Programs</option>
                 {STUDENT_PROGRAMS.map(program => <option key={program} value={program}>{PROGRAM_LABELS[program]}</option>)}
-              </select>
+              </DropdownSelect>
 
             </div>
             <div className="min-w-0">

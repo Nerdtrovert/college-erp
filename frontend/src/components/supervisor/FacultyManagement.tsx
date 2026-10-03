@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { UserPlus, Upload, BookOpen, Plus, Search, Building, Briefcase, GraduationCap, Shield, Edit2, Trash2, ShieldAlert } from 'lucide-react';
 import API from '../../services/api';
 import { parseExcelFile } from '../../utils/excelParser';
+import { DropdownSelect } from '../ui/DropdownSelect';
 
 interface ModalLayerProps {
   open: boolean;
@@ -257,23 +258,39 @@ export const FacultyManagement: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Faculty Management</h1>
           <p className="text-gray-500 text-xs sm:text-sm mt-1">Manage instructors, deans, and access roles.</p>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="w-full sm:w-auto flex items-center justify-center gap-2 border border-blue-200 bg-blue-100 hover:bg-blue-200 text-blue-800 font-semibold py-2.5 px-4 rounded-2xl transition-colors active:scale-95 text-sm"
-        >
-          <UserPlus size={18} />
-          <span>Add Faculty</span>
-        </button>
-        <div className="flex w-full items-center gap-2 sm:w-auto">
-          <input type="file" accept=".xlsx,.xls" onChange={e => setFacultyFile(e.target.files?.[0] || null)} className="max-w-[12rem] text-xs" />
-          <button onClick={handleFacultyUpload} disabled={!facultyFile || loading} className="flex items-center gap-2 rounded-2xl border border-green-200 bg-green-50 px-4 py-2.5 text-sm font-semibold text-green-700 disabled:opacity-50">
-            <Upload size={16} /> Import
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-100 px-4 py-2.5 text-sm font-semibold text-blue-800 transition-colors hover:bg-blue-200 active:scale-95"
+          >
+            <UserPlus size={18} />
+            <span>Add Faculty</span>
           </button>
+          <div className="flex min-h-11 min-w-0 items-center gap-2 rounded-xl border border-gray-300 bg-white p-1.5 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100">
+            <label className="relative flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-gray-700 hover:bg-gray-50">
+              <input
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={(event) => setFacultyFile(event.target.files?.[0] || null)}
+                className="absolute inset-0 cursor-pointer opacity-0"
+                aria-label="Choose faculty Excel file"
+              />
+              <span className="shrink-0 rounded-md border border-gray-300 bg-gray-50 px-2 py-1 text-xs font-semibold text-gray-700">Choose file</span>
+              <span className="truncate text-xs text-gray-500">{facultyFile?.name || 'No file chosen'}</span>
+            </label>
+            <button
+              onClick={handleFacultyUpload}
+              disabled={!facultyFile || loading}
+              className="inline-flex min-h-9 shrink-0 items-center justify-center gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm font-semibold text-green-700 transition-colors hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Upload size={16} /> Import
+            </button>
+          </div>
         </div>
       </div>
 
@@ -334,7 +351,7 @@ export const FacultyManagement: React.FC = () => {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Access Level</label>
-                <select
+                <DropdownSelect
                   value={newFaculty.role}
                   onChange={(e) => setNewFaculty({...newFaculty, role: e.target.value as any})}
                   className="w-full px-3.5 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-gray-50 focus:bg-white transition-colors"
@@ -343,7 +360,7 @@ export const FacultyManagement: React.FC = () => {
                   <option value="dean">Supervisor — Dean</option>
                   <option value="principal">Supervisor — Principal</option>
                   <option value="hod">Supervisor — HOD</option>
-                </select>
+                </DropdownSelect>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Department</label>
@@ -418,7 +435,7 @@ export const FacultyManagement: React.FC = () => {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Access Level</label>
-                <select
+                <DropdownSelect
                   value={editingFaculty.role}
                   onChange={(e) => setEditingFaculty({...editingFaculty, role: e.target.value as any})}
                   className="w-full px-3.5 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-gray-50 focus:bg-white transition-colors"
@@ -427,7 +444,7 @@ export const FacultyManagement: React.FC = () => {
                   <option value="dean">Supervisor — Dean</option>
                   <option value="principal">Supervisor — Principal</option>
                   <option value="hod">Supervisor — HOD</option>
-                </select>
+                </DropdownSelect>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Department</label>
@@ -505,7 +522,7 @@ export const FacultyManagement: React.FC = () => {
               className="pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 w-full"
             />
           </div>
-          <select
+          <DropdownSelect
             aria-label="Filter faculty by role"
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value)}
@@ -516,7 +533,7 @@ export const FacultyManagement: React.FC = () => {
             <option value="hod">HOD</option>
             <option value="dean">Dean</option>
             <option value="principal">Principal</option>
-          </select>
+          </DropdownSelect>
           </div>
         </div>
 
@@ -727,10 +744,10 @@ export const FacultyManagement: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Subject Type</label>
-                  <select value={newSubject.type} onChange={e => setNewSubject({...newSubject, type: e.target.value})} className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 bg-white">
+                  <DropdownSelect value={newSubject.type} onChange={e => setNewSubject({...newSubject, type: e.target.value})} className="w-full rounded-lg px-3 py-2">
                     <option value="STANDALONE">Theory Only (50 Marks)</option>
                     <option value="INTEGRATED">Theory + Lab (Integrated)</option>
-                  </select>
+                  </DropdownSelect>
                 </div>
                 <button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg text-sm transition-colors mt-2">
                   Assign Class

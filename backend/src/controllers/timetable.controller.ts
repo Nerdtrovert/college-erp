@@ -367,6 +367,7 @@ export const getCurrentFacultyStatus = async (req: AuthRequest, res: Response) =
     }).formatToParts(now);
     const indiaTime = Object.fromEntries(indiaTimeParts.map(({ type, value }) => [type, value]));
     const currentDay = indiaTime.weekday;
+    const isTeachingDay = DAYS.some((day) => day.toLowerCase() === currentDay.toLowerCase());
     const currentHours = Number(indiaTime.hour);
     const currentMinutes = Number(indiaTime.minute);
     const currentTimeInMinutes = currentHours * 60 + currentMinutes;
@@ -385,7 +386,7 @@ export const getCurrentFacultyStatus = async (req: AuthRequest, res: Response) =
 
     // Find current period index
     let currentPeriodIndex = -1;
-    for (let i = 0; i < PERIOD_TIMES.length; i++) {
+    for (let i = 0; isTeachingDay && i < PERIOD_TIMES.length; i++) {
       const [startTime, endTime] = PERIOD_TIMES[i];
       if (!startTime || !endTime) continue; // Skip break/lunch periods
 
@@ -409,7 +410,6 @@ export const getCurrentFacultyStatus = async (req: AuthRequest, res: Response) =
       return res.status(400).json({ error: 'No active semester found' });
     }
 
-    const isTeachingDay = DAYS.some((day) => day.toLowerCase() === currentDay.toLowerCase());
     const currentPeriodLabel = currentPeriodIndex >= 0
       ? `${PERIOD_TIMES[currentPeriodIndex][0]}–${PERIOD_TIMES[currentPeriodIndex][1]}`
       : !isTeachingDay
