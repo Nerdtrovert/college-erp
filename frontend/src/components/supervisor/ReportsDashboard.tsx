@@ -38,24 +38,30 @@ interface Props {
   user: any; 
 }
 
-const ReportsDashboard: React.FC<Props> = ({ user }) => {
+interface ReportDirectoryStudent {
+  id: string;
+  semesterId?: string;
+  enrollments?: Array<{ semesterId: string; semesterNumber: number }>;
+}
+
+const ReportsDashboard: React.FC<Props> = () => {
   const [data, setData] = useState<ReportStudent[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
   
   // Cascading Options State
-  const [reportCategory, setReportCategory] = useState<'marks' | 'backlogs' | 'attendance' | ''>('');
+  const [reportCategory, setReportCategory] = useState<'risk' | 'marks' | 'attendance' | ''>('');
   const [reportDetail, setReportDetail] = useState<'verge' | 'current_backlogs' | 'all' | 'cie_total' | 'specific_cie' | 'low_attendance' | 'missing_assignments' | ''>('');
-  const [specificCie, setSpecificCie] = useState<'cie1' | 'cie2' | 'cie3' | ''>('');
+  const [specificCie] = useState<'cie1' | 'cie2' | 'cie3' | ''>('');
   
   const [filters, setFilters] = useState({
-    semesterId: '',
+    semesterNumber: '',
     program: '',
     classGroup: '',
-    hasBacklogs: 'all'
   });
-  const [semesters, setSemesters] = useState<{ id: string; name: string }[]>([]);
+  const [semesterNumbers, setSemesterNumbers] = useState<number[]>([]);
+  const [studentIdsBySemester, setStudentIdsBySemester] = useState<Record<number, Set<string>>>({});
   const [attendanceThreshold, setAttendanceThreshold] = useState('75');
 
   // Fetch report
@@ -69,12 +75,8 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
     setError(null);
     try {
       const queryParams = new URLSearchParams();
-      if (filters.semesterId) queryParams.append('semesterId', filters.semesterId);
       if (filters.program) queryParams.append('program', filters.program);
       if (filters.classGroup) queryParams.append('classGroup', filters.classGroup);
-      if (reportCategory === 'backlogs' && filters.hasBacklogs !== 'all') {
-         queryParams.append('hasBacklogs', filters.hasBacklogs);
-      }
 
       if (reportCategory === 'attendance') {
         queryParams.append('type', reportDetail);
@@ -83,7 +85,11 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
       const response = await API.get(reportCategory === 'attendance'
         ? `/reports/attendance-assignments?${queryParams.toString()}`
         : `/reports/verge-of-backlog?${queryParams.toString()}`);
-      setData(response.data || []);
+      const reportRows = response.data || [];
+      const studentIds = studentIdsBySemester[Number(filters.semesterNumber)];
+      setData(filters.semesterNumber && studentIds
+        ? reportRows.filter((row: any) => studentIds.has(row.id || row.studentId))
+        : reportRows);
     } catch (err: any) {
       console.error('Error fetching report:', err);
       setError(err.response?.data?.error || 'Failed to load report data');
@@ -267,19 +273,24 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
   useEffect(() => {
     const fetchSemesters = async () => {
       try {
-        const response = await API.get('/semesters');
-        setSemesters(response.data || []);
+        const response = await API.get('/auth/users?role=student');
+        const studentsBySemester = new Map<number, Set<string>>();
+        (response.data as ReportDirectoryStudent[]).forEach((student) => {
+          const enrollment = student.enrollments?.find(item => item.semesterId === student.semesterId) || student.enrollments?.[0];
+          if (![1, 3, 5, 7].includes(enrollment?.semesterNumber || 0)) return;
+          const students = studentsBySemester.get(enrollment.semesterNumber) || new Set<string>();
+          students.add(student.id);
+          studentsBySemester.set(enrollment.semesterNumber, students);
+        });
+        setSemesterNumbers(Array.from(studentsBySemester.keys()).sort((a, b) => a - b));
+        setStudentIdsBySemester(Object.fromEntries(studentsBySemester));
       } catch (err) {
-        console.error('Failed to load semesters:', err);
-        setError('Unable to load semesters. Report filters may be incomplete.');
+        console.error('Failed to load students for semester filters:', err);
+        setError('Unable to load semester filters.');
       }
     };
     fetchSemesters();
   }, []);
-
-  const totalBacklogs = reportCategory === 'backlogs'
-    ? data.reduce((sum, student) => sum + (student.numberOfBacklogs || 0), 0)
-    : 0;
 
   return (
     <div className="flex-1 overflow-auto bg-gray-50/50">
@@ -293,113 +304,35 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm relative overflow-hidden">
-            <div className="relative z-10">
-              <p className="text-xs font-semibold text-gray-500 tracking-wide uppercase">Students in View</p>
-              <p className="mt-2 text-3xl font-bold text-gray-900">{data.length}</p>
-            </div>
-          </div>
-          <div className="bg-orange-50 rounded-2xl p-6 border border-orange-100 shadow-sm">
-            <p className="text-xs font-semibold text-orange-600 tracking-wide uppercase">
-              {reportDetail === 'low_attendance' ? 'Low Attendance Entries' : reportDetail === 'missing_assignments' ? 'Missing Assignment Entries' : 'Total Backlogs in Selection'}
-            </p>
-            <p className="mt-2 text-3xl font-bold text-orange-700">{reportCategory === 'attendance' ? data.length : totalBacklogs}</p>
-          </div>
-        </div>
-
         {/* Filters - Cascading */}
         <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-base font-bold text-gray-900">Report Settings & Filters</h2>
-              <p className="text-xs text-gray-500 mt-0.5">Select a category to reveal specific report options.</p>
+              <p className="text-xs text-gray-500 mt-0.5">Select a report category and audience filters.</p>
             </div>
           </div>
           
           {/* Row 1: Category & Detail Options */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
             <div>
               <label className="block text-xs font-semibold text-blue-600 uppercase tracking-wide mb-2">1. Report Category</label>
               <DropdownSelect
                 value={reportCategory}
-                onChange={(e) => {
-                  const val = e.target.value as 'marks' | 'backlogs' | 'attendance' | '';
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                  const val = e.target.value as 'risk' | 'marks' | 'attendance' | '';
                   setReportCategory(val);
-                  setReportDetail(''); // Reset detail on category change
+                  setReportDetail(val === 'risk' ? 'verge' : val === 'marks' ? 'all' : val === 'attendance' ? 'low_attendance' : '');
                 }}
                 className="w-full px-4 py-2.5 rounded-xl border border-blue-200 text-sm font-medium text-blue-900 bg-white shadow-sm focus:outline-none focus:border-blue-500"
               >
                 <option value="" disabled>Select Category...</option>
-                <option value="backlogs">At Risk & Backlogs</option>
+                <option value="risk">At Risk</option>
                 <option value="marks">Performance & Marks</option>
                 <option value="attendance">Attendance & Assignments</option>
               </DropdownSelect>
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-blue-600 uppercase tracking-wide mb-2">2. Specific Report</label>
-              <DropdownSelect
-                value={reportDetail}
-                onChange={(e) => setReportDetail(e.target.value as any)}
-                disabled={!reportCategory}
-                className="w-full px-4 py-2.5 rounded-xl border border-blue-200 text-sm font-medium text-blue-900 bg-white shadow-sm focus:outline-none focus:border-blue-500 disabled:opacity-50"
-              >
-                <option value="" disabled>Select Report Type...</option>
-                {reportCategory === 'backlogs' && (
-                  <>
-                    <option value="verge">Verge of Backlog (At Risk)</option>
-                    <option value="current_backlogs">Current Backlogs List</option>
-                  </>
-                )}
-                {reportCategory === 'marks' && (
-                  <>
-                    <option value="all">Overall Performance (All Marks)</option>
-                    <option value="cie_total">Total CIE Scores</option>
-                    <option value="specific_cie">Specific CIE (CIE-1/2/3)</option>
-                  </>
-                )}
-                {reportCategory === 'attendance' && (
-                  <>
-                    <option value="low_attendance">Low Attendance List</option>
-                    <option value="missing_assignments">Missing Assignments List</option>
-                  </>
-                )}
-              </DropdownSelect>
-            </div>
-
-            {reportDetail === 'specific_cie' && (
-              <div>
-                <label className="block text-xs font-semibold text-blue-600 uppercase tracking-wide mb-2">3. Which CIE?</label>
-                <DropdownSelect
-                  value={specificCie}
-                  onChange={(e) => setSpecificCie(e.target.value as any)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-blue-200 text-sm font-medium text-blue-900 bg-white shadow-sm focus:outline-none focus:border-blue-500"
-                >
-                  <option value="" disabled>Select...</option>
-                  <option value="cie1">CIE-1 Only</option>
-                  <option value="cie2">CIE-2 Only</option>
-                  <option value="cie3">CIE-3 Only</option>
-                </DropdownSelect>
-              </div>
-            )}
-            
-            {reportCategory === 'backlogs' && user?.role !== 'teacher' && (
-              <div>
-                <label className="block text-xs font-semibold text-blue-600 uppercase tracking-wide mb-2">3. Include</label>
-                <DropdownSelect
-                  name="hasBacklogs"
-                  value={filters.hasBacklogs}
-                  onChange={handleFilterChange}
-                  className="w-full px-4 py-2.5 rounded-xl border border-blue-200 text-sm font-medium text-blue-900 bg-white shadow-sm focus:outline-none focus:border-blue-500"
-                >
-                  <option value="all">All Students</option>
-                  <option value="yes">Yes (Has Backlogs)</option>
-                  <option value="no">No (Clear Record)</option>
-                </DropdownSelect>
-              </div>
-            )}
             {reportDetail === 'low_attendance' && (
               <div>
                 <label className="block text-xs font-semibold text-blue-600 uppercase tracking-wide mb-2">Attendance below</label>
@@ -416,13 +349,13 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
             <div className="min-w-0">
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Semester</label>
               <DropdownSelect
-                name="semesterId"
-                value={filters.semesterId}
+                name="semesterNumber"
+                value={filters.semesterNumber}
                 onChange={handleFilterChange}
                 className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500"
               >
-                <option value="">All Semesters (Default Active)</option>
-                {semesters.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                <option value="">All Semesters</option>
+                {semesterNumbers.map(number => <option key={number} value={number}>{number}{number === 1 ? 'st' : number === 2 ? 'nd' : number === 3 ? 'rd' : 'th'} Sem students</option>)}
               </DropdownSelect>
             </div>
             <div className="min-w-0">
@@ -452,7 +385,7 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
             <div className="flex flex-wrap items-center justify-start gap-2 sm:col-span-2 lg:col-span-3">
               <button
                 onClick={fetchReport}
-                disabled={!reportCategory || !reportDetail || (reportDetail === 'specific_cie' && !specificCie) || loading}
+                disabled={!reportCategory || !reportDetail || loading}
                 className="glossy-action inline-flex h-11 min-w-[14rem] items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> 
