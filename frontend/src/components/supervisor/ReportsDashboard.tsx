@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useRef, useState } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { saveAs } from 'file-saver';
 import * as docx from 'docx';
 import { AlertTriangle, Download, FileText, RefreshCw } from 'lucide-react';
 import API from '../../services/api';
-import { PROGRAM_LABELS, STUDENT_PROGRAMS, type StudentProgram } from '../../constants/program';
+import { filterAtRiskRows, sortReportRows } from '../../utils/reportSorting';
 import { DropdownSelect } from '../ui/DropdownSelect';
 
 interface SubjectMarkDetail {
@@ -23,25 +23,17 @@ interface SubjectMarkDetail {
 interface ReportStudent {
   id: string;
   name: string;
-  program?: StudentProgram;
+  currentSemester?: number;
   semester?: { id: string; name: string };
   classGroup?: string;
-  numberOfBacklogs: number;
-  backlogSubjects: string[];
-  totalScore: number;
   vergeStatus: 'SAFE' | 'AT_RISK';
   atRiskSubjects: string[];
+  projectedSgpa: string;
   subjects: SubjectMarkDetail[];
 }
 
 interface Props {
-  user: any; 
-}
-
-interface ReportDirectoryStudent {
-  id: string;
-  semesterId?: string;
-  enrollments?: Array<{ semesterId: string; semesterNumber: number }>;
+  user: any;
 }
 
 const ReportsDashboard: React.FC<Props> = () => {
@@ -49,19 +41,18 @@ const ReportsDashboard: React.FC<Props> = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const reportRequestId = useRef(0);
   
   // Cascading Options State
   const [reportCategory, setReportCategory] = useState<'risk' | 'marks' | 'attendance' | ''>('');
-  const [reportDetail, setReportDetail] = useState<'verge' | 'current_backlogs' | 'all' | 'cie_total' | 'specific_cie' | 'low_attendance' | 'missing_assignments' | ''>('');
+  const [reportDetail, setReportDetail] = useState<'verge' | 'all' | 'cie_total' | 'specific_cie' | 'low_attendance' | 'missing_assignments' | ''>('');
   const [specificCie] = useState<'cie1' | 'cie2' | 'cie3' | ''>('');
   
   const [filters, setFilters] = useState({
-    semesterNumber: '',
-    program: '',
     classGroup: '',
   });
-  const [semesterNumbers, setSemesterNumbers] = useState<number[]>([]);
-  const [studentIdsBySemester, setStudentIdsBySemester] = useState<Record<number, Set<string>>>({});
   const [attendanceThreshold, setAttendanceThreshold] = useState('75');
 
   // Fetch report
@@ -70,52 +61,42 @@ const ReportsDashboard: React.FC<Props> = () => {
       setError("Please select a report category and type.");
       return;
     }
+    const requestId = ++reportRequestId.current;
+    const requestedCategory = reportCategory;
     setHasSearched(true);
     setLoading(true);
     setError(null);
     try {
       const queryParams = new URLSearchParams();
-      if (filters.program) queryParams.append('program', filters.program);
       if (filters.classGroup) queryParams.append('classGroup', filters.classGroup);
 
       if (reportCategory === 'attendance') {
         queryParams.append('type', reportDetail);
         queryParams.append('threshold', attendanceThreshold);
+      } else if (reportCategory === 'risk') {
+        queryParams.append('atRiskOnly', 'true');
       }
       const response = await API.get(reportCategory === 'attendance'
         ? `/reports/attendance-assignments?${queryParams.toString()}`
         : `/reports/verge-of-backlog?${queryParams.toString()}`);
-      const reportRows = response.data || [];
-      const studentIds = studentIdsBySemester[Number(filters.semesterNumber)];
-      setData(filters.semesterNumber && studentIds
-        ? reportRows.filter((row: any) => studentIds.has(row.id || row.studentId))
-        : reportRows);
+      if (requestId !== reportRequestId.current) return;
+      const reportRows = Array.isArray(response.data) ? response.data : [];
+      const visibleRows = requestedCategory === 'risk' ? filterAtRiskRows(reportRows) : reportRows;
+      setData(sortReportRows(visibleRows));
+      setCurrentPage(1);
     } catch (err: any) {
+      if (requestId !== reportRequestId.current) return;
       console.error('Error fetching report:', err);
       setError(err.response?.data?.error || 'Failed to load report data');
     } finally {
-      setLoading(false);
+      if (requestId === reportRequestId.current) setLoading(false);
     }
   };
-
-  const handleUpdateBacklog = async (studentId: string, newCountStr: string) => {
-    const newCount = parseInt(newCountStr, 10);
-    if (isNaN(newCount)) return;
-
-    setData(prev => prev.map(s => s.id === studentId ? { ...s, numberOfBacklogs: newCount } : s));
-
-    try {
-      await API.put(`/reports/backlogs/${studentId}`, { numberOfBacklogs: newCount });
-    } catch (err) {
-      console.error('Failed to update backlog count', err);
-    }
-  };
-
-  const formatProgram = (program?: string) =>
-    program && program in PROGRAM_LABELS ? PROGRAM_LABELS[program as StudentProgram] : program || '-';
-  const formatSemester = (semester?: { name: string }, semesterId?: string) => semester?.name || semesterId || '-';
 
   const subjectCodes = Array.from(new Set(data.flatMap(s => (s.subjects || []).map(sub => sub.subjectCode)))).sort();
+  const pageCount = Math.ceil(data.length / pageSize);
+  const pageStart = (currentPage - 1) * pageSize;
+  const paginatedData = data.slice(pageStart, pageStart + pageSize);
 
   // Export to PDF
   const exportToPDF = () => {
@@ -133,27 +114,27 @@ const ReportsDashboard: React.FC<Props> = () => {
     let tableData: any[] = [];
 
     if (reportDetail === 'low_attendance') {
-      head = [['USN', 'Name', 'Program', 'Semester', 'Section', 'Subject', 'Present', 'Total', 'Attendance %']];
-      tableData = (data as any[]).map((row) => [row.studentId, row.studentName, formatProgram(row.program), formatSemester(row.semester, row.semesterId), row.classGroup || '-', `${row.subjectCode} — ${row.subjectName}`, row.present, row.total, `${row.percentage}%`]);
+      head = [['USN', 'Name', 'Current Semester', 'Section', 'Subject', 'Present', 'Total', 'Attendance %']];
+      tableData = (data as any[]).map((row) => [row.studentId, row.studentName, row.currentSemester ?? '-', row.classGroup || '-', `${row.subjectCode} — ${row.subjectName}`, row.present, row.total, `${row.percentage}%`]);
     } else if (reportDetail === 'missing_assignments') {
-      head = [['USN', 'Name', 'Program', 'Semester', 'Section', 'Subject', 'Missing']];
-      tableData = (data as any[]).map((row) => [row.studentId, row.studentName, formatProgram(row.program), formatSemester(row.semester, row.semesterId), row.classGroup || '-', `${row.subjectCode} — ${row.subjectName}`, [row.missingAssignment1 && 'Assignment 1', row.missingAssignment2 && 'Assignment 2'].filter(Boolean).join(', ') || 'Assignment']);
+      head = [['USN', 'Name', 'Current Semester', 'Section', 'Subject', 'Missing']];
+      tableData = (data as any[]).map((row) => [row.studentId, row.studentName, row.currentSemester ?? '-', row.classGroup || '-', `${row.subjectCode} — ${row.subjectName}`, [row.missingAssignment1 && 'Assignment 1', row.missingAssignment2 && 'Assignment 2'].filter(Boolean).join(', ') || 'Assignment']);
     } else if (reportDetail === 'verge') {
-      head = [['ID', 'Name', 'Program', 'Current Sem', 'Section', '# Backlogs', 'At Risk Subjects', 'Total Score', 'Status']];
+      head = [['ID', 'Name', 'Current Semester', 'Section', 'At Risk Subjects', 'Status']];
       tableData = data.map(s => [
-        s.id, s.name, formatProgram(s.program), (s as any).currentSemester || '-', s.classGroup || '-',
-        s.numberOfBacklogs, s.atRiskSubjects.join(', ') || '-', s.totalScore, s.vergeStatus
-      ]);
-    } else if (reportDetail === 'current_backlogs') {
-      head = [['ID', 'Name', 'Program', 'Current Sem', 'Section', '# Backlogs', 'Backlog Subjects']];
-      tableData = data.map(s => [
-        s.id, s.name, formatProgram(s.program), (s as any).currentSemester || '-', s.classGroup || '-',
-        s.numberOfBacklogs, s.backlogSubjects?.join(', ') || '-'
+        s.id, s.name, (s as any).currentSemester ?? '-', s.classGroup || '-',
+        s.atRiskSubjects.join(', ') || '-', s.vergeStatus
       ]);
     } else if (reportDetail === 'all') {
-      head = [['ID', 'Name', 'Program', 'Semester', 'Section', ...subjectCodes.map(c => `${c} (Total)`)]];
+      head = reportCategory === 'marks'
+        ? [['ID', 'Name', 'Current Semester', 'Section', 'Projected SGPA']]
+        : [['ID', 'Name', 'Current Semester', 'Section', ...subjectCodes.map(c => `${c} (Total)`)]];
       tableData = data.map(s => {
-        const row: any[] = [s.id || (s as any).studentId, s.name || (s as any).studentName, formatProgram(s.program), formatSemester(s.semester, (s as any).semesterId), s.classGroup || '-'];
+        const row: any[] = [s.id || (s as any).studentId, s.name || (s as any).studentName, s.currentSemester ?? '-', s.classGroup || '-'];
+        if (reportCategory === 'marks') {
+          row.push(s.projectedSgpa);
+          return row;
+        }
         subjectCodes.forEach(code => {
           const sub = (s.subjects || []).find(x => x.subjectCode === code);
           row.push(sub?.total ?? '-');
@@ -161,9 +142,15 @@ const ReportsDashboard: React.FC<Props> = () => {
         return row;
       });
     } else if (reportDetail === 'cie_total') {
-      head = [['ID', 'Name', 'Program', 'Semester', 'Section', ...subjectCodes.map(c => `${c} (CIE)`)]];
+      head = reportCategory === 'marks'
+        ? [['ID', 'Name', 'Current Semester', 'Section', 'Projected SGPA']]
+        : [['ID', 'Name', 'Current Semester', 'Section', ...subjectCodes.map(c => `${c} (CIE)`) ]];
       tableData = data.map(s => {
-        const row: any[] = [s.id || (s as any).studentId, s.name || (s as any).studentName, formatProgram(s.program), formatSemester(s.semester, (s as any).semesterId), s.classGroup || '-'];
+        const row: any[] = [s.id || (s as any).studentId, s.name || (s as any).studentName, s.currentSemester ?? '-', s.classGroup || '-'];
+        if (reportCategory === 'marks') {
+          row.push(s.projectedSgpa);
+          return row;
+        }
         subjectCodes.forEach(code => {
           const sub = (s.subjects || []).find(x => x.subjectCode === code);
           const cieScore = (sub?.cie1 || 0) + (sub?.cie2 || 0) + (sub?.cie3 || 0);
@@ -172,9 +159,15 @@ const ReportsDashboard: React.FC<Props> = () => {
         return row;
       });
     } else if (reportDetail === 'specific_cie') {
-      head = [['ID', 'Name', 'Program', 'Semester', 'Section', ...subjectCodes.map(c => `${c} (${specificCie.toUpperCase()})`)]];
+      head = reportCategory === 'marks'
+        ? [['ID', 'Name', 'Current Semester', 'Section', 'Projected SGPA']]
+        : [['ID', 'Name', 'Current Semester', 'Section', ...subjectCodes.map(c => `${c} (${specificCie.toUpperCase()})`)]];
       tableData = data.map(s => {
-        const row: any[] = [s.id || (s as any).studentId, s.name || (s as any).studentName, formatProgram(s.program), formatSemester(s.semester, (s as any).semesterId), s.classGroup || '-'];
+        const row: any[] = [s.id || (s as any).studentId, s.name || (s as any).studentName, s.currentSemester ?? '-', s.classGroup || '-'];
+        if (reportCategory === 'marks') {
+          row.push(s.projectedSgpa);
+          return row;
+        }
         subjectCodes.forEach(code => {
           const sub = (s.subjects || []).find(x => x.subjectCode === code);
           row.push(sub?.[specificCie as 'cie1' | 'cie2' | 'cie3'] ?? '-');
@@ -209,8 +202,7 @@ const ReportsDashboard: React.FC<Props> = () => {
       let cells = [
         createCell(student.id || (student as any).studentId),
         createCell(student.name || (student as any).studentName),
-        createCell(formatProgram(student.program)),
-        createCell(formatSemester(student.semester, student.semesterId)),
+        createCell(student.currentSemester ?? '-'),
         createCell(student.classGroup || '-')
       ];
 
@@ -223,13 +215,10 @@ const ReportsDashboard: React.FC<Props> = () => {
         cells.push(createCell(`${student.subjectCode} — ${student.subjectName}`));
         cells.push(createCell([student.missingAssignment1 && 'Assignment 1', student.missingAssignment2 && 'Assignment 2'].filter(Boolean).join(', ') || 'Assignment'));
       } else if (reportDetail === 'verge') {
-        cells.push(createCell(student.numberOfBacklogs));
         cells.push(createCell(student.atRiskSubjects.join(', ') || '-'));
-        cells.push(createCell(student.totalScore));
         cells.push(createCell(student.vergeStatus));
-      } else if (reportDetail === 'current_backlogs') {
-        cells.push(createCell(student.numberOfBacklogs));
-        cells.push(createCell(student.backlogSubjects?.join(', ') || '-'));
+      } else if (reportCategory === 'marks') {
+        cells.push(createCell(student.projectedSgpa));
       } else if (reportDetail === 'all') {
         subjectCodes.forEach(code => {
           const sub = (student.subjects || []).find((x: any) => x.subjectCode === code);
@@ -250,6 +239,17 @@ const ReportsDashboard: React.FC<Props> = () => {
 
       return new docx.TableRow({ children: cells });
     });
+    if (reportCategory === 'marks') {
+      tableRows.unshift(new docx.TableRow({
+        children: [
+          'USN',
+          'Name',
+          'Current Semester',
+          'Section',
+          'Projected SGPA',
+        ].map(createCell),
+      }));
+    }
 
     const doc = new docx.Document({
       sections: [{
@@ -269,28 +269,6 @@ const ReportsDashboard: React.FC<Props> = () => {
     const { name, value } = e.target;
     setFilters(prev => ({ ...prev, [name]: value }));
   };
-
-  useEffect(() => {
-    const fetchSemesters = async () => {
-      try {
-        const response = await API.get('/auth/users?role=student');
-        const studentsBySemester = new Map<number, Set<string>>();
-        (response.data as ReportDirectoryStudent[]).forEach((student) => {
-          const enrollment = student.enrollments?.find(item => item.semesterId === student.semesterId) || student.enrollments?.[0];
-          if (![1, 3, 5, 7].includes(enrollment?.semesterNumber || 0)) return;
-          const students = studentsBySemester.get(enrollment.semesterNumber) || new Set<string>();
-          students.add(student.id);
-          studentsBySemester.set(enrollment.semesterNumber, students);
-        });
-        setSemesterNumbers(Array.from(studentsBySemester.keys()).sort((a, b) => a - b));
-        setStudentIdsBySemester(Object.fromEntries(studentsBySemester));
-      } catch (err) {
-        console.error('Failed to load students for semester filters:', err);
-        setError('Unable to load semester filters.');
-      }
-    };
-    fetchSemesters();
-  }, []);
 
   return (
     <div className="flex-1 overflow-auto bg-gray-50/50">
@@ -314,13 +292,19 @@ const ReportsDashboard: React.FC<Props> = () => {
           </div>
           
           {/* Row 1: Category & Detail Options */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
+          <div className="grid grid-cols-1 gap-4 rounded-xl border border-gray-100 bg-gray-50 p-4 sm:grid-cols-2">
             <div>
               <label className="block text-xs font-semibold text-blue-600 uppercase tracking-wide mb-2">1. Report Category</label>
               <DropdownSelect
                 value={reportCategory}
                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                   const val = e.target.value as 'risk' | 'marks' | 'attendance' | '';
+                  reportRequestId.current += 1;
+                  setData([]);
+                  setHasSearched(false);
+                  setLoading(false);
+                  setError(null);
+                  setCurrentPage(1);
                   setReportCategory(val);
                   setReportDetail(val === 'risk' ? 'verge' : val === 'marks' ? 'all' : val === 'attendance' ? 'low_attendance' : '');
                 }}
@@ -337,7 +321,7 @@ const ReportsDashboard: React.FC<Props> = () => {
               <div>
                 <label className="block text-xs font-semibold text-blue-600 uppercase tracking-wide mb-2">Attendance below</label>
                 <div className="flex items-center gap-2">
-                  <input type="number" min="0" max="100" value={attendanceThreshold} onChange={(e) => setAttendanceThreshold(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-blue-200 text-sm bg-white" />
+                  <input type="number" min="0" max="100" value={attendanceThreshold} onChange={(e) => setAttendanceThreshold(e.target.value)} className="h-11 w-full rounded-xl border border-blue-200 bg-white px-4 text-sm focus:outline-none focus:border-blue-500" />
                   <span className="text-sm text-gray-500">%</span>
                 </div>
               </div>
@@ -345,30 +329,12 @@ const ReportsDashboard: React.FC<Props> = () => {
           </div>
 
           {/* Row 2: Audience Filters */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 items-end gap-4 px-4 sm:grid-cols-2">
             <div className="min-w-0">
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Semester</label>
-              <DropdownSelect
-                name="semesterNumber"
-                value={filters.semesterNumber}
-                onChange={handleFilterChange}
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500"
-              >
-                <option value="">All Semesters</option>
-                {semesterNumbers.map(number => <option key={number} value={number}>{number}{number === 1 ? 'st' : number === 2 ? 'nd' : number === 3 ? 'rd' : 'th'} Sem students</option>)}
-              </DropdownSelect>
-            </div>
-            <div className="min-w-0">
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Program</label>
-              <DropdownSelect
-                name="program"
-                value={filters.program}
-                onChange={handleFilterChange}
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500"
-              >
-                <option value="">All Programs</option>
-                {STUDENT_PROGRAMS.map(program => <option key={program} value={program}>{PROGRAM_LABELS[program]}</option>)}
-              </DropdownSelect>
+              <div className="flex h-12 items-center rounded-xl border border-gray-200 bg-gray-50 px-4 text-sm font-medium text-gray-900">
+                Current Semester
+              </div>
             </div>
             <div className="min-w-0">
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Section</label>
@@ -378,11 +344,11 @@ const ReportsDashboard: React.FC<Props> = () => {
                 placeholder="e.g. CSE-A"
                 value={filters.classGroup}
                 onChange={handleFilterChange}
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500"
+                className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 text-sm text-gray-900 focus:outline-none focus:border-blue-500"
               />
             </div>
             
-            <div className="flex flex-wrap items-center justify-start gap-2 sm:col-span-2 lg:col-span-3">
+            <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
               <button
                 onClick={fetchReport}
                 disabled={!reportCategory || !reportDetail || loading}
@@ -408,7 +374,7 @@ const ReportsDashboard: React.FC<Props> = () => {
           </div>
         )}
 
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden overflow-x-auto pb-4">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           {loading ? (
             <div className="text-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
@@ -423,17 +389,23 @@ const ReportsDashboard: React.FC<Props> = () => {
           ) : data.length === 0 ? (
             <div className="text-center py-16">
               <FileText size={32} className="mx-auto mb-3 text-gray-300" aria-hidden="true" />
-              <p className="font-medium text-gray-700">No students match these filters</p>
-              <p className="mt-1 text-sm text-gray-500">Try broadening the program, section, or options.</p>
+              <p className="font-medium text-gray-700">
+                {reportCategory === 'risk' ? 'No at-risk students match these filters' : 'No students match these filters'}
+              </p>
+              <p className="mt-1 text-sm text-gray-500">
+                {reportCategory === 'risk'
+                  ? 'Only students with recorded below-threshold assessments appear in this report.'
+                  : 'Try broadening the section or report options.'}
+              </p>
             </div>
           ) : (
+            <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-max">
               <thead>
                 <tr className="bg-gray-50/80 border-b border-gray-100">
                   <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">USN</th>
                   <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Name</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Program</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">{['verge', 'current_backlogs'].includes(reportDetail) ? 'Current Sem' : 'Semester'}</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Current Semester</th>
                   <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Section</th>
                   
                   {reportDetail === 'low_attendance' && (
@@ -452,39 +424,34 @@ const ReportsDashboard: React.FC<Props> = () => {
                   )}
                   {reportDetail === 'verge' && (
                     <>
-                      <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider"># Backlogs</th>
                       <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">At Risk Subjects</th>
                       <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
                     </>
                   )}
-                  
-                  {reportDetail === 'current_backlogs' && (
-                    <>
-                      <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider"># Backlogs</th>
-                      <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Backlog Subjects</th>
-                    </>
+
+                  {reportCategory === 'marks' && (
+                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Projected SGPA</th>
                   )}
 
-                  {reportDetail === 'all' && subjectCodes.map(code => (
+                  {reportCategory !== 'marks' && reportDetail === 'all' && subjectCodes.map(code => (
                     <th key={code} className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">{code} (Total)</th>
                   ))}
 
-                  {reportDetail === 'cie_total' && subjectCodes.map(code => (
+                  {reportCategory !== 'marks' && reportDetail === 'cie_total' && subjectCodes.map(code => (
                     <th key={code} className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">{code} (CIE)</th>
                   ))}
 
-                  {reportDetail === 'specific_cie' && subjectCodes.map(code => (
+                  {reportCategory !== 'marks' && reportDetail === 'specific_cie' && subjectCodes.map(code => (
                     <th key={code} className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">{code} ({specificCie.toUpperCase()})</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50 bg-white">
-                {data.map((student) => (
+                {paginatedData.map((student) => (
                   <tr key={student.id} className="hover:bg-gray-50/50 transition-colors">
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">{student.id || (student as any).studentId}</td>
                     <td className="px-6 py-4 text-sm text-gray-700 whitespace-nowrap">{student.name || (student as any).studentName}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500 font-medium whitespace-nowrap">{formatProgram(student.program)}</td>
-                    <td className="px-6 py-4 text-sm text-gray-700">{['verge', 'current_backlogs'].includes(reportDetail) ? ((student as any).currentSemester || '-') : formatSemester(student.semester, (student as any).semesterId)}</td>
+                    <td className="px-6 py-4 text-sm text-gray-700">{student.currentSemester ?? '-'}</td>
                     <td className="px-6 py-4 text-sm text-gray-700">{student.classGroup || '-'}</td>
                     
                     {reportDetail === 'low_attendance' && (
@@ -503,23 +470,6 @@ const ReportsDashboard: React.FC<Props> = () => {
                     )}
                     {reportDetail === 'verge' && (
                       <>
-                        <td className="px-6 py-4 text-sm text-gray-700">
-                          <input
-                            type="number"
-                            min="0"
-                            defaultValue={student.numberOfBacklogs}
-                            onBlur={(event) => {
-                              if (event.target.value !== String(student.numberOfBacklogs)) {
-                                handleUpdateBacklog(student.id, event.target.value);
-                              }
-                            }}
-                            className={`w-16 rounded border px-2 py-1 text-center font-semibold focus:outline-none focus:ring-2 ${
-                              student.numberOfBacklogs === 0
-                                ? 'border-green-300 bg-green-50 text-green-700'
-                                : 'border-red-300 bg-red-50 text-red-700'
-                            }`}
-                          />
-                        </td>
                         <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">{student.atRiskSubjects.join(', ') || '-'}</td>
                         <td className="px-6 py-4 text-sm">
                           <span className={student.vergeStatus === 'AT_RISK' ? 'bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded' : 'bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded'}>
@@ -529,25 +479,22 @@ const ReportsDashboard: React.FC<Props> = () => {
                       </>
                     )}
 
-                    {reportDetail === 'current_backlogs' && (
-                      <>
-                        <td className="px-6 py-4 text-sm font-semibold text-red-600">{student.numberOfBacklogs > 0 ? student.numberOfBacklogs : '-'}</td>
-                        <td className="px-6 py-4 text-sm text-gray-600 truncate max-w-xs">{student.backlogSubjects?.join(', ') || '-'}</td>
-                      </>
+                    {reportCategory === 'marks' && (
+                      <td className="px-6 py-4 text-sm font-semibold text-gray-900">{student.projectedSgpa}</td>
                     )}
 
-                    {reportDetail === 'all' && subjectCodes.map(code => {
+                    {reportCategory !== 'marks' && reportDetail === 'all' && subjectCodes.map(code => {
                       const sub = student.subjects.find((x: any) => x.subjectCode === code);
                       return <td key={code} className="px-6 py-4 text-sm text-gray-700">{sub?.total ?? '-'}</td>;
                     })}
 
-                    {reportDetail === 'cie_total' && subjectCodes.map(code => {
+                    {reportCategory !== 'marks' && reportDetail === 'cie_total' && subjectCodes.map(code => {
                       const sub = student.subjects.find((x: any) => x.subjectCode === code);
                       const cieScore = sub ? (sub.cie1 || 0) + (sub.cie2 || 0) + (sub.cie3 || 0) : '-';
                       return <td key={code} className="px-6 py-4 text-sm text-gray-700">{cieScore}</td>;
                     })}
 
-                    {reportDetail === 'specific_cie' && subjectCodes.map(code => {
+                    {reportCategory !== 'marks' && reportDetail === 'specific_cie' && subjectCodes.map(code => {
                       const sub = student.subjects.find((x: any) => x.subjectCode === code);
                       return <td key={code} className="px-6 py-4 text-sm text-gray-700">{sub?.[specificCie as 'cie1' | 'cie2' | 'cie3'] ?? '-'}</td>;
                     })}
@@ -555,6 +502,57 @@ const ReportsDashboard: React.FC<Props> = () => {
                 ))}
               </tbody>
             </table>
+            </div>
+          )}
+          {!loading && data.length > 0 && (
+            <div className="flex flex-col gap-3 border-t border-gray-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-600">
+                <span>
+                  Showing <span className="font-semibold text-gray-900">{pageStart + 1}-{Math.min(pageStart + pageSize, data.length)}</span> of{' '}
+                  <span className="font-semibold text-gray-900">{data.length}</span> students
+                </span>
+                <label className="flex items-center gap-2">
+                  <span>Rows per page</span>
+                  <div className="w-20">
+                    <DropdownSelect
+                      ariaLabel="Rows per page"
+                      value={String(pageSize)}
+                      options={[
+                        { value: '10', label: '10' },
+                        { value: '15', label: '15' },
+                      ]}
+                      onChange={(value: string | React.ChangeEvent<HTMLSelectElement>) => {
+                        if (typeof value !== 'string') return;
+                        setPageSize(Number(value));
+                        setCurrentPage(1);
+                      }}
+                      className="h-10 min-h-10 rounded-lg px-3 py-2 text-sm"
+                    />
+                  </div>
+                </label>
+              </div>
+              <div className="flex items-center justify-between gap-2 sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                  disabled={currentPage === 1}
+                  className="h-10 rounded-lg border border-gray-200 px-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Previous
+                </button>
+                <span className="min-w-20 text-center text-sm text-gray-600" aria-live="polite">
+                  Page {currentPage} of {pageCount}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((page) => Math.min(pageCount, page + 1))}
+                  disabled={currentPage === pageCount}
+                  className="h-10 rounded-lg border border-gray-200 px-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
           )}
         </div>
       </div>

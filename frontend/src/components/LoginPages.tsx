@@ -24,7 +24,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, pageType }) => {
       password: 'student123',
     },
     teacher: {
-      id: 'faculty@hnnce.in',
+      id: 'madhumathi@hnnce.in',
       password: 'teacher123',
     },
     supervisor: {

@@ -1,7 +1,64 @@
 import { Response } from 'express';
+import type { Prisma } from '@prisma/client';
 import prisma from '../prisma/client';
 import { AuthRequest } from '../types';
 import { semesterService } from '../services/SemesterService';
+import { isSubjectAtRisk } from '../utils/academicRisk';
+import { calculateProjectedSgpa } from '../utils/projectedSgpa';
+
+const getStudentReportWhere = (
+  semesterId: string,
+  program?: string,
+  classGroup?: string,
+  teacherClassGroups?: string[],
+): Prisma.UserWhereInput => {
+  if (teacherClassGroups && teacherClassGroups.length === 0) {
+    return { id: { in: [] } };
+  }
+
+  if (classGroup && teacherClassGroups && !teacherClassGroups.includes(classGroup)) {
+    return { id: { in: [] } };
+  }
+
+  const scopedClassGroup = classGroup || (teacherClassGroups ? { in: teacherClassGroups } : undefined);
+  const enrollmentWhere: Prisma.StudentEnrollmentWhereInput = {
+    semesterId,
+    ...(program ? { program } : {}),
+    ...(scopedClassGroup ? { classGroup: scopedClassGroup } : {}),
+  };
+  const legacyStudentWhere: Prisma.UserWhereInput = {
+    semesterId,
+    ...(program ? { program } : {}),
+    ...(classGroup ? { classGroup } : {}),
+    ...(!classGroup && teacherClassGroups ? { classGroup: { in: teacherClassGroups } } : {}),
+  };
+
+  return {
+    role: 'student',
+    OR: [
+      { enrollments: { some: enrollmentWhere } },
+      {
+        AND: [
+          { enrollments: { none: { semesterId } } },
+          legacyStudentWhere,
+        ],
+      },
+    ],
+  };
+};
+
+const getSemesterEnrollment = (student: any, semesterId: string) =>
+  student.enrollments?.find((enrollment: any) => enrollment.semesterId === semesterId);
+
+const getReportStudentDetails = (student: any, semesterId: string) => {
+  const enrollment = getSemesterEnrollment(student, semesterId);
+  return {
+    program: enrollment?.program ?? student.program,
+    classGroup: enrollment?.classGroup ?? student.classGroup,
+    semester: enrollment?.semester ?? student.semester,
+    currentSemester: enrollment?.semesterNumber,
+  };
+};
 
 /**
  * Get verge of backlog report for students
@@ -14,62 +71,40 @@ export const getVergeOfBacklogReport = async (req: AuthRequest, res: Response) =
     const programParam = req.query.program;
     const classGroupParam = req.query.classGroup;
     const hasBacklogsParam = req.query.hasBacklogs;
+    const atRiskOnlyParam = req.query.atRiskOnly;
 
     // Extract values (handle potential arrays from query string parsing)
-    const semesterId = Array.isArray(semesterIdParam) ? semesterIdParam[0] : semesterIdParam;
-    const program = Array.isArray(programParam) ? programParam[0] : programParam;
-    const classGroup = Array.isArray(classGroupParam) ? classGroupParam[0] : classGroupParam;
-    const hasBacklogs = Array.isArray(hasBacklogsParam) ? hasBacklogsParam[0] : hasBacklogsParam;
-
-    // Parse threshold (default 13 as per specs)
-    const threshold = 13;
-
-    // Build where clause for students
-    const where: any = { role: 'student' };
-    
-    if (hasBacklogs === 'yes') {
-      where.numberOfBacklogs = { gt: 0 };
-    } else if (hasBacklogs === 'no') {
-      where.numberOfBacklogs = 0;
-    }
-
-    // Add semester filter if provided
-    if (semesterId && typeof semesterId === 'string') {
-      where.semesterId = semesterId;
-    }
-
-    // Add student program filter if provided
-    if (program && typeof program === 'string' && program !== '') {
-      where.program = program;
-    }
-
-    // Add classGroup filter if provided
-    if (classGroup && typeof classGroup === 'string' && classGroup !== '') {
-      where.classGroup = classGroup;
-    }
+    const semesterId = typeof semesterIdParam === 'string'
+      ? semesterIdParam
+      : Array.isArray(semesterIdParam) && typeof semesterIdParam[0] === 'string'
+        ? semesterIdParam[0]
+        : undefined;
+    const program = typeof programParam === 'string'
+      ? programParam
+      : Array.isArray(programParam) && typeof programParam[0] === 'string'
+        ? programParam[0]
+        : undefined;
+    const classGroup = typeof classGroupParam === 'string'
+      ? classGroupParam
+      : Array.isArray(classGroupParam) && typeof classGroupParam[0] === 'string'
+        ? classGroupParam[0]
+        : undefined;
+    const hasBacklogs = typeof hasBacklogsParam === 'string'
+      ? hasBacklogsParam
+      : Array.isArray(hasBacklogsParam) && typeof hasBacklogsParam[0] === 'string'
+        ? hasBacklogsParam[0]
+        : undefined;
+    const atRiskOnly = atRiskOnlyParam === 'true' || atRiskOnlyParam === '1';
 
     // Role-based scoping
+    let teacherClassGroups: string[] | undefined;
     if (req.user?.role === 'teacher') {
       // Teachers can only see students in the classes they teach
       const taughtSubjects = await prisma.subject.findMany({
         where: { OR: [{ facultyId: req.user.id }, { coFacultyId: req.user.id }] },
         select: { classGroup: true }
       });
-      const teacherClassGroups = Array.from(new Set(taughtSubjects.map(s => s.classGroup)));
-      
-      if (teacherClassGroups.length > 0) {
-        if (where.classGroup) {
-          // If teacher specified a filter, ensure it's one they teach
-          if (!teacherClassGroups.includes(where.classGroup)) {
-            where.id = 'UNAUTHORIZED_CLASS';
-          }
-        } else {
-          where.classGroup = { in: teacherClassGroups };
-        }
-      } else {
-        // Teacher has no classes, return empty results by matching an impossible condition
-        where.id = 'NO_CLASSES_ASSIGNED';
-      }
+      teacherClassGroups = Array.from(new Set(taughtSubjects.map(s => s.classGroup)));
     }
 
     // Get active semester if none specified
@@ -83,6 +118,17 @@ export const getVergeOfBacklogReport = async (req: AuthRequest, res: Response) =
       return res.status(400).json({ error: 'No active semester found and none specified' });
     }
 
+    const where: Prisma.UserWhereInput = {
+      ...getStudentReportWhere(
+        activeSemesterId,
+        program || undefined,
+        classGroup || undefined,
+        teacherClassGroups,
+      ),
+      ...(hasBacklogs === 'yes' ? { numberOfBacklogs: { gt: 0 } } : {}),
+      ...(hasBacklogs === 'no' ? { numberOfBacklogs: 0 } : {}),
+    };
+
     // Fetch students with their marks for the semester
     const students = await prisma.user.findMany({
       where,
@@ -93,7 +139,16 @@ export const getVergeOfBacklogReport = async (req: AuthRequest, res: Response) =
         classGroup: true,
         semesterId: true,
         semester: { select: { id: true, name: true } },
-        enrollments: { select: { semesterNumber: true, semesterId: true } },
+        enrollments: {
+          where: { semesterId: activeSemesterId },
+          select: {
+            semesterNumber: true,
+            semesterId: true,
+            program: true,
+            classGroup: true,
+            semester: { select: { id: true, name: true } },
+          },
+        },
         numberOfBacklogs: true,
         backlogSubjects: true,
         marks: {
@@ -116,6 +171,16 @@ export const getVergeOfBacklogReport = async (req: AuthRequest, res: Response) =
       }
     });
 
+    const studentClassGroups = Array.from(new Set(students.map((student) =>
+      getReportStudentDetails(student, activeSemesterId).classGroup,
+    ).filter((classGroup): classGroup is string => Boolean(classGroup))));
+    const subjects = studentClassGroups.length > 0
+      ? await prisma.subject.findMany({
+        where: { classGroup: { in: studentClassGroups } },
+        select: { code: true, name: true, type: true, classGroup: true },
+      })
+      : [];
+
     // Process each student to calculate verge of backlog status
     const report = students.map(student => {
       const subjectsMap: Record<string, any[]> = {};
@@ -133,10 +198,12 @@ export const getVergeOfBacklogReport = async (req: AuthRequest, res: Response) =
       let totalScoreAll = 0;
       const subjectsDetail: any[] = [];
       const atRiskSubjects: string[] = [];
+      const studentDetails = getReportStudentDetails(student, activeSemesterId);
+      const studentSubjects = subjects.filter((subject) => subject.classGroup === studentDetails.classGroup);
 
-      for (const [subjectCode, marks] of Object.entries(subjectsMap)) {
-        const subject = marks[0]?.subject;
-        if (!subject) continue;
+      for (const subject of studentSubjects) {
+        const subjectCode = subject.code;
+        const marks = subjectsMap[subjectCode] || [];
 
         const subjectType = subject.type; // STANDALONE or INTEGRATED
         const subjectName = subject.name;
@@ -166,19 +233,17 @@ export const getVergeOfBacklogReport = async (req: AuthRequest, res: Response) =
         if (subjectType === 'STANDALONE') {
           const scaledCie = best2CieAvg * (50 / 30);
           subjectTotal = scaledCie;
-          if (scaledCie < threshold) {
-            subjectVerge = true;
-          }
         } else if (subjectType === 'INTEGRATED') {
           const theoryScaledCie = best2CieAvg * (15 / 30);
           const assignmentTotal = (assignmentMark ?? 0) * (10 / 25);
           const labTotal = labMark ?? 0;
           subjectTotal = theoryScaledCie + assignmentTotal + labTotal;
-          
-          if (theoryScaledCie < threshold || labTotal < 12) {
-            subjectVerge = true;
-          }
         }
+        subjectVerge = isSubjectAtRisk(
+          subjectType,
+          cieScores.length > 0 ? best2CieAvg : null,
+          labMark,
+        );
 
         totalScoreAll += subjectTotal;
         if (subjectVerge) {
@@ -199,26 +264,28 @@ export const getVergeOfBacklogReport = async (req: AuthRequest, res: Response) =
         });
       }
 
-      const currentEnrollment = student.enrollments?.find(e => e.semesterId === student.semesterId) || student.enrollments?.[0];
-      const currentSemester = currentEnrollment?.semesterNumber;
-
       return {
         id: student.id,
         name: student.name,
-        program: student.program,
-        classGroup: student.classGroup,
-        semester: student.semester,
-        currentSemester,
+        ...studentDetails,
         numberOfBacklogs: student.numberOfBacklogs || 0,
         backlogSubjects: student.backlogSubjects || '',
         totalScore: parseFloat(totalScoreAll.toFixed(2)),
         vergeStatus: isVerge ? 'AT_RISK' : 'SAFE',
         atRiskSubjects,
+        projectedSgpa: calculateProjectedSgpa(studentSubjects.map((subject) => ({
+          type: subject.type,
+          marks: subjectsMap[subject.code] || [],
+        }))),
         subjects: subjectsDetail
       };
     });
 
-    return res.status(200).json(report);
+    return res.status(200).json(
+      atRiskOnly
+        ? report.filter(student => student.vergeStatus === 'AT_RISK' && student.atRiskSubjects.length > 0)
+        : report,
+    );
   } catch (error) {
     console.error('Error generating verge of backlog report:', error);
     return res.status(500).json({ error: 'Internal server error' });
@@ -264,22 +331,17 @@ export const getAttendanceAndAssignmentReport = async (req: AuthRequest, res: Re
   if (!semesterId) return res.status(400).json({ error: 'No active semester found and none specified' });
 
   try {
-    const studentWhere: any = {
-      role: 'student',
-      ...(program ? { program } : {}),
-      ...(classGroup ? { classGroup } : {}),
-    };
-
+    let teacherClassGroups: string[] | undefined;
     if (req.user?.role === 'teacher') {
       const taught = await prisma.subject.findMany({
         where: { OR: [{ facultyId: req.user.id }, { coFacultyId: req.user.id }] },
         select: { classGroup: true },
       });
-      studentWhere.classGroup = { in: Array.from(new Set(taught.map((item) => item.classGroup))) };
+      teacherClassGroups = Array.from(new Set(taught.map((item) => item.classGroup)));
     }
 
     const students = await prisma.user.findMany({
-      where: studentWhere,
+      where: getStudentReportWhere(semesterId, program, classGroup, teacherClassGroups),
       select: {
         id: true,
         name: true,
@@ -287,6 +349,16 @@ export const getAttendanceAndAssignmentReport = async (req: AuthRequest, res: Re
         classGroup: true,
         semesterId: true,
         semester: { select: { id: true, name: true } },
+        enrollments: {
+          where: { semesterId },
+          select: {
+            semesterId: true,
+            semesterNumber: true,
+            program: true,
+            classGroup: true,
+            semester: { select: { id: true, name: true } },
+          },
+        },
         marks: {
           where: { semesterId },
           select: {
@@ -311,8 +383,9 @@ export const getAttendanceAndAssignmentReport = async (req: AuthRequest, res: Re
         select: { code: true, name: true, classGroup: true, type: true },
       });
       const report = students.flatMap((student) => {
+        const studentDetails = getReportStudentDetails(student, semesterId);
         return subjects
-          .filter((subject) => subject.classGroup === student.classGroup)
+          .filter((subject) => subject.classGroup === studentDetails.classGroup)
           .flatMap((subject) => {
             const assignmentMarks = student.marks.filter((mark) =>
               mark.subjectCode === subject.code && ['assignment', 'assignment1', 'assignment2'].includes(mark.type)
@@ -324,9 +397,7 @@ export const getAttendanceAndAssignmentReport = async (req: AuthRequest, res: Re
             return (missingAssignment1 || missingAssignment2) ? [{
             studentId: student.id,
             studentName: student.name,
-            program: student.program,
-            classGroup: student.classGroup,
-            semester: student.semester,
+            ...studentDetails,
             subjectCode: subject.code,
             subjectName: subject.name,
             missingAssignment1,
@@ -369,12 +440,11 @@ export const getAttendanceAndAssignmentReport = async (req: AuthRequest, res: Re
       if (!total) return [];
       const percentage = Math.round((total.present / total.total) * 100);
       if (percentage >= threshold) return [];
+      const studentDetails = getReportStudentDetails(student, semesterId);
       return Array.from(total.subjects.entries()).map(([subjectCode, subject]) => ({
         studentId: student.id,
         studentName: student.name,
-        program: student.program,
-        classGroup: student.classGroup,
-        semester: student.semester,
+        ...studentDetails,
         subjectCode,
         subjectName: subject.name,
         present: subject.present,

@@ -30,7 +30,7 @@ export const Sidebar: React.FC<Props> = ({ user, items, active, onNavigate, onLo
         type="button"
         aria-label="Go to overview"
         onClick={() => onNavigate('home')}
-        className="flex w-full items-center gap-3 px-5 py-5 text-left transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400 sm:px-6 sm:py-6"
+        className="flex w-full items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400 sm:px-6 sm:py-4"
       >
         <div className="w-9 h-9 rounded-xl bg-blue-500 flex items-center justify-center flex-shrink-0">
           <BookOpen size={18} className="text-white" />
@@ -42,7 +42,7 @@ export const Sidebar: React.FC<Props> = ({ user, items, active, onNavigate, onLo
       </button>
 
       {/* Nav */}
-      <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:py-6 space-y-1">
+      <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-2 sm:py-3 space-y-1">
         {items.map((item) => (
           <button
             key={item.id}
