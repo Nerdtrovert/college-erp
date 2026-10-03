@@ -11,6 +11,7 @@ const getStudentReportWhere = (
   program?: string,
   classGroup?: string,
   teacherClassGroups?: string[],
+  semesterNumber?: number,
 ): Prisma.UserWhereInput => {
   if (teacherClassGroups && teacherClassGroups.length === 0) {
     return { id: { in: [] } };
@@ -23,6 +24,7 @@ const getStudentReportWhere = (
   const scopedClassGroup = classGroup || (teacherClassGroups ? { in: teacherClassGroups } : undefined);
   const enrollmentWhere: Prisma.StudentEnrollmentWhereInput = {
     ...(semesterId ? { semesterId } : {}),
+    ...(semesterNumber !== undefined ? { semesterNumber } : {}),
     ...(program ? { program } : {}),
     ...(scopedClassGroup ? { classGroup: scopedClassGroup } : {}),
   };
@@ -37,12 +39,12 @@ const getStudentReportWhere = (
     role: 'student',
     OR: [
       { enrollments: { some: enrollmentWhere } },
-      {
+      ...(semesterNumber === undefined ? [{
         AND: [
           { enrollments: { none: semesterId ? { semesterId } : {} } },
           legacyStudentWhere,
         ],
-      },
+      }] : []),
     ],
   };
 };
@@ -89,6 +91,7 @@ export const getVergeOfBacklogReport = async (req: AuthRequest, res: Response) =
     const semesterIdParam = req.query.semesterId;
     const programParam = req.query.program;
     const classGroupParam = req.query.classGroup;
+    const semesterNumberParam = req.query.semesterNumber;
     const hasBacklogsParam = req.query.hasBacklogs;
     const atRiskOnlyParam = req.query.atRiskOnly;
 
@@ -108,6 +111,9 @@ export const getVergeOfBacklogReport = async (req: AuthRequest, res: Response) =
       : Array.isArray(classGroupParam) && typeof classGroupParam[0] === 'string'
         ? classGroupParam[0]
         : undefined;
+    const semesterNumber = typeof semesterNumberParam === 'string' && /^\d+$/.test(semesterNumberParam)
+      ? Number(semesterNumberParam)
+      : undefined;
     const hasBacklogs = typeof hasBacklogsParam === 'string'
       ? hasBacklogsParam
       : Array.isArray(hasBacklogsParam) && typeof hasBacklogsParam[0] === 'string'
@@ -143,6 +149,7 @@ export const getVergeOfBacklogReport = async (req: AuthRequest, res: Response) =
         program || undefined,
         classGroup || undefined,
         teacherClassGroups,
+        semesterNumber,
       ),
       ...(hasBacklogs === 'yes' ? { numberOfBacklogs: { gt: 0 } } : {}),
       ...(hasBacklogs === 'no' ? { numberOfBacklogs: 0 } : {}),
@@ -274,7 +281,9 @@ export const getVergeOfBacklogReport = async (req: AuthRequest, res: Response) =
           subjectCode,
           subjectName,
           cie1: cie1Mark,
+          cie1MaxScore: marks.find((m: any) => m.type === 'cie1')?.maxScore ?? null,
           cie2: cie2Mark,
+          cie2MaxScore: marks.find((m: any) => m.type === 'cie2')?.maxScore ?? null,
           cie3: cie3Mark,
           assignment: assignmentMark,
           lab: labMark,
@@ -346,6 +355,9 @@ export const getAttendanceAndAssignmentReport = async (req: AuthRequest, res: Re
     : (await semesterService.getActiveSemester())?.id;
   const program = typeof req.query.program === 'string' ? req.query.program : undefined;
   const classGroup = typeof req.query.classGroup === 'string' ? req.query.classGroup : undefined;
+  const semesterNumber = typeof req.query.semesterNumber === 'string' && /^\d+$/.test(req.query.semesterNumber)
+    ? Number(req.query.semesterNumber)
+    : undefined;
 
   if (!semesterId) return res.status(400).json({ error: 'No active semester found and none specified' });
 
@@ -360,7 +372,7 @@ export const getAttendanceAndAssignmentReport = async (req: AuthRequest, res: Re
     }
 
     const students = await prisma.user.findMany({
-      where: getStudentReportWhere(semesterId, program, classGroup, teacherClassGroups),
+      where: getStudentReportWhere(semesterId, program, classGroup, teacherClassGroups, semesterNumber),
       select: {
         id: true,
         name: true,
