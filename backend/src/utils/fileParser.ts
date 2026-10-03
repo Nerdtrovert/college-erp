@@ -109,14 +109,11 @@ export const parsePDF = async (buffer: Buffer): Promise<string> => {
     if (await isTextSufficient(regularText)) {
       return regularText;
     }
-    // Log insufficient regular text for debugging
-    console.warn(`Regular PDF text insufficient (${regularText.length} chars): "${regularText.substring(0, 100)}${regularText.length > 100 ? '...' : '"'}`);
   } catch (error) {
-    console.warn('Regular PDF parsing failed, trying OCR:', error);
+    // Silently handle error, will try OCR
   }
 
   // If regular extraction failed or returned insufficient text, try OCR
-  console.log('Attempting OCR for PDF...');
   const ocrResult = await ocrPDF(buffer);
   return ocrResult.text;
 }

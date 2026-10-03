@@ -75,7 +75,10 @@ const removeFiles = async (files: Express.Multer.File[]): Promise<void> => {
 };
 
 const normalizeStudentName = (name: string): string =>
-  name.trim().replace(/\s+/g, ' ').toLowerCase();
+  // OCR can omit spaces within an otherwise exact name. Compare only the
+  // whitespace-normalized form; every name character and every initial still
+  // has to match exactly, and the stored database value is never changed.
+  name.replace(/\s+/g, '').toLowerCase();
 
 const normalizeSubjectCode = (value: unknown): string => {
   const text = String(value || '').trim().toUpperCase();
@@ -90,17 +93,20 @@ const extractExplicitSubjectCode = (value: unknown): string => {
 
 /**
  * Determine grade from internal, external, and total marks based on passing criteria
- * Returns 'P' for pass, 'F' for fail, or undefined if insufficient data
+ * Returns an explicit P/F/A status when present; otherwise derives P/F from
+ * marks, or returns undefined if there is insufficient mark data.
  *
  * Passing criteria (all must be true for PASS):
  *   internal >= 20
  *   external >= 18
  *   total >= 40
  */
-const determineGradeFromMarks = (subject: any): 'P' | 'F' | undefined => {
-  // If we already have an explicit grade, use it
-  if (subject.grade === 'P' || subject.grade === 'F') {
-    return subject.grade;
+const determineGradeFromMarks = (subject: any): 'P' | 'F' | 'A' | undefined => {
+  // The issued grade-card result is authoritative. In particular, some valid
+  // subjects have no external examination and therefore an external mark of 0.
+  const explicitGrade = String(subject.grade || '').trim().toUpperCase();
+  if (explicitGrade === 'P' || explicitGrade === 'F' || explicitGrade === 'A') {
+    return explicitGrade;
   }
 
   // Check if we have all three mark components
@@ -273,8 +279,7 @@ export const processGradecard = async (req: AuthRequest, res: Response) => {
           }
         }
 
-        // Backlog status is determined only by the grade: F is a backlog and P is not.
-        // Determine grade from explicit P/F or from marks if explicit grade not present
+        // An explicit P/F/A is authoritative; marks are used only when absent.
         const uploadedSubjects = studentData.subjects
           .map((subject: any) => {
             const explicitCode = extractExplicitSubjectCode(subject.subjectCode);
@@ -295,10 +300,10 @@ export const processGradecard = async (req: AuthRequest, res: Response) => {
           })
           .filter((subject: { code: string; name: string; grade: string }) =>
             (subject.code || isBusinessLogicSubject(subject.name)) &&
-            (subject.grade === 'F' || subject.grade === 'P')
+            (subject.grade === 'F' || subject.grade === 'P' || subject.grade === 'A')
           );
         const businessLogicWithoutCode = studentData.subjects
-          .filter((subject: any) => isBusinessLogicSubject(subject.subjectName) && !extractExplicitSubjectCode(subject.subjectCode));
+          .filter((subject: any) => isBusinessLogicSubject(subject.subjectName) && !extractExplicitSubjectCode(subject.subjectName));
         if (businessLogicWithoutCode.length > 0) {
           const businessLogicSubjects = await prisma.subject.findMany({
             where: { name: { contains: 'Business Logic', mode: 'insensitive' } },
@@ -314,12 +319,13 @@ export const processGradecard = async (req: AuthRequest, res: Response) => {
           }
         }
         const resolvedUploadedSubjects = uploadedSubjects.filter(
-          (subject: { code: string; grade: string }) => subject.code && (subject.grade === 'F' || subject.grade === 'P')
+          (subject: { code: string; grade: string }) =>
+            subject.code && (subject.grade === 'F' || subject.grade === 'P' || subject.grade === 'A')
         );
         const updatedBacklogSubjects = Array.from(new Set(currentBacklogSubjects.map(normalizeSubjectCode).filter(Boolean)));
 
         for (const subject of resolvedUploadedSubjects) {
-          if (subject.grade === 'F' && !updatedBacklogSubjects.includes(subject.code)) {
+          if ((subject.grade === 'F' || subject.grade === 'A') && !updatedBacklogSubjects.includes(subject.code)) {
             updatedBacklogSubjects.push(subject.code);
           } else if (subject.grade === 'P') {
             const index = updatedBacklogSubjects.indexOf(subject.code);
@@ -431,13 +437,8 @@ export const getStudentsWithBacklogs = async (req: AuthRequest, res: Response) =
  * Parse PDF text to extract student grade data
  */
 function parsePDFText(text: string): any {
-  // This is a simplified parser - in a real implementation, you'd need
-  // more sophisticated parsing based on the actual gradecard format
   const lines = text.split('\n');
   const students: any[] = [];
-
-  // Look for patterns in the text to identify student records
-  // This would need to be customized based on the actual gradecard format
   let currentStudent: any = null;
   let currentSubjects: any[] = [];
 
@@ -452,88 +453,317 @@ function parsePDFText(text: string): any {
     currentSubjects = [];
   };
 
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i];
     const trimmedLine = line.trim();
     if (!trimmedLine) continue;
 
-    const identityMatch = trimmedLine.match(/^(Name|USN|Roll No):\s*(.*)$/i);
-    if (identityMatch) {
-      const field = identityMatch[1].toLowerCase();
-      const value = identityMatch[2].trim();
-      const startsNewStudent =
-        field === 'name'
-          ? currentStudent !== null && (currentStudent.name || currentSubjects.length > 0)
-          : currentStudent !== null && currentStudent.usn && currentSubjects.length > 0;
+    // Match various possible labels for name and ID fields using two patterns:
+    // 1. Label : Value (with optional whitespace around colon)
+    // 2. Label Value (no colon, but value must start with alphanumeric)
+    // Anchor to start of line and use word boundaries to avoid partial matches
+    const labelPatterns = [
+      '\\bStudent\\s+Name',
+      '\\bCandidate\\s+Name',
+      '\\bFull\\s+Name',
+      '\\bUniversity\\s+Seat\\s+Number',
+      '\\bIdentification\\s+Number',
+      '\\bRoll\\s*Number',
+      '\\bRoll\\s*No',
+      '\\bCandidate\\s*Number',
+      '\\bName',
+      '\\bUSN',
+      '\\bID'
+    ];
 
-      if (startsNewStudent) {
-        saveCurrentStudent();
+    // Pattern 1: with colon - ^\s*(LABEL)\s*:\s*(.*)
+    const pattern1 = new RegExp(`^\\s*(${labelPatterns.join('|')})\\s*:\\s*(.*)`, 'i');
+    // Pattern 2: without colon but value starts with alphanumeric - ^\s*(LABEL)\s+([A-Za-z0-9].*)
+    const pattern2 = new RegExp(`^\\s*(${labelPatterns.join('|')})\\s+([A-Za-z0-9].*)`, 'i');
+
+    let match = trimmedLine.match(pattern1);
+    let value = null;
+    let labelMatched = null;
+
+    if (match) {
+      labelMatched = match[1];
+      value = match[2];
+    } else {
+      match = trimmedLine.match(pattern2);
+      if (match) {
+        labelMatched = match[1];
+        value = match[2];
       }
+    }
 
-      if (!currentStudent) {
-        currentStudent = {
-          name: '',
-          usn: '',
-          semester: '',
-          subjects: []
-        };
-      }
+    if (value !== null && labelMatched !== null) {
+      // Determine if this is a name field or ID field based on the label
+      const labelLower = labelMatched.toLowerCase().trim();
+      const isNameField = labelLower.startsWith('name') ||
+                         labelLower.includes('student name') ||
+                         labelLower.includes('candidate name') ||
+                         labelLower.includes('full name');
+      const isIdField = !isNameField && (labelLower.startsWith('usn') ||
+                                        labelLower.includes('roll number') ||
+                                        labelLower.includes('roll no') ||
+                                        labelLower.includes('candidate number') ||
+                                        labelLower.startsWith('id') ||
+                                        labelLower.includes('identification number') ||
+                                        labelLower.includes('university seat number'));
 
-      if (field === 'name') {
+      let startsNewStudent = false;
+      if (isNameField) {
+        startsNewStudent = currentStudent !== null && (currentStudent.name || currentSubjects.length > 0);
+        if (!currentStudent) {
+          currentStudent = {
+            name: '',
+            usn: '',
+            semester: '',
+            subjects: []
+          };
+        }
+        if (startsNewStudent) {
+          saveCurrentStudent();
+        }
         currentStudent.name = value;
-      } else {
+      } else if (isIdField) {
+        startsNewStudent = currentStudent !== null && (currentStudent.usn || currentSubjects.length > 0);
+        if (!currentStudent) {
+          currentStudent = {
+            name: '',
+            usn: '',
+            semester: '',
+            subjects: []
+          };
+        }
+        if (startsNewStudent) {
+          saveCurrentStudent();
+        }
         currentStudent.usn = value;
       }
-    } else if (trimmedLine.match(/^(Subject|Course)/i)) {
-      // Subject line - extract subject name and initialize subject object
-      const subjectMatch = trimmedLine.match(/^(Subject|Course):?\s*(.+)$/i);
-      if (subjectMatch) {
-        const subjectName = subjectMatch[2].trim();
-        if (subjectName) {
-          const codeMatch = subjectName.match(/\b[A-Z]{2,}[A-Z0-9]*\d{3,}\b/i);
-          const subject: any = {
-            subjectName: subjectName,
-            subjectCode: codeMatch?.[0].toUpperCase() || subjectName.replace(/\s+/g, '').toUpperCase().substring(0, 10),
-            credits: 4 // Default credits
-          };
-          currentSubjects.push(subject);
+    }
+    // Parse subject table - look for subject code patterns and process accordingly
+    else if (currentStudent) {
+      // Check if this line starts with a subject code pattern
+      const subjectCodePattern = /^[A-Z]+[A-Z0-9]*\d+[A-Z0-9]*\s/;
+      const marksPattern = /^\d+/; // Lines that start with digits are marks lines
+
+      if (subjectCodePattern.test(trimmedLine)) {
+        // Found a subject code line - parse this subject
+        let subjectCode = '';
+        let subjectName = '';
+        let internalMarks = null;
+        let externalMarks = null;
+        let totalMarks = null;
+        let grade = null;
+
+        // Extract subject code from the beginning of the line
+        const codeMatch = trimmedLine.match(/^([A-Z]+[A-Z0-9]*\d+[A-Z0-9]*)/);
+        if (codeMatch) {
+          subjectCode = codeMatch[1];
+          const restOfLine = trimmedLine.substring(codeMatch[0].length);
+
+          // Check if the rest of the line contains marks data (look for patterns like number number number)
+          const marksPatternRegex = /(\d+\s+\d+\s+\d+)/;
+          const marksMatch = restOfLine.match(marksPatternRegex);
+
+          if (marksMatch) {
+            // This line contains both subject name and marks
+            // Split the rest of line at the marks pattern
+            const marksIndex = restOfLine.indexOf(marksMatch[0]);
+            subjectName = restOfLine.substring(0, marksIndex).trim();
+
+            // Parse the marks line to extract internal, external, total, grade
+            const marksLine = marksMatch[0];
+            const internalMatch = marksLine.match(/Internal(?:Marks?):?\s*(\d+(?:\.\d+)?)/i);
+            const externalMatch = marksLine.match(/External(?:Marks?):?\s*(\d+(?:\.\d+)?)/i);
+            const totalMatch = marksLine.match(/Total(?:Marks?):?\s*(\d+(?:\.\d+)?)/i);
+            const gradeMatch = restOfLine.match(/\b(P|F|A)\b/i);
+
+            // Also try to parse as space-separated numbers (alternative format)
+            const numbersMatch = marksLine.match(/(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)/);
+
+            const subject: any = {
+              subjectName: subjectName,
+              subjectCode: subjectCode,
+              credits: 4 // Default credits
+            };
+
+            if (internalMatch) {
+              const marks = parseFloat(internalMatch[1]);
+              if (!isNaN(marks)) {
+                subject.internalMarks = marks;
+              }
+            } else if (numbersMatch && !isNaN(parseFloat(numbersMatch[1]))) {
+              subject.internalMarks = parseFloat(numbersMatch[1]);
+            }
+
+            if (externalMatch) {
+              const marks = parseFloat(externalMatch[1]);
+              if (!isNaN(marks)) {
+                subject.externalMarks = marks;
+              }
+            } else if (numbersMatch && !isNaN(parseFloat(numbersMatch[2]))) {
+              subject.externalMarks = parseFloat(numbersMatch[2]);
+            }
+
+            if (totalMatch) {
+              const marks = parseFloat(totalMatch[1]);
+              if (!isNaN(marks)) {
+                subject.totalMarks = marks;
+              }
+            } else if (numbersMatch && !isNaN(parseFloat(numbersMatch[3]))) {
+              subject.totalMarks = parseFloat(numbersMatch[3]);
+            }
+
+            if (gradeMatch) {
+              subject.grade = gradeMatch[1].toUpperCase();
+            }
+
+            currentSubjects.push(subject);
+          } else {
+            // A VTU row may carry an explicit result while its marks are NE/-.
+            // Keep that row even though it has no numeric marks.
+            const inlineResultMatch = restOfLine.match(/\b(P|F|A)\b(?:\s+\d{4}-\d{2}-\d{2}\b|\s*$)/i);
+            if (inlineResultMatch) {
+              const marksStart = restOfLine.search(/\b(?:NE|\d+(?:\s*\+\s*\d+)?)(?:\s*\([^)]*\))?\s+(?:NE|\d+|-)\s+(?:NE|\d+|-)\s+(?:P|F|A)\b/i);
+              currentSubjects.push({
+                subjectName: (marksStart >= 0 ? restOfLine.substring(0, marksStart) : restOfLine).trim(),
+                subjectCode,
+                credits: 4,
+                grade: inlineResultMatch[1].toUpperCase()
+              });
+              continue;
+            }
+
+            // This line does NOT contain marks, so the name continues
+            subjectCode = codeMatch[1];
+            subjectName = restOfLine.trim();
+
+            // Check if next line exists and is a name continuation line
+            let nameContinued = false;
+            if (i + 1 < lines.length) {
+              const nextLine = lines[i + 1].trim();
+              // If next line doesn't start with subject code and doesn't look like marks, it's likely name continuation
+              const nextLineIsSubjectCode = /^[A-Z]+[A-Z0-9]*\d+[A-Z0-9]*\s/.test(nextLine);
+              const nextLineIsMarks = /^\d+/.test(nextLine);
+
+              if (!nextLineIsSubjectCode && !nextLineIsMarks && nextLine.length > 0) {
+                // This is a name continuation line
+                subjectName += ' ' + nextLine;
+                nameContinued = true;
+                i++; // Skip the next line since we've consumed it
+              }
+            }
+
+            // Now look for the marks line (should be after the name continuation)
+            let marksLineIndex = i + 1;
+            if (nameContinued) {
+              marksLineIndex = i + 1; // We already incremented i above for the name continuation
+            }
+
+            // Skip empty lines to find the marks line
+            while (marksLineIndex < lines.length && lines[marksLineIndex].trim() === '') {
+              marksLineIndex++;
+            }
+
+            if (marksLineIndex < lines.length) {
+              const marksLine = lines[marksLineIndex].trim();
+              const explicitResultMatch = marksLine.match(/\b(P|F|A)\b/i);
+              // A result row can start with NE rather than a numeric mark.
+              if (/^\d+/.test(marksLine) || explicitResultMatch) {
+                // Parse the marks line to extract internal, external, total, grade
+                const internalMatch = marksLine.match(/Internal(?:Marks?):?\s*(\d+(?:\.\d+)?)/i);
+                const externalMatch = marksLine.match(/External(?:Marks?):?\s*(\d+(?:\.\d+)?)/i);
+                const totalMatch = marksLine.match(/Total(?:Marks?):?\s*(\d+(?:\.\d+)?)/i);
+                const gradeMatch = marksLine.match(/\b(P|F|A)\b/i);
+
+                // Also try to parse as space-separated numbers (alternative format)
+                const numbersMatch = marksLine.match(/(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)/);
+
+                const subject: any = {
+                  subjectName: subjectName,
+                  subjectCode: subjectCode,
+                  credits: 4 // Default credits
+                };
+
+                if (internalMatch) {
+                  const marks = parseFloat(internalMatch[1]);
+                  if (!isNaN(marks)) {
+                    subject.internalMarks = marks;
+                  }
+                } else if (numbersMatch && !isNaN(parseFloat(numbersMatch[1]))) {
+                  subject.internalMarks = parseFloat(numbersMatch[1]);
+                }
+
+                if (externalMatch) {
+                  const marks = parseFloat(externalMatch[1]);
+                  if (!isNaN(marks)) {
+                    subject.externalMarks = marks;
+                  }
+                } else if (numbersMatch && !isNaN(parseFloat(numbersMatch[2]))) {
+                  subject.externalMarks = parseFloat(numbersMatch[2]);
+                }
+
+                if (totalMatch) {
+                  const marks = parseFloat(totalMatch[1]);
+                  if (!isNaN(marks)) {
+                    subject.totalMarks = marks;
+                  }
+                } else if (numbersMatch && !isNaN(parseFloat(numbersMatch[3]))) {
+                  subject.totalMarks = parseFloat(numbersMatch[3]);
+                }
+
+                if (gradeMatch) {
+                  subject.grade = gradeMatch[1].toUpperCase();
+                }
+
+                currentSubjects.push(subject);
+
+                // Skip the marks line since we've processed it
+                i = marksLineIndex;
+              }
+            }
+          }
         }
       }
-    } else if (currentStudent && currentSubjects.length > 0) {
-      // We're inside a student block and have at least one subject - try to parse mark data
-      const subject = currentSubjects[currentSubjects.length - 1]; // Get the last (current) subject
+      // Also process marks lines that come after subject definitions (for 2-line subjects where we didn't catch the marks above)
+      else if (marksPattern.test(trimmedLine) && currentSubjects.length > 0) {
+        // This is a marks line that belongs to the most recently added subject
+        const subject = currentSubjects[currentSubjects.length - 1];
 
-      // Look for internal marks
-      const internalMatch = trimmedLine.match(/Internal(?:Marks?):?\s*(\d+(?:\.\d+)?)/i);
-      if (internalMatch) {
-        const marks = parseFloat(internalMatch[1]);
-        if (!isNaN(marks)) {
-          subject.internalMarks = marks;
+        // Look for internal marks
+        const internalMatch = trimmedLine.match(/Internal(?:Marks?):?\s*(\d+(?:\.\d+)?)/i);
+        if (internalMatch) {
+          const marks = parseFloat(internalMatch[1]);
+          if (!isNaN(marks)) {
+            subject.internalMarks = marks;
+          }
         }
-      }
 
-      // Look for external marks
-      const externalMatch = trimmedLine.match(/External(?:Marks?):?\s*(\d+(?:\.\d+)?)/i);
-      if (externalMatch) {
-        const marks = parseFloat(externalMatch[1]);
-        if (!isNaN(marks)) {
-          subject.externalMarks = marks;
+        // Look for external marks
+        const externalMatch = trimmedLine.match(/External(?:Marks?):?\s*(\d+(?:\.\d+)?)/i);
+        if (externalMatch) {
+          const marks = parseFloat(externalMatch[1]);
+          if (!isNaN(marks)) {
+            subject.externalMarks = marks;
+          }
         }
-      }
 
-      // Look for total marks
-      const totalMatch = trimmedLine.match(/Total(?:Marks?):?\s*(\d+(?:\.\d+)?)/i);
-      if (totalMatch) {
-        const marks = parseFloat(totalMatch[1]);
-        if (!isNaN(marks)) {
-          subject.totalMarks = marks;
-
+        // Look for total marks
+        const totalMatch = trimmedLine.match(/Total(?:Marks?):?\s*(\d+(?:\.\d+)?)/i);
+        if (totalMatch) {
+          const marks = parseFloat(totalMatch[1]);
+          if (!isNaN(marks)) {
+            subject.totalMarks = marks;
+          }
         }
-      }
 
-      // Also look for direct grade mention
-      const gradeMatch = trimmedLine.match(/Grade:?\s*([FP])/i);
-      if (gradeMatch) {
-        subject.grade = gradeMatch[1].toUpperCase();
+        // Also look for direct grade mention
+        const gradeMatch = trimmedLine.match(/\b(P|F|A)\b/i);
+        if (gradeMatch) {
+          subject.grade = gradeMatch[1].toUpperCase();
+        }
       }
     }
   }

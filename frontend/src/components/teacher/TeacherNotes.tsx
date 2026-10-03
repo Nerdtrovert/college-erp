@@ -75,11 +75,7 @@ export const TeacherNotes: React.FC<{ user: User }> = ({ user }) => {
       formData.append('description', form.description.trim());
       formData.append('file', form.file);
 
-      const res = await API.post('/notes', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      const res = await API.post('/notes', formData);
 
       // Update state
       setNotes(prev => [res.data, ...prev]); // prepend newest

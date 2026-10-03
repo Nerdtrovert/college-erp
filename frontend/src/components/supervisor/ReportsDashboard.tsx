@@ -133,15 +133,15 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
       head = [['USN', 'Name', 'Program', 'Semester', 'Section', 'Subject', 'Missing']];
       tableData = (data as any[]).map((row) => [row.studentId, row.studentName, formatProgram(row.program), formatSemester(row.semester, row.semesterId), row.classGroup || '-', `${row.subjectCode} — ${row.subjectName}`, [row.missingAssignment1 && 'Assignment 1', row.missingAssignment2 && 'Assignment 2'].filter(Boolean).join(', ') || 'Assignment']);
     } else if (reportDetail === 'verge') {
-      head = [['ID', 'Name', 'Program', 'Semester', 'Section', '# Backlogs', 'At Risk Subjects', 'Total Score', 'Status']];
+      head = [['ID', 'Name', 'Program', 'Current Sem', 'Section', '# Backlogs', 'At Risk Subjects', 'Total Score', 'Status']];
       tableData = data.map(s => [
-        s.id, s.name, formatProgram(s.program), formatSemester(s.semester, (s as any).semesterId), s.classGroup || '-',
+        s.id, s.name, formatProgram(s.program), (s as any).currentSemester || '-', s.classGroup || '-',
         s.numberOfBacklogs, s.atRiskSubjects.join(', ') || '-', s.totalScore, s.vergeStatus
       ]);
     } else if (reportDetail === 'current_backlogs') {
-      head = [['ID', 'Name', 'Program', 'Semester', 'Section', '# Backlogs', 'Backlog Subjects']];
+      head = [['ID', 'Name', 'Program', 'Current Sem', 'Section', '# Backlogs', 'Backlog Subjects']];
       tableData = data.map(s => [
-        s.id, s.name, formatProgram(s.program), formatSemester(s.semester, (s as any).semesterId), s.classGroup || '-',
+        s.id, s.name, formatProgram(s.program), (s as any).currentSemester || '-', s.classGroup || '-',
         s.numberOfBacklogs, s.backlogSubjects?.join(', ') || '-'
       ]);
     } else if (reportDetail === 'all') {
@@ -500,7 +500,7 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
                   <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">USN</th>
                   <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Name</th>
                   <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Program</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Semester</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">{['verge', 'current_backlogs'].includes(reportDetail) ? 'Current Sem' : 'Semester'}</th>
                   <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Section</th>
                   
                   {reportDetail === 'low_attendance' && (
@@ -551,7 +551,7 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">{student.id || (student as any).studentId}</td>
                     <td className="px-6 py-4 text-sm text-gray-700 whitespace-nowrap">{student.name || (student as any).studentName}</td>
                     <td className="px-6 py-4 text-sm text-gray-500 font-medium whitespace-nowrap">{formatProgram(student.program)}</td>
-                    <td className="px-6 py-4 text-sm text-gray-700">{formatSemester(student.semester, (student as any).semesterId)}</td>
+                    <td className="px-6 py-4 text-sm text-gray-700">{['verge', 'current_backlogs'].includes(reportDetail) ? ((student as any).currentSemester || '-') : formatSemester(student.semester, (student as any).semesterId)}</td>
                     <td className="px-6 py-4 text-sm text-gray-700">{student.classGroup || '-'}</td>
                     
                     {reportDetail === 'low_attendance' && (
