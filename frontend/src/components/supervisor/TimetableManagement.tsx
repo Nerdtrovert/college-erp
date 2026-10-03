@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { CalendarDays, Check, Clock3, Pencil, Plus, Save } from 'lucide-react';
 import API from '../../services/api';
+import { DropdownSelect } from '../ui/DropdownSelect';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 const PERIODS = [
@@ -182,18 +183,18 @@ export const TimetableManagement: React.FC = () => {
         <div className="grid md:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Semester</label>
-            <select
+            <DropdownSelect
               value={selectedSemester}
               onChange={(event) => selectSemester(event.target.value)}
               className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-blue-500"
             >
               <option value="">Select semester</option>
               {semesters.map((semester) => <option key={semester.id} value={semester.id}>{semester.name} ({semester.status})</option>)}
-            </select>
+            </DropdownSelect>
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Section</label>
-            <select
+            <DropdownSelect
               value={selectedClassGroup}
               onChange={(event) => selectClassGroup(event.target.value)}
               disabled={!selectedSemester}
@@ -201,7 +202,7 @@ export const TimetableManagement: React.FC = () => {
             >
               <option value="">Select section</option>
               {classGroups.map((group) => <option key={group} value={group}>{group}</option>)}
-            </select>
+            </DropdownSelect>
           </div>
         </div>
       </div>
@@ -228,17 +229,17 @@ export const TimetableManagement: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Faculty</label>
-                  <select required value={slotForm.teacherId} onChange={(event) => setSlotForm({ ...slotForm, teacherId: event.target.value })} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-blue-500">
+                  <DropdownSelect required value={slotForm.teacherId} onChange={(event) => setSlotForm({ ...slotForm, teacherId: event.target.value })} className="w-full rounded-xl px-4 py-2.5">
                     <option value="">Select faculty</option>
                     {faculty.map((member) => <option key={member.id} value={member.id}>{member.name} ({member.id})</option>)}
-                  </select>
+                  </DropdownSelect>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Co-Teacher</label>
-                  <select value={slotForm.coTeacherId || ''} onChange={(event) => setSlotForm({ ...slotForm, coTeacherId: event.target.value })} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-blue-500">
+                  <DropdownSelect value={slotForm.coTeacherId || ''} onChange={(event) => setSlotForm({ ...slotForm, coTeacherId: event.target.value })} className="w-full rounded-xl px-4 py-2.5">
                     <option value="">None</option>
                     {faculty.map((member) => <option key={member.id} value={member.id}>{member.name} ({member.id})</option>)}
-                  </select>
+                  </DropdownSelect>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Room</label>

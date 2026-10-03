@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import API from '../../services/api';
 import { PROGRAM_LABELS, SECTION_OPTIONS, STUDENT_PROGRAMS, type StudentProgram } from '../../constants/program';
+import { DropdownSelect } from '../ui/DropdownSelect';
 
 interface Semester {
   id: string;
@@ -436,17 +437,17 @@ export const StudentManagement: React.FC = () => {
             Add Single Student
           </button>
           <div className="flex items-center gap-2">
-            <select
+            <DropdownSelect
               value={reportType}
               onChange={(e) => setReportType(e.target.value as "students" | "faculty-marks")}
               className="px-3 h-[42px] rounded-xl border border-gray-200 bg-gray-50 text-gray-900 text-sm focus:outline-none focus:border-blue-500 cursor-pointer"
             >
               <option value="students">Student List</option>
               <option value="faculty-marks">Faculty-wise Marks</option>
-            </select>
+            </DropdownSelect>
           </div>
           <div className="flex items-center gap-2">
-            <select
+            <DropdownSelect
               value={exportFormat}
               onChange={(e) => setExportFormat(e.target.value as "json" | "csv" | "excel" | "pdf")}
               className="px-3 h-[42px] rounded-xl border border-gray-200 bg-gray-50 text-gray-900 text-sm focus:outline-none focus:border-blue-500 cursor-pointer"
@@ -455,7 +456,7 @@ export const StudentManagement: React.FC = () => {
               <option value="excel">Excel</option>
               <option value="pdf">PDF</option>
               <option value="json">JSON</option>
-            </select>
+            </DropdownSelect>
           </div>
           <button
             onClick={handleDownloadReport}
@@ -483,7 +484,7 @@ export const StudentManagement: React.FC = () => {
               <div>
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Target Semester</label>
                 <div className="relative">
-                  <select
+                  <DropdownSelect
                     value={selectedSemester}
                     onChange={(e) => setSelectedSemester(e.target.value)}
                     className="w-full appearance-none px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500 pr-10"
@@ -492,7 +493,7 @@ export const StudentManagement: React.FC = () => {
                     {semesters.map(s => (
                       <option key={s.id} value={s.id}>{s.name} ({s.status})</option>
                     ))}
-                  </select>
+                  </DropdownSelect>
                   <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                 </div>
               </div>
@@ -511,13 +512,13 @@ export const StudentManagement: React.FC = () => {
 
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Default Program (Fallback)</label>
-              <select
+              <DropdownSelect
                 value={defaultProgram}
                 onChange={(e) => setDefaultProgram(e.target.value as StudentProgram)}
                 className="w-full px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500"
               >
                 {STUDENT_PROGRAMS.map(program => <option key={program} value={program}>{PROGRAM_LABELS[program]}</option>)}
-              </select>
+              </DropdownSelect>
             </div>
 
             {/* Dropzone */}
@@ -692,33 +693,33 @@ Section: CSE-B`}
             
             {/* Program Filter */}
             <div className="relative">
-              <select
+              <DropdownSelect
                 value={filterProgram}
                 onChange={(e) => { setFilterProgram(e.target.value); setCurrentPage(1); }}
                 className="appearance-none bg-gray-50 border border-gray-200 rounded-xl px-4 py-1.5 pr-8 font-semibold text-xs text-gray-700 focus:outline-none focus:border-blue-500"
               >
                 <option value="all">All Programs</option>
                 {STUDENT_PROGRAMS.map(program => <option key={program} value={program}>{PROGRAM_LABELS[program]}</option>)}
-              </select>
+              </DropdownSelect>
               <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
             </div>
             
             {/* Semester Filter */}
             <div className="relative">
-              <select
+              <DropdownSelect
                 value={filterSemester}
                 onChange={(e) => { setFilterSemester(e.target.value); setCurrentPage(1); }}
                 className="appearance-none bg-gray-50 border border-gray-200 rounded-xl px-4 py-1.5 pr-8 font-semibold text-xs text-gray-700 focus:outline-none focus:border-blue-500"
               >
                 <option value="all">All Semesters</option>
                 {semesters.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
+              </DropdownSelect>
               <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
             </div>
 
             {/* Semester Number Filter */}
             <div className="relative">
-              <select
+              <DropdownSelect
                 value={filterSemesterNumber}
                 onChange={(e) => { setFilterSemesterNumber(e.target.value); setCurrentPage(1); }}
                 className="appearance-none bg-gray-50 border border-gray-200 rounded-xl px-4 py-1.5 pr-8 font-semibold text-xs text-gray-700 focus:outline-none focus:border-blue-500"
@@ -727,20 +728,20 @@ Section: CSE-B`}
                 {[1, 2, 3, 4, 5, 6, 7, 8].map(number => (
                   <option key={number} value={number}>{number}{number === 1 ? 'st' : number === 2 ? 'nd' : number === 3 ? 'rd' : 'th'} Semester</option>
                 ))}
-              </select>
+              </DropdownSelect>
               <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
             </div>
 
             {/* Section/ClassGroup Filter */}
             <div className="relative">
-              <select
+              <DropdownSelect
                 value={filterSection}
                 onChange={(e) => { setFilterSection(e.target.value); setCurrentPage(1); }}
                 className="appearance-none bg-gray-50 border border-gray-200 rounded-xl px-4 py-1.5 pr-8 font-semibold text-xs text-gray-700 focus:outline-none focus:border-blue-500"
               >
                 <option value="all">All Sections</option>
                 {sections.map(sec => <option key={sec} value={sec}>{sec}</option>)}
-              </select>
+              </DropdownSelect>
               <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
             </div>
             
@@ -967,23 +968,22 @@ Section: CSE-B`}
 
               <div>
                 <label className="block text-xs font-semibold text-gray-500 uppercase mb-2">Program</label>
-                <select
+                <DropdownSelect
                   required
                   value={editingStudent ? editingStudent.program : (newStudent?.program || '')}
-                  onChange={(e) => {
+                  onChange={(value) => {
                     if (editingStudent) {
-                      const program = e.target.value as StudentProgram;
+                      const program = value as StudentProgram;
                       setEditingStudent({ ...editingStudent, program, classGroup: SECTION_OPTIONS[program][0] });
                     } else if (newStudent) {
-                      const program = e.target.value as StudentProgram;
+                      const program = value as StudentProgram;
                       setNewStudent({ ...newStudent, program, classGroup: SECTION_OPTIONS[program][0] });
                     }
                   }}
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500"
-                >
-                  <option value="" disabled>Select Program</option>
-                  {STUDENT_PROGRAMS.map(program => <option key={program} value={program}>{PROGRAM_LABELS[program]}</option>)}
-                </select>
+                  placeholder="Select Program"
+                  ariaLabel="Select program"
+                  options={STUDENT_PROGRAMS.map((program) => ({ value: program, label: PROGRAM_LABELS[program] }))}
+                />
               </div>
 
               <div>
@@ -1004,7 +1004,7 @@ Section: CSE-B`}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase mb-2">Section</label>
-                  <select
+                  <DropdownSelect
                     required
                     value={editingStudent ? (editingStudent.classGroup || '') : (newStudent?.classGroup || '')}
                     onChange={(e) => {
@@ -1020,13 +1020,13 @@ Section: CSE-B`}
                     {(editingStudent ? SECTION_OPTIONS[editingStudent.program] : SECTION_OPTIONS[newStudent?.program || defaultProgram]).map(section => (
                       <option key={section} value={section}>{section}</option>
                     ))}
-                  </select>
+                  </DropdownSelect>
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase mb-2">Semester</label>
                   <div className="relative">
-                    <select
+                    <DropdownSelect
                       value={editingStudent ? (editingStudent.semesterId || '') : (newStudent?.semesterId || '')}
                       onChange={(e) => {
                         if (editingStudent) {
@@ -1041,7 +1041,7 @@ Section: CSE-B`}
                       {semesters.map(s => (
                         <option key={s.id} value={s.id}>{s.name}</option>
                       ))}
-                    </select>
+                    </DropdownSelect>
                     <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                   </div>
                 </div>

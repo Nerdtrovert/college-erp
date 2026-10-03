@@ -2,6 +2,7 @@ import * as React from 'react';
 import { Save, Calendar, Info, MessageCircle, User, FileText, Trash2 } from 'lucide-react';
 import API from '../../services/api';
 import { sortAnnouncements } from '../../utils/announcements';
+import { DropdownSelect } from '../ui/DropdownSelect';
 
 interface Announcement {
   id: number;
@@ -151,7 +152,7 @@ export const TeacherAnnouncements: React.FC = () => {
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Target Audience</label>
-                <select
+                <DropdownSelect
                   value={newAnnouncement.target}
                   onChange={(e) => setNewAnnouncement(prev => ({ ...prev, target: e.target.value }))}
                   className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all bg-gray-50/50 hover:bg-gray-50 cursor-pointer"
@@ -160,7 +161,7 @@ export const TeacherAnnouncements: React.FC = () => {
                   {subjects.map(cls => (
                     <option key={cls.code} value={cls.code}>{cls.code} — {cls.name} ({cls.classGroup})</option>
                   ))}
-                </select>
+                </DropdownSelect>
               </div>
             </div>
 

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   CalendarDays,
   ChevronLeft,
@@ -26,6 +26,7 @@ import {
   toDateKey,
 } from '../utils/calendarUtils';
 import { parsePDFForEvents } from '../utils/pdfParser';
+import { DropdownSelect } from './ui/DropdownSelect';
 
 export type EventType = 'cie' | 'government' | 'general' | 'academic';
 
@@ -104,7 +105,12 @@ export const AcademicCalendar: React.FC<AcademicCalendarProps> = ({
   editable = false, 
   editableTypes = ['cie', 'government', 'general', 'academic'] 
 }) => {
-  const [monthIndex, setMonthIndex] = useState(0);
+  const [today, setToday] = useState(() => new Date());
+  const [monthIndex, setMonthIndex] = useState(() => {
+    const currentMonthIndex = MONTHS.findIndex((month) => month.month === new Date().getMonth());
+    return currentMonthIndex === -1 ? 0 : currentMonthIndex;
+  });
+  const month = MONTHS[monthIndex];
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [events, setEvents] = useLocalStorage<CalendarEvent[]>('academic-calendar-events', CALENDAR_EVENTS);
   const [form, setForm] = useState<EventForm>(emptyForm);
@@ -113,7 +119,16 @@ export const AcademicCalendar: React.FC<AcademicCalendarProps> = ({
   const [feedback, setFeedback] = useState('');
   const [importing, setImporting] = useState(false);
   const [importFeedback, setImportFeedback] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
-  const month = MONTHS[monthIndex];
+  useEffect(() => {
+    const now = new Date();
+    const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const timeoutId = window.setTimeout(
+      () => setToday(new Date()),
+      nextMidnight.getTime() - now.getTime(),
+    );
+
+    return () => window.clearTimeout(timeoutId);
+  }, [today]);
   const eventLookup = useMemo(() => new Map(events.map((event) => [event.date, event])), [events]);
   const firstDay = new Date(month.year, month.month, 1).getDay();
   const daysInMonth = getDaysInMonth(month.year, month.month);
@@ -300,9 +315,9 @@ export const AcademicCalendar: React.FC<AcademicCalendarProps> = ({
             </label>
             <label className="text-xs font-medium text-gray-700">
               Category
-              <select value={form.type} onChange={(event) => setForm({ ...form, type: event.target.value as EventType })} className="mt-1.5 h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100">
+              <DropdownSelect value={form.type} onChange={(event) => setForm({ ...form, type: event.target.value as EventType })} className="mt-1.5 h-11 rounded-xl px-3">
                 {Object.entries(EVENT_STYLES).filter(([type]) => editableTypes.includes(type as EventType) && type !== 'general').map(([type, style]) => <option key={type} value={type}>{style.label}</option>)}
-              </select>
+              </DropdownSelect>
             </label>
             <button type="submit" className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-100 px-4 text-sm font-semibold text-blue-800 transition-colors hover:border-blue-300 hover:bg-blue-200"><Save size={16} /> Save</button>
           </div>
@@ -369,17 +384,21 @@ export const AcademicCalendar: React.FC<AcademicCalendarProps> = ({
             }
             const primaryEvent = eventLookup.get(cell.dateKey);
             const hasSundayHoliday = cell.date.getDay() === 0 && !primaryEvent;
+            const isToday = cell.date.getMonth() === today.getMonth() && cell.day === today.getDate();
             return (
-              <button type="button" key={cell.dateKey} onClick={() => setSelectedDate(cell.dateKey)} className={`group relative min-h-14 border-b border-r border-gray-100 p-1 text-left sm:min-h-32 sm:p-2 ${selectedDate === cell.dateKey ? 'bg-blue-50 ring-2 ring-inset ring-blue-400' : hasSundayHoliday ? 'bg-slate-50/70' : 'bg-white'}`}>
+              <button type="button" key={cell.dateKey} aria-current={isToday ? 'date' : undefined} aria-label={`${isToday ? 'Today, ' : ''}${cell.date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}${cell.events.length ? `, ${cell.events.map((event) => event.title).join(', ')}` : ''}`} onClick={() => setSelectedDate(cell.dateKey)} className={`group relative min-h-14 border-b border-r border-gray-100 p-1 text-left sm:min-h-32 sm:p-2 ${selectedDate === cell.dateKey ? 'bg-blue-50 ring-2 ring-inset ring-blue-400' : hasSundayHoliday ? 'bg-slate-50/70' : 'bg-white'}`}>
                 <div className="mb-2 flex items-center justify-between gap-1">
-                  <div className={`flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold sm:h-7 sm:w-7 sm:text-xs ${primaryEvent?.type === 'cie' ? 'bg-amber-500 text-white' : primaryEvent?.type === 'government' ? 'bg-rose-100 text-rose-700' : hasSundayHoliday ? 'text-gray-400' : 'text-gray-700'}`}>
+                  <div className={`flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold sm:h-7 sm:w-7 sm:text-xs ${isToday ? 'bg-blue-600 text-white ring-2 ring-blue-100' : primaryEvent?.type === 'cie' ? 'bg-amber-500 text-white' : primaryEvent?.type === 'government' ? 'bg-rose-100 text-rose-700' : hasSundayHoliday ? 'text-gray-400' : 'text-gray-700'}`}>
                     {cell.day}
                   </div>
-                  {editable && (
-                    <span role="button" aria-label={`Add event on ${cell.dateKey}`} onClick={(event) => { event.stopPropagation(); openAddForm(cell.dateKey); }} className="hidden h-7 w-7 items-center justify-center rounded-lg border border-blue-100 bg-blue-50 text-blue-600 transition-colors hover:border-blue-200 hover:bg-blue-100 sm:flex" title="Add event on this date">
-                      <Plus size={14} />
-                    </span>
-                  )}
+                  <div className="flex items-center gap-1">
+                    {isToday && <span className="hidden rounded-full bg-blue-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-blue-700 sm:inline">Today</span>}
+                    {editable && (
+                      <span role="button" aria-label={`Add event on ${cell.dateKey}`} onClick={(event) => { event.stopPropagation(); openAddForm(cell.dateKey); }} className="hidden h-7 w-7 items-center justify-center rounded-lg border border-blue-100 bg-blue-50 text-blue-600 transition-colors hover:border-blue-200 hover:bg-blue-100 sm:flex" title="Add event on this date">
+                        <Plus size={14} />
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="space-y-1">
                   {cell.events.map((event) => {
@@ -456,4 +475,3 @@ export const AcademicCalendar: React.FC<AcademicCalendarProps> = ({
     </div>
   );
 };
-

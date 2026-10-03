@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, Clock3, Plus, Save, X, XCircle } from 'lucide-react';
 import API from '../../services/api';
+import { DropdownSelect } from '../ui/DropdownSelect';
 
 type AttendanceStatus = 'present' | 'absent';
 type AttendanceMap = Record<string, AttendanceStatus>;
@@ -204,14 +205,14 @@ export const TeacherAttendance: React.FC = () => {
               <span className="text-sm font-semibold text-gray-900">Add a class for this date</span>
             </div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <select
+              <DropdownSelect
                 value={classForm.subjectCode}
                 onChange={(event) => setClassForm({ ...classForm, subjectCode: event.target.value })}
                 className="px-3 py-2.5 rounded-lg border border-gray-200 bg-white text-sm"
               >
                 <option value="">Select subject</option>
                 {subjects.map((subject) => <option key={subject.code} value={subject.code}>{subject.code} — {subject.name}</option>)}
-              </select>
+              </DropdownSelect>
               <input type="time" value={classForm.startTime} onChange={(event) => setClassForm({ ...classForm, startTime: event.target.value })} className="px-3 py-2.5 rounded-lg border border-gray-200 bg-white text-sm" aria-label="Class start time" />
               <input type="time" value={classForm.endTime} onChange={(event) => setClassForm({ ...classForm, endTime: event.target.value })} className="px-3 py-2.5 rounded-lg border border-gray-200 bg-white text-sm" aria-label="Class end time" />
               <input type="text" value={classForm.room} onChange={(event) => setClassForm({ ...classForm, room: event.target.value })} placeholder="Room (optional)" className="px-3 py-2.5 rounded-lg border border-gray-200 bg-white text-sm" />

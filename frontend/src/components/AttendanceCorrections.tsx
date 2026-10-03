@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { CheckCircle2, RefreshCw } from 'lucide-react';
 import API from '../services/api';
+import { DropdownSelect } from './ui/DropdownSelect';
 
 interface AttendanceRecord {
   id: string;
@@ -93,9 +94,9 @@ export const AttendanceCorrections: React.FC = () => {
         ) : sessions.length === 0 ? (
           <p className="text-sm text-gray-500 py-4">No saved attendance sessions found for this date.</p>
         ) : (
-          <select value={selectedId} onChange={(event) => setSelectedId(event.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm">
+          <DropdownSelect value={selectedId} onChange={(event) => setSelectedId(event.target.value)} className="w-full px-4 py-2.5 rounded-xl">
             {sessions.map((session) => <option key={session.id} value={session.id}>{session.date} · {session.subject.code} — {session.subject.name} · {session.classGroup} · {session.startTime}-{session.endTime}</option>)}
-          </select>
+          </DropdownSelect>
         )}
       </div>
       {message && <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">{message}</div>}
