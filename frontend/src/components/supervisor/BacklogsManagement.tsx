@@ -34,7 +34,6 @@ interface ReportStudent {
 
 interface Props {}
 
-<<<<<<< HEAD
 interface SemesterRecord {
   id: string;
   status: string;
@@ -42,11 +41,11 @@ interface SemesterRecord {
 
 interface EnrolledStudent {
   enrollments?: Array<{ semesterId: string; semesterNumber: number }>;
-=======
+}
+
 interface SubjectOption {
   code: string;
   name: string;
->>>>>>> 86cecae1733ba047f457fb754804de744ff7bb72
 }
 
 export const BacklogsManagement: React.FC<Props> = () => {
