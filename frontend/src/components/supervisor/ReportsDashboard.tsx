@@ -63,8 +63,6 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
     semesterNumber: '',
   });
   const [attendanceThreshold, setAttendanceThreshold] = useState('75');
-  const [activeSemester, setActiveSemester] = useState<any>(null);
-  const [semesterNumbers, setSemesterNumbers] = useState<number[]>([]);
 
   useEffect(() => {
     const fetchSemesterOptions = async () => {
