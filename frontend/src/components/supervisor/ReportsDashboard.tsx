@@ -7,7 +7,7 @@ import { AlertTriangle, Download, FileText, RefreshCw } from 'lucide-react';
 import API from '../../services/api';
 import { PROGRAM_LABELS, SECTION_OPTIONS, STUDENT_PROGRAMS } from '../../constants/program';
 import { filterAtRiskRows, sortReportRows } from '../../utils/reportSorting';
-import { formatCieMarkOutOf50 } from '../../utils/reportCieMarks';
+import { formatCieMarkOutOf50, getCieMarkColorClass } from '../../utils/reportCieMarks';
 import { DropdownSelect } from '../ui/DropdownSelect';
 
 interface SubjectMarkDetail {
@@ -40,9 +40,10 @@ interface Props {
   user: any;
 }
 
-const ReportsDashboard: React.FC<Props> = () => {
+const ReportsDashboard: React.FC<Props> = ({ user }) => {
   const [data, setData] = useState<ReportStudent[]>([]);
-  const [semesters, setSemesters] = useState<Array<{ id: string; name: string; status: string }>>([]);
+  const [activeSemester, setActiveSemester] = useState<{ id: string; name: string; status: string } | null>(null);
+  const [semesterNumbers, setSemesterNumbers] = useState<number[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
@@ -66,39 +67,43 @@ const ReportsDashboard: React.FC<Props> = () => {
   useEffect(() => {
     const fetchSemesterOptions = async () => {
       try {
-        const [semesterResponse, studentResponse] = await Promise.all([
-          API.get('/semesters'),
-          API.get('/auth/users?role=student')
-        ]);
-        
+        const semesterResponse = await API.get('/semesters');
         const semestersData = Array.isArray(semesterResponse.data) ? semesterResponse.data : [];
-        setSemesters(semestersData);
         
         const activeSem = semestersData.find(semester => semester.status === 'ACTIVE');
         setActiveSemester(activeSem || null);
-        
+        if (!activeSem) return;
+
+        setFilters(prev => ({ ...prev, semesterId: prev.semesterId || activeSem.id, semesterNumber: prev.semesterNumber || '' }));
+
+        const canListStudents = ['dean', 'principal', 'hod'].includes(String(user?.role ?? '').toLowerCase());
+        if (!canListStudents) return;
+
         const activeSemesterNumbers = new Set<number>();
-        if (activeSem) {
-          (studentResponse.data as any[]).forEach(student => {
+        try {
+          const studentResponse = await API.get('/auth/users?role=student');
+          const students = Array.isArray(studentResponse.data) ? studentResponse.data : [];
+          students.forEach((student: any) => {
             const enrollment = student.enrollments?.find((item: any) => item.semesterId === activeSem.id);
             if (enrollment?.semesterNumber) activeSemesterNumbers.add(enrollment.semesterNumber);
           });
+        } catch (err) {
+          console.error('Failed to load student semester filters for reports:', err);
+          setError('Semester-specific student filters could not be loaded. You can still generate a report for all active-semester students.');
+          return;
         }
         
         const numbers = Array.from(activeSemesterNumbers)
           .filter(n => n % 2 !== 0) // only ODD semesters
           .sort((a, b) => a - b);
         setSemesterNumbers(numbers);
-        if (activeSem) {
-          setFilters(prev => ({ ...prev, semesterId: prev.semesterId || activeSem.id, semesterNumber: prev.semesterNumber || '' }));
-        }
       } catch (err) {
         console.error('Failed to load semesters for reports:', err);
         setError('Unable to load semester options. Refresh the page and try again.');
       }
     };
     void fetchSemesterOptions();
-  }, []);
+  }, [user?.role]);
 
   const semesterOptions = [
     { value: `${activeSemester?.id || ''}|`, label: 'All Semesters (Currently Active)' },
@@ -659,8 +664,10 @@ const ReportsDashboard: React.FC<Props> = () => {
                         subject?.[`${selectedCie}MaxScore` as 'cie1MaxScore' | 'cie2MaxScore'],
                       );
                       return (
-                        <td key={code} className="whitespace-nowrap px-6 py-4 text-sm font-semibold tabular-nums text-gray-900">
-                          {score === '-' ? score : `${score} / 50`}
+                        <td key={code} className="whitespace-nowrap px-6 py-4 text-sm font-semibold tabular-nums">
+                          <span className={`inline-flex min-w-20 justify-center rounded-lg px-2.5 py-1 ${getCieMarkColorClass(score)}`}>
+                            {score === '-' ? score : `${score} / 50`}
+                          </span>
                         </td>
                       );
                     })}

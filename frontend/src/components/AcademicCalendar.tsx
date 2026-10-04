@@ -36,20 +36,6 @@ export interface CalendarEvent {
   type: EventType;
 }
 
-interface MonthDefinition {
-  month: number;
-  year: number;
-  label: string;
-}
-
-const MONTHS: MonthDefinition[] = [
-  { month: 8, year: 2025, label: 'September 2025' },
-  { month: 9, year: 2025, label: 'October 2025' },
-  { month: 10, year: 2025, label: 'November 2025' },
-  { month: 11, year: 2025, label: 'December 2025' },
-  { month: 0, year: 2026, label: 'January 2026' },
-];
-
 export const CALENDAR_EVENTS: CalendarEvent[] = [
   { date: '2025-09-22', title: 'Commencement of classes for III semester', type: 'academic' },
   { date: '2025-09-24', title: 'Commencement of classes for I semester', type: 'academic' },
@@ -86,6 +72,31 @@ export const CALENDAR_EVENTS: CalendarEvent[] = [
   { date: '2026-01-09', title: 'Lab CIE', type: 'cie' },
   { date: '2026-01-10', title: 'Wednesday time table', type: 'academic' },
   { date: '2026-01-13', title: 'Last working day for I and III semester', type: 'academic' },
+  { date: '2026-01-14', title: 'Makara Sankranti', type: 'government' },
+  { date: '2026-01-26', title: 'Republic Day', type: 'government' },
+  { date: '2026-02-15', title: 'Maha Shivaratri', type: 'government' },
+  { date: '2026-03-04', title: 'Holi', type: 'government' },
+  { date: '2026-03-19', title: 'Ugadi', type: 'government' },
+  { date: '2026-03-20', title: 'Eid al-Fitr (tentative)', type: 'government' },
+  { date: '2026-03-26', title: 'Rama Navami', type: 'government' },
+  { date: '2026-03-31', title: 'Mahavir Jayanti', type: 'government' },
+  { date: '2026-04-03', title: 'Good Friday', type: 'government' },
+  { date: '2026-04-14', title: 'Dr. B. R. Ambedkar Jayanti', type: 'government' },
+  { date: '2026-04-20', title: 'Basava Jayanti', type: 'government' },
+  { date: '2026-05-01', title: 'Buddha Purnima', type: 'government' },
+  { date: '2026-05-27', title: 'Bakrid (tentative)', type: 'government' },
+  { date: '2026-06-26', title: 'Muharram (tentative)', type: 'government' },
+  { date: '2026-08-15', title: 'Independence Day', type: 'government' },
+  { date: '2026-08-26', title: 'Eid Milad (tentative)', type: 'government' },
+  { date: '2026-09-14', title: 'Ganesh Chaturthi', type: 'government' },
+  { date: '2026-10-02', title: 'Gandhi Jayanti', type: 'government' },
+  { date: '2026-10-20', title: 'Ayudha Puja / Dussehra', type: 'government' },
+  { date: '2026-11-01', title: 'Karnataka Rajyotsava', type: 'government' },
+  { date: '2026-11-08', title: 'Deepavali / Naraka Chaturdashi', type: 'government' },
+  { date: '2026-11-09', title: 'Deepavali holiday', type: 'government' },
+  { date: '2026-11-24', title: 'Guru Nanak Jayanti', type: 'government' },
+  { date: '2026-11-27', title: 'Kanakadasa Jayanti', type: 'government' },
+  { date: '2026-12-25', title: 'Christmas', type: 'government' },
 ];
 
 interface AcademicCalendarProps {
@@ -106,11 +117,10 @@ export const AcademicCalendar: React.FC<AcademicCalendarProps> = ({
   editableTypes = ['cie', 'government', 'general', 'academic'] 
 }) => {
   const [today, setToday] = useState(() => new Date());
-  const [monthIndex, setMonthIndex] = useState(() => {
-    const currentMonthIndex = MONTHS.findIndex((month) => month.month === new Date().getMonth());
-    return currentMonthIndex === -1 ? 0 : currentMonthIndex;
+  const [visibleMonth, setVisibleMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
   });
-  const month = MONTHS[monthIndex];
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [events, setEvents] = useLocalStorage<CalendarEvent[]>('academic-calendar-events', CALENDAR_EVENTS);
   const [form, setForm] = useState<EventForm>(emptyForm);
@@ -129,14 +139,34 @@ export const AcademicCalendar: React.FC<AcademicCalendarProps> = ({
 
     return () => window.clearTimeout(timeoutId);
   }, [today]);
+  useEffect(() => {
+    const migrationKey = 'academic-calendar-events-seed-v2';
+    try {
+      if (window.localStorage.getItem(migrationKey) === 'complete') return;
+
+      const restoredEvents = mergeEvents(events, CALENDAR_EVENTS);
+      if (restoredEvents.length !== events.length) {
+        setEvents(sortEventsByDate(restoredEvents));
+      }
+      window.localStorage.setItem(migrationKey, 'complete');
+    } catch (error) {
+      console.error('Unable to restore the default academic calendar events:', error);
+      setImportFeedback({
+        message: 'Could not restore the default academic calendar events. Check browser storage permissions and reload.',
+        type: 'error',
+      });
+    }
+  }, [events, setEvents]);
   const eventLookup = useMemo(() => new Map(events.map((event) => [event.date, event])), [events]);
-  const firstDay = new Date(month.year, month.month, 1).getDay();
-  const daysInMonth = getDaysInMonth(month.year, month.month);
+  const year = visibleMonth.getFullYear();
+  const month = visibleMonth.getMonth();
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = getDaysInMonth(year, month);
   const cells = Array.from({ length: Math.ceil((firstDay + daysInMonth) / 7) * 7 }, (_, index) => {
     const day = index - firstDay + 1;
     if (day < 1 || day > daysInMonth) return null;
-    const dateKey = toDateKey(month.year, month.month, day);
-    const date = new Date(month.year, month.month, day);
+    const dateKey = toDateKey(year, month, day);
+    const date = new Date(year, month, day);
     return { day, dateKey, date, events: getEventsForDate(events, dateKey, date.getDay()) };
   });
 
@@ -307,7 +337,7 @@ export const AcademicCalendar: React.FC<AcademicCalendarProps> = ({
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1.6fr_1fr_auto] lg:items-end">
             <label className="text-xs font-medium text-gray-700">
               Date
-              <input required type="date" min="2025-09-01" max="2026-01-31" value={form.date} onChange={(event) => setForm({ ...form, date: event.target.value })} className="mt-1.5 h-11 w-full rounded-xl border border-gray-200 px-3 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
+              <input required type="date" value={form.date} onChange={(event) => setForm({ ...form, date: event.target.value })} className="mt-1.5 h-11 w-full rounded-xl border border-gray-200 px-3 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
             </label>
             <label className="text-xs font-medium text-gray-700">
               Event name
@@ -342,19 +372,17 @@ export const AcademicCalendar: React.FC<AcademicCalendarProps> = ({
             <button
               type="button"
               aria-label="Previous month"
-              disabled={monthIndex === 0}
-              onClick={() => setMonthIndex((current) => Math.max(0, current - 1))}
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+              onClick={() => setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 text-gray-600 transition-colors hover:bg-gray-50"
             >
               <ChevronLeft size={18} />
             </button>
-            <h2 className="min-w-0 text-center text-lg font-semibold text-gray-900">{month.label}</h2>
+            <h2 className="min-w-0 text-center text-lg font-semibold text-gray-900">{visibleMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</h2>
             <button
               type="button"
               aria-label="Next month"
-              disabled={monthIndex === MONTHS.length - 1}
-              onClick={() => setMonthIndex((current) => Math.min(MONTHS.length - 1, current + 1))}
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+              onClick={() => setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 text-gray-600 transition-colors hover:bg-gray-50"
             >
               <ChevronRight size={18} />
             </button>
@@ -384,9 +412,9 @@ export const AcademicCalendar: React.FC<AcademicCalendarProps> = ({
             }
             const primaryEvent = eventLookup.get(cell.dateKey);
             const hasSundayHoliday = cell.date.getDay() === 0 && !primaryEvent;
-            const isToday = cell.date.getMonth() === today.getMonth() && cell.day === today.getDate();
+            const isToday = cell.date.getFullYear() === today.getFullYear() && cell.date.getMonth() === today.getMonth() && cell.day === today.getDate();
             return (
-              <button type="button" key={cell.dateKey} aria-current={isToday ? 'date' : undefined} aria-label={`${isToday ? 'Today, ' : ''}${cell.date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}${cell.events.length ? `, ${cell.events.map((event) => event.title).join(', ')}` : ''}`} onClick={() => setSelectedDate(cell.dateKey)} className={`group relative min-h-14 border-b border-r border-gray-100 p-1 text-left sm:min-h-32 sm:p-2 ${selectedDate === cell.dateKey ? 'bg-blue-50 ring-2 ring-inset ring-blue-400' : hasSundayHoliday ? 'bg-slate-50/70' : 'bg-white'}`}>
+              <button type="button" key={cell.dateKey} aria-current={isToday ? 'date' : undefined} aria-label={`${isToday ? 'Today, ' : ''}${cell.date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}${cell.events.length ? `, ${cell.events.map((event) => event.title).join(', ')}` : ''}`} onClick={() => setSelectedDate(cell.dateKey)} className={`group relative min-h-20 border-b border-r border-gray-100 p-1 text-left sm:min-h-32 sm:p-2 ${selectedDate === cell.dateKey ? 'bg-blue-50 ring-2 ring-inset ring-blue-400' : hasSundayHoliday ? 'bg-slate-50/70' : 'bg-white'}`}>
                 <div className="mb-2 flex items-center justify-between gap-1">
                   <div className={`flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold sm:h-7 sm:w-7 sm:text-xs ${isToday ? 'bg-blue-600 text-white ring-2 ring-blue-100' : primaryEvent?.type === 'cie' ? 'bg-amber-500 text-white' : primaryEvent?.type === 'government' ? 'bg-rose-100 text-rose-700' : hasSundayHoliday ? 'text-gray-400' : 'text-gray-700'}`}>
                     {cell.day}
@@ -405,8 +433,8 @@ export const AcademicCalendar: React.FC<AcademicCalendarProps> = ({
                     const style = EVENT_STYLES[event.type];
                     const isSundayHoliday = event.type === 'general' && event.title === 'Sunday holiday';
                     return (
-                      <span key={`${event.date}-${event.title}`} title={event.title} className={`block h-1.5 rounded-full sm:h-auto sm:rounded-lg sm:border sm:px-1.5 sm:py-1 sm:text-[11px] sm:font-medium sm:leading-tight ${style.className}`}>
-                        <span className="hidden sm:line-clamp-3 sm:block">{event.title}</span>
+                      <span key={`${event.date}-${event.title}`} title={event.title} className={`block rounded-md px-0.5 py-0.5 text-[8px] font-medium leading-tight break-words sm:rounded-lg sm:border sm:px-1.5 sm:py-1 sm:text-[11px] sm:leading-tight ${style.className}`}>
+                        <span className="line-clamp-2 sm:line-clamp-3">{event.title}</span>
                         {canEditEvent(event) && !isSundayHoliday && (
                           <span className="mt-1 hidden gap-1 border-t border-current/10 pt-1 sm:flex">
                             <span role="button" aria-label={`Edit ${event.title}`} onClick={(clickEvent) => { clickEvent.stopPropagation(); openEditForm(event); }} className="rounded p-1 hover:bg-white/70"><Edit3 size={11} /></span>
