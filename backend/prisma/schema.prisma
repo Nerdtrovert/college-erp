@@ -26,6 +26,13 @@ enum SubjectType {
   INTEGRATED
 }
 
+enum ActivityType {
+  THEORY
+  LAB
+  TUTORIAL
+  PRACTICAL
+}
+
 model User {
   id               String   @id // Roll Number (e.g. CS21B042) or Faculty ID (e.g. FAC2018)
   name             String
@@ -44,45 +51,63 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Relations
-  taughtSubjects    Subject[]          @relation("TeacherSubjects")
-  coTaughtSubjects  Subject[]          @relation("CoTeacherSubjects")
+  theoryAssignments SubjectSectionAssignment[] @relation("TheoryAssignments")
+  labAssignments    SubjectSectionAssignment[] @relation("LabAssignments")
   attendanceRecords AttendanceRecord[]
   marks             Mark[]
-  announcements     Announcement[]     @relation("UserAnnouncements")
+  announcements     Announcement[]             @relation("UserAnnouncements")
   notes             Note[]
-  adminUploads      AdminUpload[]      @relation("AdminUploads")
+  adminUploads      AdminUpload[]              @relation("AdminUploads")
   semesterId        String?
-  semester          Semester?          @relation(fields: [semesterId], references: [id])
+  semester          Semester?                  @relation(fields: [semesterId], references: [id])
   enrollments       StudentEnrollment[]
+  // Role-specific field ownership is enforced by the database migration.
 
   @@index([classGroup])
   @@index([role])
   @@index([role, classGroup])
   @@index([role, program])
-  // Role-specific field ownership is enforced by the database migration.
 }
 
 model Subject {
-  code       String      @id // Course Code (e.g. CS2301)
-  name       String
-  facultyId   String
-  coFacultyId String?
-  classGroup  String // Target class (e.g., "CSE-B")
+  id          String      @id @default(uuid())
+  code        String      @unique
+  name        String
   type        SubjectType @default(STANDALONE)
-
-  faculty   User  @relation("TeacherSubjects", fields: [facultyId], references: [id])
-  coFaculty User? @relation("CoTeacherSubjects", fields: [coFacultyId], references: [id])
-
-  // Relations
-  attendanceSessions AttendanceSession[]
-  marks              Mark[]
-  timetableSlots     TimetableSlot[]
+  description String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([classGroup])
+  // Relations
+  assignments SubjectSectionAssignment[] @relation("SubjectAssignments")
 }
+
+model SubjectSectionAssignment {
+  id              String   @id @default(uuid())
+  subjectId       String
+  subject         Subject  @relation("SubjectAssignments", fields: [subjectId], references: [id])
+  classGroup      String
+  theoryFacultyId String?
+  theoryFaculty   User?    @relation("TheoryAssignments", fields: [theoryFacultyId], references: [id])
+  labFacultyId    String?
+  labFaculty      User?    @relation("LabAssignments", fields: [labFacultyId], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Inverse relations
+  attendanceSessions AttendanceSession[] @relation("AttendanceSessionAssignment")
+  marks              Mark[]              @relation("MarkAssignment")
+  timetableSlots     TimetableSlot[]     @relation("TimetableSlotAssignment")
+
+  @@unique([subjectId, classGroup])
+}
+
+// Updated relations in other models:
+// User: theoryAssignments[], labAssignments[] (to SubjectSectionAssignment)
+// AttendanceSession: assignmentId (to SubjectSectionAssignment)
+// Mark: assignmentId (to SubjectSectionAssignment)
+// TimetableSlot: assignmentId? (to SubjectSectionAssignment)
 
 model Semester {
   id        String         @id @default(uuid())
@@ -124,26 +149,22 @@ model StudentEnrollment {
 }
 
 model AttendanceSession {
-  id          String @id @default(uuid())
-  subjectCode String
-  date        String // Stored as "YYYY-MM-DD"
-  classGroup  String // e.g. "CSE-B"
-  semesterId  String
-  startTime   String // Stored as "HH:mm"
-  endTime     String // Stored as "HH:mm"
-  room        String?
-
-  subject  Subject  @relation(fields: [subjectCode], references: [code], onDelete: Cascade)
-  semester Semester @relation(fields: [semesterId], references: [id])
+  id           String                   @id @default(uuid())
+  assignmentId String
+  assignment   SubjectSectionAssignment @relation("AttendanceSessionAssignment", fields: [assignmentId], references: [id])
+  date         String // Stored as "YYYY-MM-DD"
+  classGroup   String // e.g. "CSE-B"
+  semesterId   String
+  startTime    String // Stored as "HH:mm"
+  endTime      String // Stored as "HH:mm"
+  room         String?
 
   // Relations
-  records AttendanceRecord[]
+  records  AttendanceRecord[]
+  semester Semester           @relation(fields: [semesterId], references: [id])
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([subjectCode, date, classGroup, semesterId, startTime, endTime])
-  @@index([subjectCode, semesterId])
+  @@unique([assignmentId, date, classGroup, semesterId, startTime, endTime])
+  @@index([assignmentId, semesterId])
   @@index([date, semesterId])
 }
 
@@ -163,27 +184,27 @@ model AttendanceRecord {
 }
 
 model Mark {
-  id               String  @id @default(uuid())
+  id               String                   @id @default(uuid())
   studentId        String
-  subjectCode      String
+  assignmentId     String
+  assignment       SubjectSectionAssignment @relation("MarkAssignment", fields: [assignmentId], references: [id])
   type             String // "ia1", "ia2", "assignment", "lab"
   score            Float? // null represents "Pending"
   maxScore         Float
   semesterId       String
-  assign1Submitted Boolean @default(false)
-  assign2Submitted Boolean @default(false)
+  assign1Submitted Boolean                  @default(false)
+  assign2Submitted Boolean                  @default(false)
 
   student  User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  subject  Subject  @relation(fields: [subjectCode], references: [code], onDelete: Cascade)
   semester Semester @relation(fields: [semesterId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([studentId, subjectCode, type, semesterId])
-  @@index([subjectCode, semesterId])
+  @@unique([studentId, assignmentId, type, semesterId])
+  @@index([assignmentId, semesterId])
   @@index([studentId, semesterId])
-  @@index([subjectCode, type, semesterId])
+  @@index([assignmentId, type, semesterId])
 }
 
 model Announcement {
@@ -203,17 +224,18 @@ model Announcement {
 }
 
 model TimetableSlot {
-  id          String  @id @default(uuid())
-  day         String // "Monday", "Tuesday", etc.
-  slotIndex   Int // 0-indexed position (e.g., 0 for 8:30-9:30, 2 for break, etc.)
-  subjectCode String?
-  room        String?
-  classGroup  String // Target section for students (e.g., "CSE-B")
-  teacherId   String // Associated teacher ID
-  coTeacherId String? // Associated co-teacher ID (Optional)
-  semesterId  String
+  id           String                    @id @default(uuid())
+  day          String // "Monday", "Tuesday", etc.
+  slotIndex    Int // 0-indexed position (e.g., 0 for 8:30-9:30, 2 for break, etc.)
+  assignmentId String?
+  assignment   SubjectSectionAssignment? @relation("TimetableSlotAssignment", fields: [assignmentId], references: [id])
+  room         String?
+  classGroup   String // Target section for students (e.g., "CSE-B")
+  teacherId    String // Associated teacher ID
+  coTeacherId  String? // Associated co-teacher ID (Optional)
+  semesterId   String
+  activityType ActivityType? // THEORY, LAB, TUTORIAL, PRACTICAL
 
-  subject  Subject? @relation(fields: [subjectCode], references: [code], onDelete: SetNull)
   semester Semester @relation(fields: [semesterId], references: [id])
 
   createdAt DateTime @default(now())

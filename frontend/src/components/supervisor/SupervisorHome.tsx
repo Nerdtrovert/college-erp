@@ -302,7 +302,7 @@ export const SupervisorHome: React.FC<Props> = ({ user, onNavigate }) => {
               ) : (
                 <div className="space-y-2">
                   {currentlyTeaching.map((faculty) => (
-                    <div key={faculty.facultyId} className="flex min-w-0 items-start gap-3 rounded-xl border border-blue-100 bg-blue-50/40 p-3">
+                    <div key={faculty.id} className="flex min-w-0 items-start gap-3 rounded-xl border border-blue-100 bg-blue-50/40 p-3">
                       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-100">
                         <CalendarDays size={15} className="text-indigo-600" />
                       </div>
@@ -342,7 +342,7 @@ export const SupervisorHome: React.FC<Props> = ({ user, onNavigate }) => {
           ) : (
             <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
               {currentlyFree.map((faculty) => (
-                <div key={faculty.facultyId} className="flex min-w-0 items-center gap-3 rounded-xl border border-gray-200 bg-white px-3 py-3">
+                <div key={faculty.id} className="flex min-w-0 items-center gap-3 rounded-xl border border-gray-200 bg-white px-3 py-3">
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-100">
                     <span className="h-2.5 w-2.5 rounded-full bg-gray-400" />
                   </span>

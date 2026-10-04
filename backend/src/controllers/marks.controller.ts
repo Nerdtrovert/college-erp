@@ -41,11 +41,13 @@ export const getStudentMarks = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'No active semester found' });
     }
 
-    // Find all subjects for this student's class group in the active semester
-    const subjects = await prisma.subject.findMany({
+    // Find all assignments for this student's class group in the active semester
+    const assignments = await prisma.subjectSectionAssignment.findMany({
       where: { classGroup },
       include: {
-        faculty: { select: { name: true } },
+        subject: { select: { code: true, name: true, type: true } },
+        theoryFaculty: { select: { name: true } },
+        labFaculty: { select: { name: true } },
         marks: {
           where: {
             studentId,
@@ -56,12 +58,12 @@ export const getStudentMarks = async (req: AuthRequest, res: Response) => {
     });
 
     // Map into the format expected by StudentMarks.tsx
-    const marksData = subjects.map((sub) => {
+    const marksData = assignments.map((assign) => {
       // Helper to calculate best 2 average of CIEs and scale
       const getCieScore = () => {
-        const c1 = sub.marks.find((m) => m.type === 'cie1')?.score;
-        const c2 = sub.marks.find((m) => m.type === 'cie2')?.score;
-        const c3 = sub.marks.find((m) => m.type === 'cie3')?.score;
+        const c1 = assign.marks.find((m) => m.type === 'cie1')?.score;
+        const c2 = assign.marks.find((m) => m.type === 'cie2')?.score;
+        const c3 = assign.marks.find((m) => m.type === 'cie3')?.score;
 
         const scores = [c1, c2, c3].filter((s): s is number => s !== undefined && s !== null);
         if (scores.length === 0) return null;
@@ -72,21 +74,21 @@ export const getStudentMarks = async (req: AuthRequest, res: Response) => {
         const avg = best.reduce((sum, val) => sum + val, 0) / best.length;
 
         // Scale based on subject type (Standalone to 25, Integrated to 15)
-        const scaleFactor = sub.type === 'STANDALONE' ? 0.5 : 0.3;
+        const scaleFactor = assign.subject.type === 'STANDALONE' ? 0.5 : 0.3;
         const scaled = avg * scaleFactor;
         return Math.round(scaled * 10) / 10;
       };
 
       // Helper to calculate assignment score
       const getAssignmentScore = () => {
-        if (sub.type === 'STANDALONE') {
-          const a = sub.marks.find((m) => m.type === 'assignment')?.score;
+        if (assign.subject.type === 'STANDALONE') {
+          const a = assign.marks.find((m) => m.type === 'assignment')?.score;
           return a !== undefined ? a : null;
         } else {
           // Integrated: average of assignment1 and assignment2
-          const a1 = sub.marks.find((m) => m.type === 'assignment1')?.score;
-          const a2 = sub.marks.find((m) => m.type === 'assignment2')?.score;
-          
+          const a1 = assign.marks.find((m) => m.type === 'assignment1')?.score;
+          const a2 = assign.marks.find((m) => m.type === 'assignment2')?.score;
+
           const scores = [a1, a2].filter((s): s is number => s !== undefined && s !== null);
           if (scores.length === 0) return null;
           const avg = scores.reduce((sum, val) => sum + val, 0) / scores.length;
@@ -95,8 +97,8 @@ export const getStudentMarks = async (req: AuthRequest, res: Response) => {
       };
 
       const getLabScore = () => {
-        if (sub.type === 'STANDALONE') return null;
-        const l = sub.marks.find((m) => m.type === 'lab')?.score;
+        if (assign.subject.type === 'STANDALONE') return null;
+        const l = assign.marks.find((m) => m.type === 'lab')?.score;
         return l !== undefined ? l : null;
       };
 
@@ -104,13 +106,16 @@ export const getStudentMarks = async (req: AuthRequest, res: Response) => {
       const assignmentScore = getAssignmentScore();
       const labScore = getLabScore();
 
-      const isStandalone = sub.type === 'STANDALONE';
+      const isStandalone = assign.subject.type === 'STANDALONE';
+
+      // Determine faculty name: prefer theory faculty, fallback to lab faculty
+      const facultyName = assign.theoryFaculty?.name ?? assign.labFaculty?.name ?? '';
 
       return {
-        name: sub.name,
-        code: sub.code,
-        faculty: sub.faculty.name,
-        type: sub.type,
+        name: assign.subject.name,
+        code: assign.subject.code,
+        faculty: facultyName,
+        type: assign.subject.type,
         assessments: [
           { name: 'CIE', marks: cieScore, max: isStandalone ? 25 : 15 },
           { name: 'Assignment', marks: assignmentScore, max: isStandalone ? 25 : 10 },
@@ -128,32 +133,82 @@ export const getStudentMarks = async (req: AuthRequest, res: Response) => {
 
 export const getTeacherMarks = async (req: AuthRequest, res: Response) => {
   const { subjectCode, assessmentType } = req.params as { subjectCode: string; assessmentType: string };
+  const teacherId = req.user?.id;
+
+  if (!teacherId) {
+    return res.status(400).json({ error: 'Teacher ID not found' });
+  }
 
   try {
-    const subject = await prisma.subject.findUnique({
-      where: { code: subjectCode },
-    });
-
-    if (!subject) {
-      return res.status(404).json({ error: 'Subject code not found' });
-    }
-
     // Get active semester
     const activeSem = await semesterService.getActiveSemester();
     if (!activeSem) {
       return res.status(400).json({ error: 'No active semester found' });
     }
 
+    // Find the assignment for this subject and teacher in the active semester to get classGroup
+    const assignmentForSlot = await prisma.subjectSectionAssignment.findFirst({
+      where: {
+        subject: {
+          code: subjectCode
+        },
+        OR: [
+          { theoryFacultyId: teacherId },
+          { labFacultyId: teacherId }
+        ]
+      },
+      include: {
+        subject: { select: { code: true, name: true, type: true } }
+      }
+    });
+
+    if (!assignmentForSlot) {
+      return res.status(404).json({ error: 'Subject section assignment not found for this teacher and subject' });
+    }
+
+    // Find the timetable slot for this assignment in the active semester to get classGroup
+    const slot = await prisma.timetableSlot.findFirst({
+      where: {
+        assignmentId: assignmentForSlot.id,
+        semesterId: activeSem.id,
+      },
+      select: { classGroup: true }
+    });
+
+    if (!slot) {
+      return res.status(404).json({ error: 'No timetable slot found for this subject and semester' });
+    }
+    const classGroup = slot.classGroup;
+
+    // Get the assignment (SubjectSectionAssignment) for this subject and classGroup
+    const targetAssignment = await prisma.subjectSectionAssignment.findFirst({
+      where: {
+        subject: {
+          code: subjectCode
+        },
+        classGroup
+      },
+      include: {
+        subject: { select: { code: true, name: true, type: true } },
+        theoryFaculty: { select: { name: true } },
+        labFaculty: { select: { name: true } }
+      }
+    });
+
+    if (!targetAssignment) {
+      return res.status(404).json({ error: 'Subject section assignment not found' });
+    }
+
     // Get all students inside this class group section
     const students = await prisma.user.findMany({
-      where: { role: 'student', classGroup: subject.classGroup },
+      where: { role: 'student', classGroup },
       orderBy: { id: 'asc' },
     });
 
-    // Get marks records matching the subject, type, student, and active semester
+    // Get marks records matching the assignment, type, student, and active semester
     const marks = await prisma.mark.findMany({
       where: {
-        subjectCode,
+        assignmentId: targetAssignment.id,
         type: assessmentType,
         semesterId: activeSem.id,
       },
@@ -167,10 +222,14 @@ export const getTeacherMarks = async (req: AuthRequest, res: Response) => {
       score: marksMap[stud.id] !== undefined ? marksMap[stud.id] : null,
     }));
 
+    // Determine faculty name for the response (prefer theory faculty)
+    const facultyName = targetAssignment.theoryFaculty?.name ?? targetAssignment.labFaculty?.name ?? '';
+
     return res.status(200).json({
-      subjectCode,
-      classGroup: subject.classGroup,
+      subjectCode: targetAssignment.subject.code,
+      classGroup,
       assessmentType,
+      faculty: facultyName,
       students: studentMarksList,
     });
   } catch (error) {
@@ -181,31 +240,81 @@ export const getTeacherMarks = async (req: AuthRequest, res: Response) => {
 
 export const exportTeacherMarks = async (req: AuthRequest, res: Response) => {
   const { subjectCode, assessmentType } = req.params as { subjectCode: string; assessmentType: string };
+  const teacherId = req.user?.id;
+
+  if (!teacherId) {
+    return res.status(400).json({ error: 'Teacher ID not found' });
+  }
 
   try {
-    const subject = await prisma.subject.findUnique({
-      where: { code: subjectCode },
-      select: { code: true, name: true, classGroup: true },
-    });
-
-    if (!subject) {
-      return res.status(404).json({ error: 'Subject code not found' });
-    }
-
+    // Get active semester
     const activeSem = await semesterService.getActiveSemester();
     if (!activeSem) {
       return res.status(400).json({ error: 'No active semester found' });
     }
 
+    // Find the assignment for this subject and teacher in the active semester to get classGroup
+    const assignmentForSlot = await prisma.subjectSectionAssignment.findFirst({
+      where: {
+        subject: {
+          code: subjectCode
+        },
+        OR: [
+          { theoryFacultyId: teacherId },
+          { labFacultyId: teacherId }
+        ]
+      },
+      include: {
+        subject: { select: { code: true, name: true, type: true } }
+      }
+    });
+
+    if (!assignmentForSlot) {
+      return res.status(404).json({ error: 'Subject section assignment not found for this teacher and subject' });
+    }
+
+    // Find the timetable slot for this assignment in the active semester to get classGroup
+    const slot = await prisma.timetableSlot.findFirst({
+      where: {
+        assignmentId: assignmentForSlot.id,
+        semesterId: activeSem.id,
+      },
+      select: { classGroup: true }
+    });
+
+    if (!slot) {
+      return res.status(404).json({ error: 'No timetable slot found for this subject and semester' });
+    }
+    const classGroup = slot.classGroup;
+
+    // Get the assignment (SubjectSectionAssignment) for this subject and classGroup
+    const targetAssignment = await prisma.subjectSectionAssignment.findFirst({
+      where: {
+        subject: {
+          code: subjectCode
+        },
+        classGroup
+      },
+      include: {
+        subject: { select: { code: true, name: true } },
+        theoryFaculty: { select: { name: true } },
+        labFaculty: { select: { name: true } }
+      }
+    });
+
+    if (!targetAssignment) {
+      return res.status(404).json({ error: 'Subject section assignment not found' });
+    }
+
     const [students, marks] = await Promise.all([
       prisma.user.findMany({
-        where: { role: 'student', classGroup: subject.classGroup },
+        where: { role: 'student', classGroup },
         orderBy: { id: 'asc' },
         select: { id: true, name: true },
       }),
       prisma.mark.findMany({
         where: {
-          subjectCode,
+          assignmentId: targetAssignment.id,
           type: assessmentType,
           semesterId: activeSem.id,
         },
@@ -221,7 +330,7 @@ export const exportTeacherMarks = async (req: AuthRequest, res: Response) => {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename="${subject.code}-${assessmentType}-marks.pdf"`,
+      `attachment; filename="${targetAssignment.subject.code}-${assessmentType}-marks.pdf"`,
     );
 
     const doc = new PDFDocument({ size: 'A4', margin: 48 });
@@ -229,8 +338,8 @@ export const exportTeacherMarks = async (req: AuthRequest, res: Response) => {
 
     doc.fontSize(18).font('Helvetica-Bold').text('Internal Marks', { align: 'center' });
     doc.moveDown(0.5);
-    doc.fontSize(11).font('Helvetica').text(`${subject.code} - ${subject.name}`, { align: 'center' });
-    doc.text(`Class: ${subject.classGroup}    Assessment: ${assessmentLabel}`, { align: 'center' });
+    doc.fontSize(11).font('Helvetica').text(`${targetAssignment.subject.code} - ${targetAssignment.subject.name}`, { align: 'center' });
+    doc.text(`Class: ${classGroup}    Assessment: ${assessmentLabel}`, { align: 'center' });
     doc.moveDown(1.5);
 
     const columns = [
@@ -277,18 +386,65 @@ export const exportTeacherMarks = async (req: AuthRequest, res: Response) => {
 
 export const saveTeacherMarks = async (req: AuthRequest, res: Response) => {
   const { subjectCode, type, maxScore, records } = req.body;
+  const teacherId = req.user?.id;
+
+  if (!teacherId) {
+    return res.status(400).json({ error: 'Teacher ID not found' });
+  }
 
   try {
-    // Verify subject exists
-    const subject = await prisma.subject.findUnique({ where: { code: subjectCode } });
-    if (!subject) {
-      return res.status(404).json({ error: 'Subject code not found' });
-    }
-
     // Get active semester
     const activeSem = await semesterService.getActiveSemester();
     if (!activeSem) {
       return res.status(400).json({ error: 'No active semester found' });
+    }
+
+    // Find the assignment for this subject and teacher in the active semester to get classGroup
+    const assignmentForSlot = await prisma.subjectSectionAssignment.findFirst({
+      where: {
+        subject: {
+          code: subjectCode
+        },
+        OR: [
+          { theoryFacultyId: teacherId },
+          { labFacultyId: teacherId }
+        ]
+      },
+      include: {
+        subject: { select: { code: true, name: true, type: true } }
+      }
+    });
+
+    if (!assignmentForSlot) {
+      return res.status(404).json({ error: 'Subject section assignment not found for this teacher and subject' });
+    }
+
+    // Find the timetable slot for this assignment in the active semester to get classGroup
+    const slot = await prisma.timetableSlot.findFirst({
+      where: {
+        assignmentId: assignmentForSlot.id,
+        semesterId: activeSem.id,
+      },
+      select: { classGroup: true }
+    });
+
+    if (!slot) {
+      return res.status(404).json({ error: 'No timetable slot found for this subject and semester' });
+    }
+    const classGroup = slot.classGroup;
+
+    // Verify the assignment exists for this subject and classGroup
+    const targetAssignment = await prisma.subjectSectionAssignment.findFirst({
+      where: {
+        subject: {
+          code: subjectCode
+        },
+        classGroup
+      }
+    });
+
+    if (!targetAssignment) {
+      return res.status(404).json({ error: 'Subject section assignment not found' });
     }
 
     // Bulk upsert using transaction
@@ -296,9 +452,9 @@ export const saveTeacherMarks = async (req: AuthRequest, res: Response) => {
       records.map((rec: { studentId: string; score: number | null }) =>
         prisma.mark.upsert({
           where: {
-            studentId_subjectCode_type_semesterId: {
+            studentId_assignmentId_type_semesterId: {
               studentId: rec.studentId,
-              subjectCode,
+              assignmentId: targetAssignment.id,
               type,
               semesterId: activeSem.id,
             },
@@ -309,7 +465,7 @@ export const saveTeacherMarks = async (req: AuthRequest, res: Response) => {
           },
           create: {
             studentId: rec.studentId,
-            subjectCode,
+            assignmentId: targetAssignment.id,
             type,
             score: rec.score,
             maxScore,

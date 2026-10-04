@@ -28,6 +28,7 @@ interface SlotForm {
   slotIndex: string;
   classGroup: string;
   subjectCode: string;
+  activityType: string;
   room: string;
   teacherId: string;
   coTeacherId: string;
@@ -38,6 +39,7 @@ const emptyForm: SlotForm = {
   slotIndex: '0',
   classGroup: '',
   subjectCode: '',
+  activityType: '',
   room: '',
   teacherId: '',
   coTeacherId: '',
@@ -55,6 +57,13 @@ export const TimetableManagement: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  // Import feature state
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importPreview, setImportPreview] = useState<any[]>([]);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importSuccess, setImportSuccess] = useState<boolean | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -135,6 +144,7 @@ export const TimetableManagement: React.FC = () => {
       slotIndex: String(slotIndex),
       classGroup: selectedClassGroup,
       subjectCode: slot?.subjectCode || '',
+      activityType: slot?.activityType || '',
       room: slot?.room === 'LH-N/A' ? '' : slot?.room || '',
       teacherId: slot?.teacherId || '',
       coTeacherId: slot?.coTeacherId || '',
@@ -167,6 +177,88 @@ export const TimetableManagement: React.FC = () => {
     () => semesters.find((semester) => semester.id === selectedSemester),
     [semesters, selectedSemester],
   );
+
+  // Import feature handlers
+  const handleImportFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files[0];
+    if (!file) {
+      setImportFile(null);
+      return;
+    }
+    if (file.type !== 'application/pdf') {
+      setImportError('Please upload a PDF file');
+      setImportFile(null);
+      return;
+    }
+    setImportFile(file);
+    setImportError(null);
+    setImportSuccess(null);
+  };
+
+  const handleParseImport = async () => {
+    if (!importFile) return;
+
+    setImportLoading(true);
+    setImportError(null);
+    setImportPreview([]);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', importFile);
+
+      const response = await API.post('/timetable/parse', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      setImportPreview(response.data || []);
+      setImportSuccess(null);
+    } catch (error: any) {
+      setImportError(error.response?.data?.error || 'Failed to parse timetable');
+      setImportPreview([]);
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
+  const handleConfirmImport = async () => {
+    if (!importFile || importPreview.length === 0) return;
+
+    setImportLoading(true);
+    setImportError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', importFile);
+
+      await API.post('/timetable/import', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      setImportSuccess(true);
+      setImportError(null);
+      // Refresh timetable data after successful import
+      if (selectedSemester && selectedClassGroup) {
+        await fetchTimetable(selectedSemester, selectedClassGroup);
+      }
+    } catch (error: any) {
+      setImportSuccess(false);
+      setImportError(error.response?.data?.error || 'Failed to import timetable');
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
+  const handleCancelImport = () => {
+    setImportFile(null);
+    setImportPreview([]);
+    setImportError(null);
+    setImportSuccess(null);
+    // Reset file input
+    const fileInput = document.getElementById('import-file-input');
+    if (fileInput) {
+      fileInput.value = '';
+    }
+  };
 
   if (loading && semesters.length === 0) {
     return <div className="p-6 text-center text-gray-500 font-medium">Loading timetables...</div>;
@@ -291,8 +383,12 @@ export const TimetableManagement: React.FC = () => {
                           <span className="w-[4.5rem] shrink-0 text-[11px] font-semibold text-gray-400">{period.label}</span>
                           {slot ? (
                             <span className={`min-w-0 flex-1 rounded-lg border px-3 py-2 ${color[0]} ${color[1]}`}>
-                              <span className={`block text-sm font-semibold ${color[2]}`}>{slot.subjectCode}</span>
-                              <span className="mt-0.5 block truncate text-xs text-gray-500">{slot.room || 'Room TBD'} · {slot.teacherId}</span>
+                              <div className="flex flex-col">
+                                <span className={`block text-sm font-semibold ${color[2]}`}>{slot.subjectCode}</span>
+                                <span className="block text-[11px] text-gray-500 mt-1">{slot.activityType}</span>
+                              </div>
+                              <span className="block text-[11px] text-gray-500 mt-1 truncate">{slot.room || 'Room TBD'}</span>
+                              <span className="block text-[11px] text-gray-400 mt-1 truncate">{slot.teacherId}</span>
                             </span>
                           ) : (
                             <span className="flex min-h-10 min-w-0 flex-1 items-center justify-center rounded-lg border border-dashed border-gray-200 bg-gray-50 text-xs text-gray-400">
@@ -338,7 +434,10 @@ export const TimetableManagement: React.FC = () => {
                             >
                               {slot ? (
                                 <>
-                                  <span className={`block text-sm font-semibold leading-tight ${color[2]}`}>{slot.subjectCode}</span>
+                                  <div className="flex flex-col">
+                                    <span className={`block text-sm font-semibold leading-tight ${color[2]}`}>{slot.subjectCode}</span>
+                                    <span className="block text-[11px] text-gray-500 mt-1">{slot.activityType}</span>
+                                  </div>
                                   <span className="block text-[11px] text-gray-500 mt-1 truncate">{slot.room || 'Room TBD'}</span>
                                   <span className="block text-[11px] text-gray-400 mt-1 truncate">{slot.teacherId}</span>
                                 </>
@@ -358,6 +457,149 @@ export const TimetableManagement: React.FC = () => {
 
         </>
       )}
+
+      {/* Import Feature Section */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold text-gray-900">Import Timetable from PDF</h2>
+            {importSuccess === true && (
+              <button
+                onClick={handleCancelImport}
+                className="text-sm font-semibold text-green-600 hover:text-green-500"
+              >
+                Import another
+              </button>
+            )}
+          </div>
+
+          {/* File Upload */}
+          <div className="space-y-3">
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+              Upload PDF Timetable
+            </label>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <input
+                id="import-file-input"
+                type="file"
+                accept=".pdf"
+                onChange={handleImportFileChange}
+                className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-blue-500"
+              />
+              <button
+                disabled={!importFile || importLoading}
+                onClick={handleParseImport}
+                className="px-4 py-2.5 rounded-xl border border-blue-200 bg-blue-100 text-sm font-semibold text-blue-800 hover:bg-blue-200 disabled:opacity-60"
+              >
+                {importLoading ? 'Parsing...' : 'Parse PDF'}
+              </button>
+            </div>
+          </div>
+
+          {/* Error Message */}
+          {importError && (
+            <div className="bg-red-50 text-red-700 rounded-xl px-4 py-3 text-sm">
+              {importError}
+            </div>
+          )}
+
+          {/* Success Message */}
+          {importSuccess === true && (
+            <div className="bg-green-50 text-green-700 rounded-xl px-4 py-3 text-sm">
+              Timetable imported successfully!
+            </div>
+          )}
+
+          {/* Preview Section */}
+          {importPreview.length > 0 && !importLoading && (
+            <>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-900">Preview</h3>
+                <button
+                  onClick={handleCancelImport}
+                  className="text-xs font-semibold text-gray-500 hover:text-gray-400"
+                >
+                  Cancel
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">
+                        Semester
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">
+                        Section
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">
+                        Effective Date
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">
+                        Day
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">
+                        Start Time
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">
+                        End Time
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">
+                        Subject Code
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">
+                        Activity Type
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">
+                        Room
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">
+                        Teacher ID
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {importPreview.map((entry, index) => (
+                      <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        <td className="px-4 py-2 text-sm text-gray-600">{entry.semester || '-'}</td>
+                        <td className="px-4 py-2 text-sm text-gray-600">{entry.section || '-'}</td>
+                        <td className="px-4 py-2 text-sm text-gray-600">{entry.effectiveDate || '-'}</td>
+                        <td className="px-4 py-2 text-sm text-gray-600">{entry.day || '-'}</td>
+                        <td className="px-4 py-2 text-sm text-gray-600">{entry.startTime || '-'}</td>
+                        <td className="px-4 py-2 text-sm text-gray-600">{entry.endTime || '-'}</td>
+                        <td className="px-4 py-2 text-sm text-gray-600">{entry.subjectCode || '-'}</td>
+                        <td className="px-4 py-2 text-sm text-gray-600">{entry.activityType || '-'}</td>
+                        <td className="px-4 py-2 text-sm text-gray-600">{entry.room || '-'}</td>
+                        <td className="px-4 py-2 text-sm text-gray-600">{entry.teacherId || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="mt-4">
+                <button
+                  disabled={importLoading}
+                  onClick={handleConfirmImport}
+                  className="w-flex items-center justify-center gap-2 rounded-2xl border border-green-200 bg-green-100 px-4 py-2.5 text-sm font-semibold text-green-800 hover:bg-green-200 disabled:opacity-60"
+                >
+                  {importLoading ? <Clock3 size={16} className="animate-spin" /> : ''}
+                  {importLoading ? 'Importing...' : 'Confirm Import'}
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* Help Text */}
+          {!importFile && importPreview.length === 0 && (
+            <p className="text-xs text-gray-500">
+              Upload a PDF timetable to parse and import. The backend will handle
+              extraction, validation, and transactional import.
+            </p>
+          )}
+        </div>
+      </div>
     </div>
   );
 };

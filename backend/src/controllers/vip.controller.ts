@@ -46,7 +46,16 @@ export const getStudentById = async (req: AuthRequest, res: Response) => {
             type: true,
             score: true,
             maxScore: true,
-            subject: { select: { code: true, name: true } },
+            assignment: {
+              select: {
+                subject: {
+                  select: {
+                    code: true,
+                    name: true
+                  }
+                }
+              }
+            }
           },
         },
       },
@@ -217,9 +226,6 @@ export const getAllStudents = async (req: AuthRequest, res: Response) => {
 };
 
 
-
-
-
 /**
  * Export faculty marks as Excel
  */
@@ -366,7 +372,16 @@ const computeLeaderboard = async (groupBy: 'department' | 'classGroup' | null, m
         },
         select: {
           score: true,
-          subject: { select: { code: true, name: true } },
+          assignment: {
+            select: {
+              subject: {
+                select: {
+                  code: true,
+                  name: true,
+                }
+              }
+            }
+          }
         },
       },
     },
@@ -601,34 +616,45 @@ export const downloadFacultyMarksReport = async (req: AuthRequest, res: Response
             classGroup: true,
           },
         },
-        subject: {
+        assignment: {
           select: {
-            code: true,
-            name: true,
-            faculty: {
+            subject: {
+              select: {
+                code: true,
+                name: true,
+              }
+            },
+            theoryFaculty: {
               select: {
                 id: true,
                 name: true,
                 department: true,
-              },
+              }
             },
-          },
+            labFaculty: {
+              select: {
+                id: true,
+                name: true,
+                department: true,
+              }
+            }
+          }
         },
       },
       orderBy: [
-        { subject: { faculty: { name: 'asc' } } },
-        { subject: { code: 'asc' } },
+        { assignment: { theoryFaculty: { name: 'asc' } } },
+        { assignment: { subject: { code: 'asc' } } },
         { student: { name: 'asc' } },
       ],
     });
 
     // Transform to flat array for export
     const rows = marksWithDetails.map(mark => ({
-      'Faculty ID': mark.subject.faculty.id,
-      'Faculty Name': mark.subject.faculty.name,
-      'Faculty Department': mark.subject.faculty.department,
-      'Subject Code': mark.subject.code,
-      'Subject Name': mark.subject.name,
+      'Faculty ID': (mark.assignment.theoryFaculty?.id ?? mark.assignment.labFaculty?.id ?? null),
+      'Faculty Name': (mark.assignment.theoryFaculty?.name ?? mark.assignment.labFaculty?.name ?? ''),
+      'Faculty Department': (mark.assignment.theoryFaculty?.department ?? mark.assignment.labFaculty?.department ?? ''),
+      'Subject Code': mark.assignment.subject.code,
+      'Subject Name': mark.assignment.subject.name,
       'Student ID': mark.student.id,
       'Student Name': mark.student.name,
       'Student Program': mark.student.program,

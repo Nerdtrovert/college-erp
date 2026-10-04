@@ -7,8 +7,9 @@ const subjectColors: Record<string, { bg: string; text: string; border: string }
 const defaultColor = { bg: 'bg-gray-50', text: 'text-gray-600', border: 'border-gray-100' };
 
 interface ScheduleSlot {
-  subject: string;
-  room: string;
+  subjectCode: string | null;
+  activityType: string | null;
+  room: string | null;
   class: string;
   teacherId?: string;
 }
@@ -145,9 +146,9 @@ export const TeacherTimetable: React.FC<TeacherTimetableProps> = ({ teacherId })
 
             // Class card
             if (slot) {
-              const borderLeft = subjectBorderLeft[slot.subject] || 'border-l-gray-300';
-              const timeColor = subjectTimeColor[slot.subject] || 'text-gray-500';
-              const todayBg = subjectTodayBg[slot.subject] || 'bg-gray-50';
+              const borderLeft = subjectBorderLeft[slot.subjectCode ?? 'default'] || 'border-l-gray-300';
+              const timeColor = subjectTimeColor[slot.subjectCode ?? 'default'] || 'text-gray-500';
+              const todayBg = subjectTodayBg[slot.subjectCode ?? 'default'] || 'bg-gray-50';
 
               return (
                 <div
@@ -155,8 +156,9 @@ export const TeacherTimetable: React.FC<TeacherTimetableProps> = ({ teacherId })
                   className={`min-w-[130px] flex-1 rounded-xl ${todayBg} border border-gray-100 border-l-4 ${borderLeft} px-4 py-4 flex flex-col justify-center`}
                 >
                   <span className={`text-[11px] font-semibold ${timeColor}`}>{timeRanges[idx]}</span>
-                  <span className="text-sm font-bold text-gray-800 mt-1.5 leading-tight">{slot.subject}</span>
-                  <span className="text-xs text-gray-400 mt-1.5">Room {slot.room} · {slot.class}</span>
+                  <span className="text-sm font-bold text-gray-800 mt-1.5 leading-tight">{slot.subjectCode ?? '-'}</span>
+                  <span className="block text-[11px] text-gray-500 mt-1">{slot.activityType ?? '-'}</span>
+                  <span className="text-xs text-gray-400 mt-1.5">Room {slot.room ?? '-'} · {slot.class}</span>
                 </div>
               );
             }
@@ -218,16 +220,17 @@ export const TeacherTimetable: React.FC<TeacherTimetableProps> = ({ teacherId })
               </div>
               <div className="divide-y divide-gray-100">
                 {classes.length > 0 ? classes.map(({ slot, slotIdx }) => {
-                  const bg = subjectTodayBg[slot!.subject] || 'bg-gray-50';
-                  const text = subjectColors[slot!.subject]?.text || 'text-gray-700';
+                  const bg = subjectTodayBg[slot!.subjectCode ?? 'default'] || 'bg-gray-50';
+                  const text = subjectColors[slot!.subjectCode ?? 'default']?.text || 'text-gray-700';
                   return (
                     <div key={slotIdx} className="flex items-start gap-3 px-4 py-3.5">
                       <span className="w-[4.25rem] shrink-0 pt-0.5 text-[11px] font-semibold text-gray-400">
                         {timeRanges[slotIdx]}
                       </span>
                       <div className={`${bg} border border-gray-100 min-w-0 flex-1 rounded-xl px-3 py-2.5`}>
-                        <p className={`text-sm font-semibold leading-snug ${text}`}>{slot!.subject}</p>
-                        <p className="mt-1 text-xs text-gray-500">Room {slot!.room} · {slot!.class}</p>
+                        <p className={`text-sm font-semibold leading-snug ${text}`}>{slot!.subjectCode ?? '-'}</p>
+                        <p className="mt-1 text-xs text-gray-500">{slot!.activityType ?? '-'}</p>
+                        <p className="mt-1 text-xs text-gray-500">Room {slot!.room ?? '-'} · {slot!.class}</p>
                       </div>
                     </div>
                   );
@@ -307,17 +310,20 @@ export const TeacherTimetable: React.FC<TeacherTimetableProps> = ({ teacherId })
                       }
 
                       if (slot) {
-                        const color = subjectColors[slot.subject] || defaultColor;
+                        const color = subjectColors[slot.subjectCode ?? 'default'] || defaultColor;
                         return (
                           <td key={slotIdx} className="px-2 py-3 align-middle">
                             <div
                               className={`${color.bg} border ${color.border} rounded-xl px-3 py-3 min-h-[60px] flex flex-col justify-center`}
                             >
                               <div className={`font-semibold text-sm ${color.text} leading-tight`}>
-                                {slot.subject}
+                                {slot.subjectCode ?? '-'}
                               </div>
                               <div className="text-xs text-gray-400 mt-1">
-                                Room {slot.room} · Class {slot.class}
+                                {slot.activityType ?? '-'}
+                              </div>
+                              <div className="text-xs text-gray-400 mt-1">
+                                Room {slot.room ?? '-'} · Class {slot.class}
                               </div>
                             </div>
                           </td>

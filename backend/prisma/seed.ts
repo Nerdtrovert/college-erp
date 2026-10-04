@@ -86,152 +86,216 @@ async function main() {
   });
   console.log('Students seeded.');
 
-  // Subjects Data
-  // Using -A and -B suffixes for the DB primary key, but UI could be adapted later.
-  const subjects = [
-    // CSE-A Subjects
-    { code: 'BCS501-A', name: 'Software Engineering & PM', facultyId: 'madhumathi@hnnce.in', classGroup: 'CSE-A', type: SubjectType.STANDALONE },
-    { code: 'BCS502-A', name: 'Computer Networks (Theory)', facultyId: 'vijaya@hnnce.in', classGroup: 'CSE-A', type: SubjectType.STANDALONE },
-    { code: 'BCS503-A', name: 'Theory of Computation', facultyId: 'nagasundara@hnnce.in', classGroup: 'CSE-A', type: SubjectType.STANDALONE },
-    { code: 'BRMK557-A', name: 'Research Methodology and IPR', facultyId: 'bhargavi@hnnce.in', classGroup: 'CSE-A', type: SubjectType.STANDALONE },
-    { code: 'BCS515B-A', name: 'Artificial Intelligence', facultyId: 'rajesh@hnnce.in', classGroup: 'CSE-A', type: SubjectType.STANDALONE },
-    { code: 'BCS508-A', name: 'Env Studies & E-Waste Mgmt', facultyId: 'praveen@hnnce.in', classGroup: 'CSE-A', type: SubjectType.STANDALONE },
-    { code: 'BCS502L-A', name: 'Computer Networks (Lab)', facultyId: 'vijaya@hnnce.in', coFacultyId: 'harshitha@hnnce.in', classGroup: 'CSE-A', type: SubjectType.STANDALONE },
-    { code: 'BCSL504-A', name: 'Web Technology Lab', facultyId: 'sunil@hnnce.in', coFacultyId: 'madhimatha@hnnce.in', classGroup: 'CSE-A', type: SubjectType.STANDALONE },
-    { code: 'BIS586-A', name: 'Mini Project', facultyId: 'nagasundara@hnnce.in', classGroup: 'CSE-A', type: SubjectType.STANDALONE },
-    { code: 'MC-A', name: 'NSS/PE/Yoga', facultyId: 'praveen@hnnce.in', classGroup: 'CSE-A', type: SubjectType.STANDALONE },
+  // Subjects Data - CANONICAL SUBJECTS ONLY (no section suffixes)
+  // First, define all canonical subjects
+  const canonicalSubjects = [
+    // Standalone Subjects
+    { code: 'BCS501', name: 'Software Engineering & PM', type: SubjectType.STANDALONE },
+    { code: 'BCS503', name: 'Theory of Computation', type: SubjectType.STANDALONE },
+    { code: 'BRMK557', name: 'Research Methodology and IPR', type: SubjectType.STANDALONE },
+    { code: 'BCS515B', name: 'Artificial Intelligence', type: SubjectType.STANDALONE },
+    { code: 'BCS508', name: 'Env Studies & E-Waste Mgmt', type: SubjectType.STANDALONE },
+    { code: 'BCSL504', name: 'Web Technology Lab', type: SubjectType.STANDALONE }, // Note: This is already a lab subject
+    { code: 'BIS586', name: 'Mini Project', type: SubjectType.STANDALONE },
+    { code: 'MC', name: 'NSS/PE/Yoga', type: SubjectType.STANDALONE },
 
-    // CSE-B Subjects
-    { code: 'BCS501-B', name: 'Software Engineering & PM', facultyId: 'madhumathi@hnnce.in', classGroup: 'CSE-B', type: SubjectType.STANDALONE },
-    { code: 'BCS502-B', name: 'Computer Networks (Theory)', facultyId: 'vijaya@hnnce.in', classGroup: 'CSE-B', type: SubjectType.STANDALONE },
-    { code: 'BCS503-B', name: 'Theory of Computation', facultyId: 'nagasundara@hnnce.in', classGroup: 'CSE-B', type: SubjectType.STANDALONE },
-    { code: 'BRMK557-B', name: 'Research Methodology and IPR', facultyId: 'lashmi@hnnce.in', classGroup: 'CSE-B', type: SubjectType.STANDALONE },
-    { code: 'BCS515B-B', name: 'Artificial Intelligence', facultyId: 'rajesh@hnnce.in', classGroup: 'CSE-B', type: SubjectType.STANDALONE },
-    { code: 'BCS508-B', name: 'Env Studies & E-Waste Mgmt', facultyId: 'praveen@hnnce.in', classGroup: 'CSE-B', type: SubjectType.STANDALONE },
-    { code: 'BCS502L-B', name: 'Computer Networks (Lab)', facultyId: 'vijaya@hnnce.in', coFacultyId: 'harshitha@hnnce.in', classGroup: 'CSE-B', type: SubjectType.STANDALONE },
-    { code: 'BCSL504-B', name: 'Web Technology Lab', facultyId: 'sunil@hnnce.in', coFacultyId: 'madhimatha@hnnce.in', classGroup: 'CSE-B', type: SubjectType.STANDALONE },
-    { code: 'BIS586-B', name: 'Mini Project', facultyId: 'nagasundara@hnnce.in', classGroup: 'CSE-B', type: SubjectType.STANDALONE },
-    { code: 'MC-B', name: 'NSS/PE/Yoga', facultyId: 'praveen@hnnce.in', classGroup: 'CSE-B', type: SubjectType.STANDALONE },
+    // Integrated Subjects (theory + lab pairs)
+    { code: 'BCS502', name: 'Computer Networks', type: SubjectType.INTEGRATED }, // Combines BCS502-A/B (theory) and BCS502L-A/B (lab)
   ];
 
-  for (const s of subjects) {
+  // Create canonical subjects
+  for (const s of canonicalSubjects) {
     await prisma.subject.upsert({
       where: { code: s.code },
-      update: { name: s.name, facultyId: s.facultyId, coFacultyId: s.coFacultyId, classGroup: s.classGroup, type: s.type },
+      update: { name: s.name, type: s.type },
       create: s,
     });
   }
-  console.log('Subjects seeded.');
+  console.log('Canonical subjects seeded.');
 
-  // Timetable Data
-  const timetable = [
-    // CSE-A Timetable (Room B 006)
-    // Monday
-    { day: 'Monday', slotIndex: 0, subjectCode: 'BRMK557-A', room: 'B 006', classGroup: 'CSE-A', teacherId: 'bhargavi@hnnce.in' },
-    { day: 'Monday', slotIndex: 1, subjectCode: 'BCS501-A', room: 'B 006', classGroup: 'CSE-A', teacherId: 'madhumathi@hnnce.in' },
-    { day: 'Monday', slotIndex: 3, subjectCode: 'BCS503-A', room: 'B 006', classGroup: 'CSE-A', teacherId: 'nagasundara@hnnce.in' },
-    { day: 'Monday', slotIndex: 4, subjectCode: 'BCS503-A', room: 'B 006', classGroup: 'CSE-A', teacherId: 'nagasundara@hnnce.in' },
+  // Subject Section Assignments
+  // Map of subject code to its sections and faculty assignments
+  // Format: subjectCode -> { classGroup: { theoryFacultyId, labFacultyId } }
+  const subjectAssignments = {
+    BCS501: {
+      'CSE-A': { theoryFacultyId: 'madhumathi@hnnce.in', labFacultyId: null },
+      'CSE-B': { theoryFacultyId: 'madhumathi@hnnce.in', labFacultyId: null },
+    },
+    BCS502: {
+      'CSE-A': { theoryFacultyId: 'vijaya@hnnce.in', labFacultyId: 'harshitha@hnnce.in' },
+      'CSE-B': { theoryFacultyId: 'vijaya@hnnce.in', labFacultyId: 'harshitha@hnnce.in' },
+    },
+    BCS503: {
+      'CSE-A': { theoryFacultyId: 'nagasundara@hnnce.in', labFacultyId: null },
+      'CSE-B': { theoryFacultyId: 'nagasundara@hnnce.in', labFacultyId: null },
+    },
+    BRMK557: {
+      'CSE-A': { theoryFacultyId: 'bhargavi@hnnce.in', labFacultyId: null },
+      'CSE-B': { theoryFacultyId: 'lashmi@hnnce.in', labFacultyId: null },
+    },
+    BCS515B: {
+      'CSE-A': { theoryFacultyId: 'rajesh@hnnce.in', labFacultyId: null },
+      'CSE-B': { theoryFacultyId: 'rajesh@hnnce.in', labFacultyId: null },
+    },
+    BCS508: {
+      'CSE-A': { theoryFacultyId: 'praveen@hnnce.in', labFacultyId: null },
+      'CSE-B': { theoryFacultyId: 'praveen@hnnce.in', labFacultyId: null },
+    },
+    BCSL504: {
+      'CSE-A': { theoryFacultyId: 'sunil@hnnce.in', labFacultyId: 'madhimatha@hnnce.in' },
+      'CSE-B': { theoryFacultyId: 'sunil@hnnce.in', labFacultyId: 'madhimatha@hnnce.in' },
+    },
+    BIS586: {
+      'CSE-A': { theoryFacultyId: 'nagasundara@hnnce.in', labFacultyId: null },
+      'CSE-B': { theoryFacultyId: 'nagasundara@hnnce.in', labFacultyId: null },
+    },
+    MC: {
+      'CSE-A': { theoryFacultyId: 'praveen@hnnce.in', labFacultyId: null },
+      'CSE-B': { theoryFacultyId: 'praveen@hnnce.in', labFacultyId: null },
+    },
+  };
 
-    // Tuesday
-    { day: 'Tuesday', slotIndex: 0, subjectCode: 'BCS502-A', room: 'B 006', classGroup: 'CSE-A', teacherId: 'vijaya@hnnce.in' },
-    { day: 'Tuesday', slotIndex: 1, subjectCode: 'BCS508-A', room: 'B 006', classGroup: 'CSE-A', teacherId: 'praveen@hnnce.in' },
-    { day: 'Tuesday', slotIndex: 3, subjectCode: 'BCS501-A', room: 'B 006', classGroup: 'CSE-A', teacherId: 'madhumathi@hnnce.in' },
-    { day: 'Tuesday', slotIndex: 4, subjectCode: 'BCS515B-A', room: 'B 006', classGroup: 'CSE-A', teacherId: 'rajesh@hnnce.in' },
-    { day: 'Tuesday', slotIndex: 6, subjectCode: 'BCS503-A', room: 'B 006', classGroup: 'CSE-A', teacherId: 'nagasundara@hnnce.in' }, // TUTO
-    { day: 'Tuesday', slotIndex: 7, subjectCode: 'BCS503-A', room: 'B 006', classGroup: 'CSE-A', teacherId: 'nagasundara@hnnce.in' }, // TUTO
+  // Create SubjectSectionAssignment records
+  const assignmentRecords = [];
+  for (const [subjectCode, sections] of Object.entries(subjectAssignments)) {
+    for (const [classGroup, facultyIds] of Object.entries(sections)) {
+      // Find the subject to get its ID
+      const subject = await prisma.subject.findUnique({
+        where: { code: subjectCode },
+      });
 
-    // Wednesday
-    { day: 'Wednesday', slotIndex: 0, subjectCode: 'BCS502L-A', room: 'B 006', classGroup: 'CSE-A', teacherId: 'vijaya@hnnce.in', coTeacherId: 'harshitha@hnnce.in' },
-    { day: 'Wednesday', slotIndex: 1, subjectCode: 'BCS502L-A', room: 'B 006', classGroup: 'CSE-A', teacherId: 'vijaya@hnnce.in', coTeacherId: 'harshitha@hnnce.in' },
-    { day: 'Wednesday', slotIndex: 3, subjectCode: 'BCS502-A', room: 'B 006', classGroup: 'CSE-A', teacherId: 'vijaya@hnnce.in' },
-    { day: 'Wednesday', slotIndex: 4, subjectCode: 'BCS508-A', room: 'B 006', classGroup: 'CSE-A', teacherId: 'praveen@hnnce.in' },
-    { day: 'Wednesday', slotIndex: 6, subjectCode: 'BCSL504-A', room: 'B 006', classGroup: 'CSE-A', teacherId: 'sunil@hnnce.in', coTeacherId: 'madhimatha@hnnce.in' },
-    { day: 'Wednesday', slotIndex: 7, subjectCode: 'BCSL504-A', room: 'B 006', classGroup: 'CSE-A', teacherId: 'sunil@hnnce.in', coTeacherId: 'madhimatha@hnnce.in' },
+      if (subject) {
+        assignmentRecords.push({
+          id: `${subjectCode}-${classGroup}`, // Deterministic ID based on subject and class
+          subjectId: subject.id,
+          classGroup,
+          theoryFacultyId: facultyIds.theoryFacultyId,
+          labFacultyId: facultyIds.labFacultyId,
+        });
+      }
+    }
+  }
 
-    // Thursday
-    { day: 'Thursday', slotIndex: 0, subjectCode: 'BRMK557-A', room: 'B 006', classGroup: 'CSE-A', teacherId: 'bhargavi@hnnce.in' }, // TUTO
-    { day: 'Thursday', slotIndex: 1, subjectCode: 'BRMK557-A', room: 'B 006', classGroup: 'CSE-A', teacherId: 'bhargavi@hnnce.in' }, // TUTO
-    { day: 'Thursday', slotIndex: 3, subjectCode: 'BCS503-A', room: 'B 006', classGroup: 'CSE-A', teacherId: 'nagasundara@hnnce.in' },
-    { day: 'Thursday', slotIndex: 4, subjectCode: 'BCS502-A', room: 'B 006', classGroup: 'CSE-A', teacherId: 'vijaya@hnnce.in' },
-    { day: 'Thursday', slotIndex: 6, subjectCode: 'BIS586-A', room: 'B 006', classGroup: 'CSE-A', teacherId: 'nagasundara@hnnce.in' },
-    { day: 'Thursday', slotIndex: 7, subjectCode: 'BIS586-A', room: 'B 006', classGroup: 'CSE-A', teacherId: 'nagasundara@hnnce.in' },
-
-    // Friday
-    { day: 'Friday', slotIndex: 0, subjectCode: 'BCS501-A', room: 'B 006', classGroup: 'CSE-A', teacherId: 'madhumathi@hnnce.in' },
-    { day: 'Friday', slotIndex: 1, subjectCode: 'BCS515B-A', room: 'B 006', classGroup: 'CSE-A', teacherId: 'rajesh@hnnce.in' },
-    { day: 'Friday', slotIndex: 3, subjectCode: 'BRMK557-A', room: 'B 006', classGroup: 'CSE-A', teacherId: 'bhargavi@hnnce.in' },
-    { day: 'Friday', slotIndex: 4, subjectCode: 'BCS515B-A', room: 'B 006', classGroup: 'CSE-A', teacherId: 'rajesh@hnnce.in' },
-    { day: 'Friday', slotIndex: 6, subjectCode: 'MC-A', room: 'B 006', classGroup: 'CSE-A', teacherId: 'praveen@hnnce.in' },
-    { day: 'Friday', slotIndex: 7, subjectCode: 'MC-A', room: 'B 006', classGroup: 'CSE-A', teacherId: 'praveen@hnnce.in' },
-
-    // CSE-B Timetable (Room B 001)
-    // Monday
-    { day: 'Monday', slotIndex: 0, subjectCode: 'BCS502-B', room: 'B 001', classGroup: 'CSE-B', teacherId: 'vijaya@hnnce.in' },
-    { day: 'Monday', slotIndex: 1, subjectCode: 'BCS515B-B', room: 'B 001', classGroup: 'CSE-B', teacherId: 'rajesh@hnnce.in' },
-    { day: 'Monday', slotIndex: 3, subjectCode: 'BCS508-B', room: 'B 001', classGroup: 'CSE-B', teacherId: 'praveen@hnnce.in' },
-    { day: 'Monday', slotIndex: 4, subjectCode: 'BRMK557-B', room: 'B 001', classGroup: 'CSE-B', teacherId: 'lashmi@hnnce.in' },
-    { day: 'Monday', slotIndex: 6, subjectCode: 'BCS503-B', room: 'B 001', classGroup: 'CSE-B', teacherId: 'nagasundara@hnnce.in' }, // TUTO
-    { day: 'Monday', slotIndex: 7, subjectCode: 'BCS503-B', room: 'B 001', classGroup: 'CSE-B', teacherId: 'nagasundara@hnnce.in' }, // TUTO
-
-    // Tuesday
-    { day: 'Tuesday', slotIndex: 0, subjectCode: 'BRMK557-B', room: 'B 001', classGroup: 'CSE-B', teacherId: 'lashmi@hnnce.in' }, // TUTO
-    { day: 'Tuesday', slotIndex: 1, subjectCode: 'BRMK557-B', room: 'B 001', classGroup: 'CSE-B', teacherId: 'lashmi@hnnce.in' }, // TUTO
-    { day: 'Tuesday', slotIndex: 3, subjectCode: 'BCS515B-B', room: 'B 001', classGroup: 'CSE-B', teacherId: 'rajesh@hnnce.in' },
-    { day: 'Tuesday', slotIndex: 4, subjectCode: 'BCS508-B', room: 'B 001', classGroup: 'CSE-B', teacherId: 'praveen@hnnce.in' },
-
-    // Wednesday
-    { day: 'Wednesday', slotIndex: 0, subjectCode: 'BIS586-B', room: 'B 001', classGroup: 'CSE-B', teacherId: 'nagasundara@hnnce.in' },
-    { day: 'Wednesday', slotIndex: 1, subjectCode: 'BIS586-B', room: 'B 001', classGroup: 'CSE-B', teacherId: 'nagasundara@hnnce.in' },
-    { day: 'Wednesday', slotIndex: 3, subjectCode: 'BRMK557-B', room: 'B 001', classGroup: 'CSE-B', teacherId: 'lashmi@hnnce.in' },
-    { day: 'Wednesday', slotIndex: 4, subjectCode: 'BCS501-B', room: 'B 001', classGroup: 'CSE-B', teacherId: 'madhumathi@hnnce.in' },
-    { day: 'Wednesday', slotIndex: 6, subjectCode: 'BCS502L-B', room: 'B 001', classGroup: 'CSE-B', teacherId: 'vijaya@hnnce.in', coTeacherId: 'harshitha@hnnce.in' },
-    { day: 'Wednesday', slotIndex: 7, subjectCode: 'BCS502L-B', room: 'B 001', classGroup: 'CSE-B', teacherId: 'vijaya@hnnce.in', coTeacherId: 'harshitha@hnnce.in' },
-
-    // Thursday
-    { day: 'Thursday', slotIndex: 0, subjectCode: 'BCS501-B', room: 'B 001', classGroup: 'CSE-B', teacherId: 'madhumathi@hnnce.in' },
-    { day: 'Thursday', slotIndex: 1, subjectCode: 'BCS515B-B', room: 'B 001', classGroup: 'CSE-B', teacherId: 'rajesh@hnnce.in' },
-    { day: 'Thursday', slotIndex: 3, subjectCode: 'BCS502-B', room: 'B 001', classGroup: 'CSE-B', teacherId: 'vijaya@hnnce.in' },
-    { day: 'Thursday', slotIndex: 4, subjectCode: 'BCS503-B', room: 'B 001', classGroup: 'CSE-B', teacherId: 'nagasundara@hnnce.in' },
-    { day: 'Thursday', slotIndex: 6, subjectCode: 'BCSL504-B', room: 'B 001', classGroup: 'CSE-B', teacherId: 'sunil@hnnce.in', coTeacherId: 'madhimatha@hnnce.in' },
-    { day: 'Thursday', slotIndex: 7, subjectCode: 'BCSL504-B', room: 'B 001', classGroup: 'CSE-B', teacherId: 'sunil@hnnce.in', coTeacherId: 'madhimatha@hnnce.in' },
-
-    // Friday
-    { day: 'Friday', slotIndex: 0, subjectCode: 'BCS503-B', room: 'B 001', classGroup: 'CSE-B', teacherId: 'nagasundara@hnnce.in' },
-    { day: 'Friday', slotIndex: 1, subjectCode: 'BCS503-B', room: 'B 001', classGroup: 'CSE-B', teacherId: 'nagasundara@hnnce.in' },
-    { day: 'Friday', slotIndex: 3, subjectCode: 'BCS501-B', room: 'B 001', classGroup: 'CSE-B', teacherId: 'madhumathi@hnnce.in' },
-    { day: 'Friday', slotIndex: 4, subjectCode: 'BCS502-B', room: 'B 001', classGroup: 'CSE-B', teacherId: 'vijaya@hnnce.in' },
-    { day: 'Friday', slotIndex: 6, subjectCode: 'MC-B', room: 'B 001', classGroup: 'CSE-B', teacherId: 'praveen@hnnce.in' },
-    { day: 'Friday', slotIndex: 7, subjectCode: 'MC-B', room: 'B 001', classGroup: 'CSE-B', teacherId: 'praveen@hnnce.in' },
-  ];
-
-  for (const t of timetable) {
-    await prisma.timetableSlot.upsert({
-      where: {
-        classGroup_day_slotIndex_semesterId: {
-          classGroup: t.classGroup,
-          day: t.day,
-          slotIndex: t.slotIndex,
-          semesterId: defaultSemester.id,
-        },
-      },
+  // Upsert assignments
+  for (const assignment of assignmentRecords) {
+    await prisma.subjectSectionAssignment.upsert({
+      where: { id: assignment.id },
       update: {
-        subjectCode: t.subjectCode,
-        room: t.room,
-        teacherId: t.teacherId,
-        coTeacherId: (t as any).coTeacherId || null,
+        subjectId: assignment.subjectId,
+        classGroup: assignment.classGroup,
+        theoryFacultyId: assignment.theoryFacultyId,
+        labFacultyId: assignment.labFacultyId,
       },
-      create: {
-        day: t.day,
-        slotIndex: t.slotIndex,
-        subjectCode: t.subjectCode,
-        room: t.room,
-        classGroup: t.classGroup,
-        teacherId: t.teacherId,
-        coTeacherId: (t as any).coTeacherId || null,
-        semesterId: defaultSemester.id,
-      },
+      create: assignment,
     });
   }
+  console.log('Subject section assignments seeded.');
+
+  // Timetable Data - NEW MODEL USING assignmentId
+  // First, let's create a mapping from (subjectCode, classGroup) to assignmentId
+  const assignmentMap = new Map();
+  for (const assignment of assignmentRecords) {
+    const key = `${assignment.classGroup}-${assignment.subjectId}`;
+    assignmentMap.set(key, assignment.id);
+  }
+
+  const timetable = [
+    { day: 'Monday', slotIndex: 0, subjectCode: 'BRMK557', classGroup: 'CSE-A', room: 'B 006', teacherId: 'bhargavi@hnnce.in', activityType: 'THEORY' },
+    { day: 'Monday', slotIndex: 1, subjectCode: 'BCS501', classGroup: 'CSE-A', room: 'B 006', teacherId: 'madhumathi@hnnce.in', activityType: 'THEORY' },
+    { day: 'Monday', slotIndex: 3, subjectCode: 'BCS503', classGroup: 'CSE-A', room: 'B 006', teacherId: 'nagasundara@hnnce.in', activityType: 'THEORY' },
+    { day: 'Monday', slotIndex: 4, subjectCode: 'BCS503', classGroup: 'CSE-A', room: 'B 006', teacherId: 'nagasundara@hnnce.in', activityType: 'THEORY' },
+    { day: 'Tuesday', slotIndex: 0, subjectCode: 'BCS502', classGroup: 'CSE-A', room: 'B 006', teacherId: 'vijaya@hnnce.in', activityType: 'THEORY' },
+    { day: 'Tuesday', slotIndex: 1, subjectCode: 'BCS508', classGroup: 'CSE-A', room: 'B 006', teacherId: 'praveen@hnnce.in', activityType: 'THEORY' },
+    { day: 'Tuesday', slotIndex: 3, subjectCode: 'BCS501', classGroup: 'CSE-A', room: 'B 006', teacherId: 'madhumathi@hnnce.in', activityType: 'THEORY' },
+    { day: 'Tuesday', slotIndex: 4, subjectCode: 'BCS515B', classGroup: 'CSE-A', room: 'B 006', teacherId: 'rajesh@hnnce.in', activityType: 'THEORY' },
+    { day: 'Tuesday', slotIndex: 6, subjectCode: 'BCS503', classGroup: 'CSE-A', room: 'B 006', teacherId: 'nagasundara@hnnce.in', activityType: 'TUTORIAL' },
+    { day: 'Tuesday', slotIndex: 7, subjectCode: 'BCS503', classGroup: 'CSE-A', room: 'B 006', teacherId: 'nagasundara@hnnce.in', activityType: 'TUTORIAL' },
+    { day: 'Wednesday', slotIndex: 0, subjectCode: 'BCS502', classGroup: 'CSE-A', room: 'B 006', teacherId: 'vijaya@hnnce.in', coTeacherId: 'harshitha@hnnce.in', activityType: 'LAB' },
+    { day: 'Wednesday', slotIndex: 1, subjectCode: 'BCS502', classGroup: 'CSE-A', room: 'B 006', teacherId: 'vijaya@hnnce.in', coTeacherId: 'harshitha@hnnce.in', activityType: 'LAB' },
+    { day: 'Wednesday', slotIndex: 3, subjectCode: 'BCS502', classGroup: 'CSE-A', room: 'B 006', teacherId: 'vijaya@hnnce.in', activityType: 'THEORY' },
+    { day: 'Wednesday', slotIndex: 4, subjectCode: 'BCS508', classGroup: 'CSE-A', room: 'B 006', teacherId: 'praveen@hnnce.in', activityType: 'THEORY' },
+    { day: 'Wednesday', slotIndex: 6, subjectCode: 'BCSL504', classGroup: 'CSE-A', room: 'B 006', teacherId: 'sunil@hnnce.in', coTeacherId: 'madhimatha@hnnce.in', activityType: 'LAB' },
+    { day: 'Wednesday', slotIndex: 7, subjectCode: 'BCSL504', classGroup: 'CSE-A', room: 'B 006', teacherId: 'sunil@hnnce.in', coTeacherId: 'madhimatha@hnnce.in', activityType: 'LAB' },
+    { day: 'Thursday', slotIndex: 0, subjectCode: 'BRMK557', classGroup: 'CSE-A', room: 'B 006', teacherId: 'bhargavi@hnnce.in', activityType: 'THEORY' },
+    { day: 'Thursday', slotIndex: 1, subjectCode: 'BRMK557', classGroup: 'CSE-A', room: 'B 006', teacherId: 'bhargavi@hnnce.in', activityType: 'THEORY' },
+    { day: 'Thursday', slotIndex: 3, subjectCode: 'BCS503', classGroup: 'CSE-A', room: 'B 006', teacherId: 'nagasundara@hnnce.in', activityType: 'THEORY' },
+    { day: 'Thursday', slotIndex: 4, subjectCode: 'BCS502', classGroup: 'CSE-A', room: 'B 006', teacherId: 'vijaya@hnnce.in', activityType: 'THEORY' },
+    { day: 'Thursday', slotIndex: 6, subjectCode: 'BIS586', classGroup: 'CSE-A', room: 'B 006', teacherId: 'nagasundara@hnnce.in', activityType: 'THEORY' },
+    { day: 'Thursday', slotIndex: 7, subjectCode: 'BIS586', classGroup: 'CSE-A', room: 'B 006', teacherId: 'nagasundara@hnnce.in', activityType: 'THEORY' },
+    { day: 'Friday', slotIndex: 0, subjectCode: 'BCS501', classGroup: 'CSE-A', room: 'B 006', teacherId: 'madhumathi@hnnce.in', activityType: 'THEORY' },
+    { day: 'Friday', slotIndex: 1, subjectCode: 'BCS515B', classGroup: 'CSE-A', room: 'B 006', teacherId: 'rajesh@hnnce.in', activityType: 'THEORY' },
+    { day: 'Friday', slotIndex: 3, subjectCode: 'BRMK557', classGroup: 'CSE-A', room: 'B 006', teacherId: 'bhargavi@hnnce.in', activityType: 'THEORY' },
+    { day: 'Friday', slotIndex: 4, subjectCode: 'BCS515B', classGroup: 'CSE-A', room: 'B 006', teacherId: 'rajesh@hnnce.in', activityType: 'THEORY' },
+    { day: 'Friday', slotIndex: 6, subjectCode: 'MC', classGroup: 'CSE-A', room: 'B 006', teacherId: 'praveen@hnnce.in', activityType: 'PRACTICAL' },
+    { day: 'Friday', slotIndex: 7, subjectCode: 'MC', classGroup: 'CSE-A', room: 'B 006', teacherId: 'praveen@hnnce.in', activityType: 'PRACTICAL' },
+    { day: 'Monday', slotIndex: 0, subjectCode: 'BCS502', classGroup: 'CSE-B', room: 'B 001', teacherId: 'vijaya@hnnce.in', activityType: 'THEORY' },
+    { day: 'Monday', slotIndex: 1, subjectCode: 'BCS515B', classGroup: 'CSE-B', room: 'B 001', teacherId: 'rajesh@hnnce.in', activityType: 'THEORY' },
+    { day: 'Monday', slotIndex: 3, subjectCode: 'BCS508', classGroup: 'CSE-B', room: 'B 001', teacherId: 'praveen@hnnce.in', activityType: 'THEORY' },
+    { day: 'Monday', slotIndex: 4, subjectCode: 'BRMK557', classGroup: 'CSE-B', room: 'B 001', teacherId: 'lashmi@hnnce.in', activityType: 'THEORY' },
+    { day: 'Monday', slotIndex: 6, subjectCode: 'BCS503', classGroup: 'CSE-B', room: 'B 001', teacherId: 'nagasundara@hnnce.in', activityType: 'TUTORIAL' },
+    { day: 'Monday', slotIndex: 7, subjectCode: 'BCS503', classGroup: 'CSE-B', room: 'B 001', teacherId: 'nagasundara@hnnce.in', activityType: 'TUTORIAL' },
+    { day: 'Tuesday', slotIndex: 0, subjectCode: 'BRMK557', classGroup: 'CSE-B', room: 'B 001', teacherId: 'lashmi@hnnce.in', activityType: 'THEORY' },
+    { day: 'Tuesday', slotIndex: 1, subjectCode: 'BRMK557', classGroup: 'CSE-B', room: 'B 001', teacherId: 'lashmi@hnnce.in', activityType: 'THEORY' },
+    { day: 'Tuesday', slotIndex: 3, subjectCode: 'BCS515B', classGroup: 'CSE-B', room: 'B 001', teacherId: 'rajesh@hnnce.in', activityType: 'THEORY' },
+    { day: 'Tuesday', slotIndex: 4, subjectCode: 'BCS508', classGroup: 'CSE-B', room: 'B 001', teacherId: 'praveen@hnnce.in', activityType: 'THEORY' },
+    { day: 'Wednesday', slotIndex: 0, subjectCode: 'BIS586', classGroup: 'CSE-B', room: 'B 001', teacherId: 'nagasundara@hnnce.in', activityType: 'THEORY' },
+    { day: 'Wednesday', slotIndex: 1, subjectCode: 'BIS586', classGroup: 'CSE-B', room: 'B 001', teacherId: 'nagasundara@hnnce.in', activityType: 'THEORY' },
+    { day: 'Wednesday', slotIndex: 3, subjectCode: 'BRMK557', classGroup: 'CSE-B', room: 'B 001', teacherId: 'lashmi@hnnce.in', activityType: 'THEORY' },
+    { day: 'Wednesday', slotIndex: 4, subjectCode: 'BCS501', classGroup: 'CSE-B', room: 'B 001', teacherId: 'madhumathi@hnnce.in', activityType: 'THEORY' },
+    { day: 'Wednesday', slotIndex: 6, subjectCode: 'BCS502', classGroup: 'CSE-B', room: 'B 001', teacherId: 'vijaya@hnnce.in', coTeacherId: 'harshitha@hnnce.in', activityType: 'LAB' },
+    { day: 'Wednesday', slotIndex: 7, subjectCode: 'BCS502', classGroup: 'CSE-B', room: 'B 001', teacherId: 'vijaya@hnnce.in', coTeacherId: 'harshitha@hnnce.in', activityType: 'LAB' },
+    { day: 'Thursday', slotIndex: 0, subjectCode: 'BCS501', classGroup: 'CSE-B', room: 'B 001', teacherId: 'madhumathi@hnnce.in', activityType: 'THEORY' },
+    { day: 'Thursday', slotIndex: 1, subjectCode: 'BCS515B', classGroup: 'CSE-B', room: 'B 001', teacherId: 'rajesh@hnnce.in', activityType: 'THEORY' },
+    { day: 'Thursday', slotIndex: 3, subjectCode: 'BCS502', classGroup: 'CSE-B', room: 'B 001', teacherId: 'vijaya@hnnce.in', activityType: 'THEORY' },
+    { day: 'Thursday', slotIndex: 4, subjectCode: 'BCS503', classGroup: 'CSE-B', room: 'B 001', teacherId: 'nagasundara@hnnce.in', activityType: 'THEORY' },
+    { day: 'Thursday', slotIndex: 6, subjectCode: 'BCSL504', classGroup: 'CSE-B', room: 'B 001', teacherId: 'sunil@hnnce.in', coTeacherId: 'madhimatha@hnnce.in', activityType: 'LAB' },
+    { day: 'Thursday', slotIndex: 7, subjectCode: 'BCSL504', classGroup: 'CSE-B', room: 'B 001', teacherId: 'sunil@hnnce.in', coTeacherId: 'madhimatha@hnnce.in', activityType: 'LAB' },
+    { day: 'Friday', slotIndex: 0, subjectCode: 'BCS503', classGroup: 'CSE-B', room: 'B 001', teacherId: 'nagasundara@hnnce.in', activityType: 'THEORY' },
+    { day: 'Friday', slotIndex: 1, subjectCode: 'BCS503', classGroup: 'CSE-B', room: 'B 001', teacherId: 'nagasundara@hnnce.in', activityType: 'THEORY' },
+    { day: 'Friday', slotIndex: 3, subjectCode: 'BCS501', classGroup: 'CSE-B', room: 'B 001', teacherId: 'madhumathi@hnnce.in', activityType: 'THEORY' },
+    { day: 'Friday', slotIndex: 4, subjectCode: 'BCS502', classGroup: 'CSE-B', room: 'B 001', teacherId: 'vijaya@hnnce.in', activityType: 'THEORY' },
+    { day: 'Friday', slotIndex: 6, subjectCode: 'MC', classGroup: 'CSE-B', room: 'B 001', teacherId: 'praveen@hnnce.in', activityType: 'PRACTICAL' },
+    { day: 'Friday', slotIndex: 7, subjectCode: 'MC', classGroup: 'CSE-B', room: 'B 001', teacherId: 'praveen@hnnce.in', activityType: 'PRACTICAL' }
+  ];
+  // Create timetable slots using assignmentId
+  for (const t of timetable) {
+    // Find the assignment for this subject and class group
+    const assignmentKey = `${t.classGroup}-${t.subjectCode}`;
+    const assignmentId = assignmentMap.get(assignmentKey);
+
+    if (assignmentId) {
+      await prisma.timetableSlot.upsert({
+        where: {
+          classGroup_day_slotIndex_semesterId: {
+            classGroup: t.classGroup,
+            day: t.day,
+            slotIndex: t.slotIndex,
+            semesterId: defaultSemester.id,
+          },
+        },
+        update: {
+          assignmentId,
+          room: t.room,
+          teacherId: t.teacherId,
+          coTeacherId: (t as any).coTeacherId || null,
+        },
+        create: {
+          day: t.day,
+          slotIndex: t.slotIndex,
+          assignmentId,
+          room: t.room,
+          classGroup: t.classGroup,
+          teacherId: t.teacherId,
+          coTeacherId: (t as any).coTeacherId || null,
+          semesterId: defaultSemester.id,
+          activityType: t.activityType || undefined, // This will be inferred from subject data if needed
+        },
+      });
+    } else {
+      console.warn(`No assignment found for ${t.subjectCode} in classGroup ${t.classGroup}`);
+    }
+  }
+
   console.log('Timetables seeded.');
 
   console.log('Seeding completed successfully!');

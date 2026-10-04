@@ -341,13 +341,26 @@ export const deleteUser = async (req: Request, res: Response) => {
   try {
     const facultyIdStr = id as string;
 
-    // Check if assigned to any subject
-    const assignedSubject = await prisma.subject.findFirst({
-      where: { facultyId: facultyIdStr }
+    // Check if assigned to any subject (as theory or lab faculty)
+    const assignedAssignment = await prisma.subjectSectionAssignment.findFirst({
+      where: {
+        OR: [
+          { theoryFacultyId: facultyIdStr },
+          { labFacultyId: facultyIdStr }
+        ]
+      },
+      include: {
+        subject: {
+          select: {
+            name: true,
+            code: true
+          }
+        }
+      }
     });
-    if (assignedSubject) {
+    if (assignedAssignment) {
       return res.status(400).json({
-        error: `Cannot delete faculty member because they teach "${assignedSubject.name}" (${assignedSubject.code}). Please reassign the course first.`
+        error: `Cannot delete faculty member because they teach "${assignedAssignment.subject.name}" (${assignedAssignment.subject.code}). Please reassign the course first.`
       });
     }
 
@@ -471,7 +484,6 @@ export const uploadStudents = async (req: AuthRequest, res: Response) => {
             row['Course'] ||
             row['Branch'] ||
             defaultProgram ||
-            programFromLegacyDepartment(String(row['Department'] || row['Dept'] || row['Branch'] || '')) ||
             'CSE'
           ).trim(),
           classGroup: String(
@@ -744,17 +756,17 @@ export const uploadStudents = async (req: AuthRequest, res: Response) => {
       }
     }
 
-    return res.status(200).json({
-      message: `Import complete: ${results.success.length} created, ${results.updated.length} updated, ${results.skipped.length} skipped, ${results.errors.length} errors.`,
-      summary: {
-        total: parsedStudents.length,
-        created: results.success.length,
-        updated: results.updated.length,
-        skipped: results.skipped.length,
-        errors: results.errors.length,
-      },
-      details: results,
-    });
+      return res.status(200).json({
+        message: `Import complete: ${results.success.length} created, ${results.updated.length} updated, ${results.skipped.length} skipped, ${results.errors.length} errors.`,
+        summary: {
+          total: parsedStudents.length,
+          created: results.success.length,
+          updated: results.updated.length,
+          skipped: results.skipped.length,
+          errors: results.errors.length,
+        },
+        details: results,
+      });
   } catch (error: any) {
     console.error('Error processing student upload:', error);
     // Clean up file if still there

@@ -20,7 +20,11 @@ export const getStudentTimetable = async (req: AuthRequest, res: Response) => {
         },
       },
       include: {
-        subject: true,
+        assignment: {
+          include: {
+            subject: true,
+          }
+        },
       },
     });
 
@@ -31,9 +35,9 @@ export const getStudentTimetable = async (req: AuthRequest, res: Response) => {
 
       daySlots.forEach((slot) => {
         if (slot.slotIndex >= 0 && slot.slotIndex < 8) {
-          if (slot.subjectCode) {
+          if (slot.assignmentId) {
             slotsArray[slot.slotIndex] = {
-              subject: slot.subject ? slot.subject.name : slot.subjectCode,
+              subject: slot.assignment?.subject ? slot.assignment.subject.name : slot.assignmentId,
               room: slot.room || 'LH-N/A',
             };
           }
@@ -72,7 +76,11 @@ export const getTeacherTimetable = async (req: AuthRequest, res: Response) => {
         },
       },
       include: {
-        subject: true,
+        assignment: {
+          include: {
+            subject: true,
+          }
+        },
       },
     });
 
@@ -83,9 +91,9 @@ export const getTeacherTimetable = async (req: AuthRequest, res: Response) => {
 
       daySlots.forEach((slot) => {
         if (slot.slotIndex >= 0 && slot.slotIndex < 8) {
-          if (slot.subjectCode) {
+          if (slot.assignmentId) {
             slotsArray[slot.slotIndex] = {
-              subject: slot.subject ? slot.subject.name : slot.subjectCode,
+              subject: slot.assignment ? slot.assignment.subject.name : slot.assignmentId,
               room: slot.room || 'LH-N/A',
               class: slot.classGroup, // e.g. "CSE-B" for teacher timetable
             };
@@ -134,7 +142,11 @@ export const getTimetableBySemester = async (req: AuthRequest, res: Response) =>
     const slots = await prisma.timetableSlot.findMany({
       where: whereClause,
       include: {
-        subject: true,
+        assignment: {
+          include: {
+            subject: true,
+          }
+        },
       },
       orderBy: [
         { day: 'asc' },
@@ -149,11 +161,11 @@ export const getTimetableBySemester = async (req: AuthRequest, res: Response) =>
 
       daySlots.forEach((slot) => {
         if (slot.slotIndex >= 0 && slot.slotIndex < 8) {
-          if (slot.subjectCode) {
+          if (slot.assignmentId) {
             slotsArray[slot.slotIndex] = {
               id: slot.id,
-              subjectCode: slot.subjectCode,
-              subject: slot.subject ? slot.subject.name : slot.subjectCode,
+              subjectCode: slot.assignment?.subject?.code ?? null,
+              subject: slot.assignment ? slot.assignment.subject.name : slot.assignmentId,
               room: slot.room || 'LH-N/A',
               class: slot.classGroup, // e.g. "CSE-B" for timetable
               teacherId: slot.teacherId,
@@ -209,16 +221,22 @@ export const getTeacherSubjects = async (req: AuthRequest, res: Response) => {
         semester: {
           status: 'ACTIVE',
         },
-        subject: { isNot: null },
+        assignment: { isNot: null },
       },
-      select: {
-        subject: {
-          select: {
-            code: true,
-            name: true,
-            classGroup: true,
-            type: true,
+      include: {
+        assignment: {
+          include: {
+            subject: {
+              select: {
+                code: true,
+                name: true,
+                type: true,
+              },
+            },
           },
+          select: {
+            classGroup: true
+          }
         },
       },
     });
@@ -227,15 +245,15 @@ export const getTeacherSubjects = async (req: AuthRequest, res: Response) => {
     const seen = new Set<string>();
     const subjects: any[] = [];
     for (const slot of slots) {
-      if (slot.subject) {
-        const code = slot.subject.code;
+      if (slot.assignment?.subject) {
+        const code = slot.assignment.subject.code;
         if (!seen.has(code)) {
           seen.add(code);
           subjects.push({
-            code: slot.subject.code,
-            name: slot.subject.name,
-            classGroup: slot.subject.classGroup,
-            type: slot.subject.type,
+            code: slot.assignment.subject.code,
+            name: slot.assignment.subject.name,
+            classGroup: slot.assignment.classGroup,
+            type: slot.assignment.subject.type,
           });
         }
       }
@@ -255,10 +273,24 @@ export const saveTimetableSlot = async (req: AuthRequest, res: Response) => {
   }
 
   try {
+    // Find the assignment by subject code and class group
+    const assignment = await prisma.subjectSectionAssignment.findFirst({
+      where: {
+        subject: {
+          code: subjectCode
+        },
+        classGroup
+      }
+    });
+
+    if (!assignment) {
+      return res.status(404).json({ error: 'Subject section assignment not found for the given subject and class group' });
+    }
+
     const slot = await prisma.timetableSlot.upsert({
       where: { classGroup_day_slotIndex_semesterId: { classGroup, day, slotIndex, semesterId } },
-      update: { subjectCode, room: room || null, teacherId, coTeacherId: coTeacherId || null },
-      create: { semesterId, day, slotIndex, classGroup, subjectCode, room: room || null, teacherId, coTeacherId: coTeacherId || null },
+      update: { assignmentId: assignment.id, room: room || null, teacherId, coTeacherId: coTeacherId || null },
+      create: { semesterId, day, slotIndex, classGroup, assignmentId: assignment.id, room: room || null, teacherId, coTeacherId: coTeacherId || null },
     });
     return res.status(200).json(slot);
   } catch (error) {
@@ -303,7 +335,11 @@ export const getAnyFacultyTimetable = async (req: AuthRequest, res: Response) =>
     const slots = await prisma.timetableSlot.findMany({
       where: whereClause,
       include: {
-        subject: true,
+        assignment: {
+          include: {
+            subject: true,
+          }
+        },
         semester: true,
       },
       orderBy: [
@@ -319,11 +355,11 @@ export const getAnyFacultyTimetable = async (req: AuthRequest, res: Response) =>
 
       daySlots.forEach((slot) => {
         if (slot.slotIndex >= 0 && slot.slotIndex < 8) {
-          if (slot.subjectCode) {
+          if (slot.assignmentId) {
             slotsArray[slot.slotIndex] = {
               id: slot.id,
-              subjectCode: slot.subjectCode,
-              subject: slot.subject ? slot.subject.name : slot.subjectCode,
+              subjectCode: slot.assignment?.subject?.code ?? null,
+              subject: slot.assignment ? slot.assignment.subject.name : slot.assignmentId,
               room: slot.room || 'LH-N/A',
               class: slot.classGroup,
               teacherId: slot.teacherId,
@@ -458,25 +494,29 @@ export const getCurrentFacultyStatus = async (req: AuthRequest, res: Response) =
               day: currentDay,
               slotIndex: currentPeriodIndex,
               semesterId: activeSemester.id,
-              subjectCode: { not: null },
+              assignmentId: { not: null },
             },
             include: {
-              subject: {
-                select: {
-                  code: true,
-                  name: true,
+              assignment: {
+                include: {
+                  subject: {
+                    select: {
+                      code: true,
+                      name: true,
+                    },
+                  },
                 },
               },
             },
           });
 
-          if (timetableSlot?.subject) {
+          if (timetableSlot?.assignment?.subject) {
             return {
               facultyId: faculty.id,
               facultyName: faculty.name,
               department: faculty.department || 'N/A',
-              subjectCode: timetableSlot.subject.code,
-              subjectName: timetableSlot.subject.name,
+              subjectCode: timetableSlot.assignment.subject.code,
+              subjectName: timetableSlot.assignment.subject.name,
               room: timetableSlot.room || 'TBD',
               classGroup: timetableSlot.classGroup,
               periodIndex: currentPeriodIndex,

@@ -12,9 +12,6 @@ export const SubjectManagement: React.FC = () => {
   const [form, setForm] = useState({
     code: '',
     name: '',
-    facultyId: '',
-    coFacultyId: '',
-    classGroup: '',
     type: 'STANDALONE'
   });
 
@@ -56,9 +53,6 @@ export const SubjectManagement: React.FC = () => {
       setForm({
         code: '',
         name: '',
-        facultyId: '',
-        coFacultyId: '',
-        classGroup: '',
         type: 'STANDALONE'
       });
       setTimeout(() => {
@@ -116,17 +110,6 @@ export const SubjectManagement: React.FC = () => {
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Section</label>
-              <input
-                type="text"
-                required
-                placeholder="e.g., CSE-B"
-                value={form.classGroup}
-                onChange={(e) => setForm({ ...form, classGroup: e.target.value.toUpperCase() })}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-gray-50 focus:bg-white transition-colors"
-              />
-            </div>
 
             <div>
               <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Subject Type (Evaluation Schema)</label>
@@ -140,38 +123,7 @@ export const SubjectManagement: React.FC = () => {
               </DropdownSelect>
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Faculty Member</label>
-              <DropdownSelect
-                required
-                value={form.facultyId}
-                onChange={(e) => setForm({ ...form, facultyId: e.target.value })}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-gray-50 focus:bg-white transition-colors"
-              >
-                <option value="">Select Faculty...</option>
-                {faculty.map((member) => (
-                  <option key={member.id} value={member.id}>
-                    {member.name} ({member.id})
-                  </option>
-                ))}
-              </DropdownSelect>
-            </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Co-Teacher (Optional)</label>
-              <DropdownSelect
-                value={form.coFacultyId}
-                onChange={(e) => setForm({ ...form, coFacultyId: e.target.value })}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-gray-50 focus:bg-white transition-colors"
-              >
-                <option value="">None (Single Teacher)</option>
-                {faculty.map((member) => (
-                  <option key={member.id} value={member.id}>
-                    {member.name} ({member.id})
-                  </option>
-                ))}
-              </DropdownSelect>
-            </div>
 
             <button
               type="submit"

@@ -5,6 +5,7 @@ import { AuthRequest } from '../types';
 import { semesterService } from '../services/SemesterService';
 import { isSubjectAtRisk } from '../utils/academicRisk';
 import { calculateProjectedSgpa } from '../utils/projectedSgpa';
+import { SubjectType } from '@prisma/client';
 
 const getStudentReportWhere = (
   semesterId: string | undefined,
@@ -54,7 +55,7 @@ const getSemesterEnrollment = (student: any, semesterId: string) =>
 
 const getReportStudentDetails = (student: any, semesterId: string) => {
   const enrollment = getSemesterEnrollment(student, semesterId);
-  
+
   if (enrollment) {
     return {
       program: enrollment.program ?? student.program,
@@ -63,7 +64,7 @@ const getReportStudentDetails = (student: any, semesterId: string) => {
       currentSemester: enrollment.semesterNumber,
     };
   }
-  
+
   if (student.semesterId === semesterId) {
     return {
       program: student.program,
@@ -125,11 +126,16 @@ export const getVergeOfBacklogReport = async (req: AuthRequest, res: Response) =
     let teacherClassGroups: string[] | undefined;
     if (req.user?.role === 'teacher') {
       // Teachers can only see students in the classes they teach
-      const taughtSubjects = await prisma.subject.findMany({
-        where: { OR: [{ facultyId: req.user.id }, { coFacultyId: req.user.id }] },
+      const taughtAssignments = await prisma.subjectSectionAssignment.findMany({
+        where: {
+          OR: [
+            { theoryFacultyId: req.user.id },
+            { labFacultyId: req.user.id }
+          ]
+        },
         select: { classGroup: true }
       });
-      teacherClassGroups = Array.from(new Set(taughtSubjects.map(s => s.classGroup)));
+      teacherClassGroups = Array.from(new Set(taughtAssignments.map(a => a.classGroup)));
     }
 
     // Get active semester if none specified
@@ -185,11 +191,15 @@ export const getVergeOfBacklogReport = async (req: AuthRequest, res: Response) =
             type: true,
             score: true,
             maxScore: true,
-            subject: {
+            assignment: {
               select: {
-                code: true,
-                name: true,
-                type: true
+                subject: {
+                  select: {
+                    code: true,
+                    name: true,
+                    type: true
+                  }
+                }
               }
             }
           }
@@ -201,19 +211,32 @@ export const getVergeOfBacklogReport = async (req: AuthRequest, res: Response) =
       getReportStudentDetails(student, activeSemesterId).classGroup,
     ).filter((classGroup): classGroup is string => Boolean(classGroup))));
     const subjects = studentClassGroups.length > 0
-      ? await prisma.subject.findMany({
+      ? (await prisma.subjectSectionAssignment.findMany({
         where: { classGroup: { in: studentClassGroups } },
-        select: { code: true, name: true, type: true, classGroup: true },
-      })
+        select: {
+          subject: {
+            select: {
+              code: true,
+              name: true,
+              type: true,
+            }
+          },
+          classGroup: true,
+        }
+      }))
+      .map(a => ({
+        ...a.subject,
+        classGroup: a.classGroup
+      }))
       : [];
 
     // Process each student to calculate verge of backlog status
     const report = students.map(student => {
       const subjectsMap: Record<string, any[]> = {};
-      
+
       student.marks.forEach((mark: any) => {
-        if (!mark.subject) return;
-        const code = mark.subject.code;
+        if (!mark.assignment?.subject) return;
+        const code = mark.assignment.subject.code;
         if (!subjectsMap[code]) {
           subjectsMap[code] = [];
         }
@@ -225,7 +248,7 @@ export const getVergeOfBacklogReport = async (req: AuthRequest, res: Response) =
       const subjectsDetail: any[] = [];
       const atRiskSubjects: string[] = [];
       const studentDetails = getReportStudentDetails(student, activeSemesterId);
-      const studentSubjects = subjects.filter((subject) => subject.classGroup === studentDetails.classGroup);
+      const studentSubjects = subjects.filter((subject): subject is { classGroup: string; code: string; name: string; type: SubjectType } => subject.classGroup === studentDetails.classGroup);
 
       for (const subject of studentSubjects) {
         const subjectCode = subject.code;
@@ -319,6 +342,7 @@ export const getVergeOfBacklogReport = async (req: AuthRequest, res: Response) =
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
+
 /**
  * Update student backlogs
  */
@@ -364,11 +388,16 @@ export const getAttendanceAndAssignmentReport = async (req: AuthRequest, res: Re
   try {
     let teacherClassGroups: string[] | undefined;
     if (req.user?.role === 'teacher') {
-      const taught = await prisma.subject.findMany({
-        where: { OR: [{ facultyId: req.user.id }, { coFacultyId: req.user.id }] },
+      const taughtAssignments = await prisma.subjectSectionAssignment.findMany({
+        where: {
+          OR: [
+            { theoryFacultyId: req.user.id },
+            { labFacultyId: req.user.id }
+          ]
+        },
         select: { classGroup: true },
       });
-      teacherClassGroups = Array.from(new Set(taught.map((item) => item.classGroup)));
+      teacherClassGroups = Array.from(new Set(taughtAssignments.map(a => a.classGroup)));
     }
 
     const students = await prisma.user.findMany({
@@ -393,12 +422,22 @@ export const getAttendanceAndAssignmentReport = async (req: AuthRequest, res: Re
         marks: {
           where: { semesterId },
           select: {
-            subjectCode: true,
             type: true,
             score: true,
             assign1Submitted: true,
             assign2Submitted: true,
-            subject: { select: { code: true, name: true, classGroup: true } },
+            assignment: {
+              select: {
+                id: true,
+                subject: {
+                  select: {
+                    code: true,
+                    name: true,
+                  }
+                },
+                classGroup: true
+              }
+            }
           },
         },
       },
@@ -406,35 +445,45 @@ export const getAttendanceAndAssignmentReport = async (req: AuthRequest, res: Re
     });
 
     if (reportType === 'missing_assignments') {
-      const subjects = await prisma.subject.findMany({
+      const assignments = await prisma.subjectSectionAssignment.findMany({
         where: {
           ...(classGroup ? { classGroup } : {}),
-          ...(req.user?.role === 'teacher' ? { OR: [{ facultyId: req.user.id }, { coFacultyId: req.user.id }] } : {}),
+          ...(req.user?.role === 'teacher' ? { OR: [{ theoryFacultyId: req.user.id }, { labFacultyId: req.user.id }] } : {}),
         },
-        select: { code: true, name: true, classGroup: true, type: true },
+        select: {
+          id: true,
+          subject: {
+            select: {
+              code: true,
+              name: true,
+              type: true,
+            }
+          },
+          classGroup: true
+        }
       });
       const report = students.flatMap((student) => {
         const studentDetails = getReportStudentDetails(student, semesterId);
-        return subjects
-          .filter((subject) => subject.classGroup === studentDetails.classGroup)
-          .flatMap((subject) => {
+        return assignments
+          .filter((assign) => assign.classGroup === studentDetails.classGroup)
+          .flatMap((assign) => {
             const assignmentMarks = student.marks.filter((mark) =>
-              mark.subjectCode === subject.code && ['assignment', 'assignment1', 'assignment2'].includes(mark.type)
+              mark.assignment?.id === assign.id && ['assignment', 'assignment1', 'assignment2'].includes(mark.type)
             );
             const assignment1 = assignmentMarks.find((mark) => mark.type === 'assignment' || mark.type === 'assignment1');
             const assignment2 = assignmentMarks.find((mark) => mark.type === 'assignment2');
             const missingAssignment1 = !assignment1 || assignment1.score === null;
-            const missingAssignment2 = subject.type === 'INTEGRATED' && (!assignment2 || assignment2.score === null);
+            const missingAssignment2 = assign.subject.type === 'INTEGRATED' && (!assignment2 || assignment2.score === null);
             return (missingAssignment1 || missingAssignment2) ? [{
-            studentId: student.id,
-            studentName: student.name,
-            ...studentDetails,
-            subjectCode: subject.code,
-            subjectName: subject.name,
-            missingAssignment1,
-            missingAssignment2,
-            score: assignment1?.score ?? null,
-          }] : [];
+              studentId: student.id,
+              studentName: student.name,
+              ...studentDetails,
+              subjectCode: assign.subject.code,
+              subjectName: assign.subject.name,
+              missingAssignment1,
+              missingAssignment2,
+              score: assignment1?.score ?? null,
+            }] : [];
           });
       });
       return res.json(report);
@@ -444,26 +493,47 @@ export const getAttendanceAndAssignmentReport = async (req: AuthRequest, res: Re
       where: { semesterId, ...(classGroup ? { classGroup } : {}) },
       select: {
         classGroup: true,
-        subjectCode: true,
-        subject: { select: { name: true, facultyId: true, coFacultyId: true } },
+        assignmentId: true,
+        assignment: {
+          select: {
+            subject: {
+              select: {
+                name: true,
+                code: true
+              }
+            },
+            theoryFaculty: {
+              select: {
+                id: true,
+                name: true
+              }
+            },
+            labFaculty: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
+          }
+        },
         records: { select: { studentId: true, status: true } },
       },
     });
     const taughtCodes = req.user?.role === 'teacher'
-      ? new Set((await prisma.subject.findMany({ where: { OR: [{ facultyId: req.user.id }, { coFacultyId: req.user.id }] }, select: { code: true } })).map((s) => s.code))
+      ? new Set((await prisma.subjectSectionAssignment.findMany({ where: { OR: [{ theoryFacultyId: req.user.id }, { labFacultyId: req.user.id }] }, select: { id: true } })).map((a) => a.id))
       : null;
     const scopedSessions = taughtCodes
-      ? sessions.filter((session) => taughtCodes.has(session.subjectCode))
+      ? sessions.filter((session) => taughtCodes.has(session.assignmentId))
       : sessions;
-    const totals = new Map<string, { present: number; total: number; subjects: Map<string, { present: number; total: number; name: string }> }>();
+    const totals = new Map<string, { present: number; total: number; subjects: Map<string, { present: number; total: number; name: string; code: string }> }>();
     scopedSessions.forEach((session) => session.records.forEach((record) => {
       const current = totals.get(record.studentId) || { present: 0, total: 0, subjects: new Map() };
       current.total += 1;
       if (record.status === 'present') current.present += 1;
-      const subject = current.subjects.get(session.subjectCode) || { present: 0, total: 0, name: session.subject.name };
+      const subject = current.subjects.get(session.assignmentId) || { present: 0, total: 0, name: session.assignment.subject.name, code: session.assignment.subject.code };
       subject.total += 1;
       if (record.status === 'present') subject.present += 1;
-      current.subjects.set(session.subjectCode, subject);
+      current.subjects.set(session.assignmentId, subject);
       totals.set(record.studentId, current);
     }));
     const report = students.flatMap((student) => {
@@ -472,11 +542,11 @@ export const getAttendanceAndAssignmentReport = async (req: AuthRequest, res: Re
       const percentage = Math.round((total.present / total.total) * 100);
       if (percentage >= threshold) return [];
       const studentDetails = getReportStudentDetails(student, semesterId);
-      return Array.from(total.subjects.entries()).map(([subjectCode, subject]) => ({
+      return Array.from(total.subjects.entries()).map(([assignmentId, subject]) => ({
         studentId: student.id,
         studentName: student.name,
         ...studentDetails,
-        subjectCode,
+        subjectCode: subject.code, // Now correct
         subjectName: subject.name,
         present: subject.present,
         total: subject.total,

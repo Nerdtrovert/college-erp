@@ -93,9 +93,24 @@ export const copySemester = async (req: AuthRequest, res: Response) => {
       include: { records: true },
     });
     for (const sess of sourceSessions) {
+      // Get the assignment directly from the session's assignmentId
+      const assignment = await prisma.subjectSectionAssignment.findUnique({
+        where: { id: sess.assignmentId },
+        include: { subject: true }
+      });
+      
+      if (!assignment) {
+        throw new Error(`No assignment found for id ${sess.assignmentId}`);
+      }
+
+      // Verify that the assignment's classGroup matches the session's classGroup for data consistency
+      if (assignment.classGroup !== sess.classGroup) {
+        throw new Error(`Assignment classGroup (${assignment.classGroup}) does not match session classGroup (${sess.classGroup}) for assignment id ${sess.assignmentId}`);
+      }
+
       const newSess = await prisma.attendanceSession.create({
         data: {
-          subjectCode: sess.subjectCode,
+          assignmentId: assignment.id,
           date: sess.date,
           classGroup: sess.classGroup,
           semesterId: newSem.id,
@@ -120,10 +135,37 @@ export const copySemester = async (req: AuthRequest, res: Response) => {
       where: { semesterId: sourceSemesterId },
     });
     for (const m of sourceMarks) {
+      // For marks, we don't have classGroup, so we need to get it from the student's enrollment
+      const enrollment = await prisma.studentEnrollment.findFirst({
+        where: {
+          studentId: m.studentId,
+          semesterId: sourceSemesterId
+        }
+      });
+      
+      if (!enrollment) {
+        throw new Error(`No enrollment found for student ${m.studentId} in semester ${sourceSemesterId}`);
+      }
+      
+      // Get the assignment directly from the mark's assignmentId
+      const assignment = await prisma.subjectSectionAssignment.findUnique({
+        where: { id: m.assignmentId },
+        include: { subject: true }
+      });
+
+      if (!assignment) {
+        throw new Error(`No assignment found for id ${m.assignmentId}`);
+      }
+
+      // Verify that the assignment's classGroup matches the student's enrollment classGroup
+      if (assignment.classGroup !== enrollment.classGroup) {
+        throw new Error(`Assignment classGroup (${assignment.classGroup}) does not match enrollment classGroup (${enrollment.classGroup}) for mark ${m.id}`);
+      }
+      
       await prisma.mark.create({
         data: {
           studentId: m.studentId,
-          subjectCode: m.subjectCode,
+          assignmentId: assignment.id,
           type: m.type,
           score: m.score,
           maxScore: m.maxScore,
@@ -136,11 +178,26 @@ export const copySemester = async (req: AuthRequest, res: Response) => {
       where: { semesterId: sourceSemesterId },
     });
     for (const s of sourceSlots) {
+      // Skip timetable slots without an assignment
+      if (!s.assignmentId) {
+        continue;
+      }
+
+      // Get the assignment directly from the timetable slot's assignmentId
+      const assignment = await prisma.subjectSectionAssignment.findUnique({
+        where: { id: s.assignmentId },
+        include: { subject: true }
+      });
+
+      if (!assignment) {
+        throw new Error(`No assignment found for id ${s.assignmentId}`);
+      }
+      
       await prisma.timetableSlot.create({
         data: {
           day: s.day,
           slotIndex: s.slotIndex,
-          subjectCode: s.subjectCode,
+          assignmentId: assignment.id,
           room: s.room,
           classGroup: s.classGroup,
           teacherId: s.teacherId,
