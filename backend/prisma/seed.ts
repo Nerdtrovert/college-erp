@@ -146,6 +146,15 @@ async function main() {
   });
   console.log('Students seeded.');
 
+  // Map classGroup to batchYear from student data
+  const classGroupBatchYearMap = new Map<string, number>();
+  for (const student of currentStudents) {
+    const batchYearInfo = batchYearsFromUsn(student.id);
+    if (batchYearInfo) {
+      classGroupBatchYearMap.set(student.classGroup, batchYearInfo.startYear);
+    }
+  }
+
   // Subjects Data - CANONICAL SUBJECTS ONLY (no section suffixes)
   // First, define all canonical subjects
   const canonicalSubjects = [
@@ -395,8 +404,8 @@ async function main() {
         : (String(subjectCode) === 'BCS502' && String(activityType) === 'LAB' ? 'Lab3' : 'MB 02'),
       teacherId: String(teacherId), activityType: String(activityType),
       coTeacherId: String(subjectCode) === 'BEC502' && String(activityType) === 'LAB' ? 'archana.s@hnnce.in' : String(subjectCode) === 'BCS502' && String(activityType) === 'LAB' ? 'harshitha@hnnce.in' : undefined,
-    })) as any,
-  );
+    })) as any
+  });
 
   // Replace this semester's source-scoped grids so removed/moved cells from
   // earlier seed drafts cannot survive as duplicate or stale periods.
@@ -419,11 +428,11 @@ async function main() {
             day: t.day,
             slotIndex: t.slotIndex,
             semesterId: defaultSemester.id,
-            batchYear: 0,
+            batchYear: classGroupBatchYearMap.get(t.classGroup) ?? 0,
           },
         },
-        update: { assignmentId: null, room: t.room, teacherId: teacherUuid, coTeacherId: coTeacherUuid, batchYear: 0 },
-        create: { day: t.day, slotIndex: t.slotIndex, assignmentId: null, room: t.room, classGroup: t.classGroup, teacherId: teacherUuid, coTeacherId: coTeacherUuid, semesterId: defaultSemester.id, batchYear: 0 },
+        update: { assignmentId: null, room: t.room, teacherId: teacherUuid, coTeacherId: coTeacherUuid, batchYear: classGroupBatchYearMap.get(t.classGroup) ?? 0 },
+        create: { day: t.day, slotIndex: t.slotIndex, assignmentId: null, room: t.room, classGroup: t.classGroup, teacherId: teacherUuid, coTeacherId: coTeacherUuid, semesterId: defaultSemester.id, batchYear: classGroupBatchYearMap.get(t.classGroup) ?? 0 }
       });
       continue;
     }
@@ -446,7 +455,7 @@ async function main() {
             day: t.day,
             slotIndex: t.slotIndex,
             semesterId: defaultSemester.id,
-            batchYear: 0,
+            batchYear: classGroupBatchYearMap.get(t.classGroup) ?? 0,
           },
         },
         update: {
@@ -454,7 +463,7 @@ async function main() {
           room: t.room,
           teacherId: teacherUuid,
           coTeacherId: coTeacherUuid,
-          batchYear: 0,
+          batchYear: classGroupBatchYearMap.get(t.classGroup) ?? 0,
         },
         create: {
           day: t.day,
@@ -465,9 +474,9 @@ async function main() {
           teacherId: teacherUuid,
           coTeacherId: coTeacherUuid,
           semesterId: defaultSemester.id,
-          batchYear: 0,
-        },
-      );
+          batchYear: classGroupBatchYearMap.get(t.classGroup) ?? 0,
+        }
+      });
     } else {
       console.warn(`No assignment found for ${t.subjectCode} in classGroup ${t.classGroup}`);
     }
