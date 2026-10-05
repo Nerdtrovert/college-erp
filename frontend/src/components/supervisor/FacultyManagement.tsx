@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { UserPlus, Upload, BookOpen, Plus, Search, Building, Briefcase, GraduationCap, Shield, Edit2, Trash2, ShieldAlert, Radio } from 'lucide-react';
+import { UserPlus, Upload, BookOpen, Plus, Search, Building, Briefcase, GraduationCap, Shield, Edit2, Trash2, ShieldAlert, Radio, Loader2 } from 'lucide-react';
 import API from '../../services/api';
 import { parseExcelFile } from '../../utils/excelParser';
 import { DropdownSelect } from '../ui/DropdownSelect';
@@ -229,18 +229,16 @@ export const FacultyManagement: React.FC = () => {
     }
   };
 
-  const handleCloseAssignmentModal = () => {
-    setShowAssignmentModal(false);
-    setSelectedFacultyForAssignments(null);
-    setError(null);
-    setSuccess(null);
-  };
 
   const handleAssignmentFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value, type, checked } = e.target;
+    const { name, value, type } = e.target;
     let newValue: any = value;
-    if (type === 'checkbox') newValue = checked;
-    if (type === 'radio') newValue = value;
+    if (type === 'checkbox') {
+      const input = e.target as HTMLInputElement;
+      newValue = input.checked;
+    } else if (type === 'radio') {
+      newValue = value;
+    }
     setNewAssignment(prev => ({ ...prev, [name]: newValue }));
   };
 
@@ -398,7 +396,7 @@ export const FacultyManagement: React.FC = () => {
                 <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Access Level</label>
                 <DropdownSelect
                   value={newFaculty.role}
-                  onChange={(e) => setNewFaculty({...newFaculty, role: e.target.value as any})}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setNewFaculty({...newFaculty, role: e.target.value as any})}
                   className="w-full px-3.5 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-gray-50 focus:bg-white transition-colors"
                 >
                   <option value="teacher">Faculty (Instructor)</option>
@@ -482,7 +480,7 @@ export const FacultyManagement: React.FC = () => {
                 <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Access Level</label>
                 <DropdownSelect
                   value={editingFaculty.role}
-                  onChange={(e) => setEditingFaculty({...editingFaculty, role: e.target.value as any})}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEditingFaculty({...editingFaculty, role: e.target.value as any})}
                   className="w-full px-3.5 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-gray-50 focus:bg-white transition-colors"
                 >
                   <option value="teacher">Faculty (Instructor)</option>
@@ -612,7 +610,7 @@ export const FacultyManagement: React.FC = () => {
                     <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Subject</label>
                     <DropdownSelect
                       value={newAssignment.subjectId}
-                      onChange={e => handleAssignmentFormChange(e)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => handleAssignmentFormChange(e)}
                       className="w-full rounded-lg px-3 py-2"
                     >
                       <option value="">Select subject</option>
@@ -627,7 +625,7 @@ export const FacultyManagement: React.FC = () => {
                     <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Section</label>
                     <DropdownSelect
                       value={newAssignment.section}
-                      onChange={e => handleAssignmentFormChange(e)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => handleAssignmentFormChange(e)}
                       className="w-full rounded-lg px-3 py-2"
                     >
                       <option value="">Select section</option>
@@ -642,22 +640,32 @@ export const FacultyManagement: React.FC = () => {
                     <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Assignment Type</label>
                     <div className="flex flex-col space-y-2">
                       <div className="flex items-center gap-3">
-                        <Radio
+                        <input
+                          type="radio"
+                          name="assignmentType"
                           value="THEORY"
                           checked={newAssignment.assignmentType === 'THEORY'}
-                          onChange={e => handleAssignmentFormChange(e)}
-                        >
+                          onChange={handleAssignmentFormChange}
+                          className="h-4 w-4 text-blue-600"
+                        />
+                        <label className="flex items-center gap-2">
+                          <Radio size={24} className="mr-2" />
                           Theory
-                        </Radio>
+                        </label>
                       </div>
                       <div className="flex items-center gap-3">
-                        <Radio
+                        <input
+                          type="radio"
+                          name="assignmentType"
                           value="LAB"
                           checked={newAssignment.assignmentType === 'LAB'}
-                          onChange={e => handleAssignmentFormChange(e)}
-                        >
+                          onChange={handleAssignmentFormChange}
+                          className="h-4 w-4 text-blue-600"
+                        />
+                        <label className="flex items-center gap-2">
+                          <Radio size={24} className="mr-2" />
                           Lab
-                        </Radio>
+                        </label>
                       </div>
                     </div>
                   </div>
@@ -674,7 +682,7 @@ export const FacultyManagement: React.FC = () => {
                       disabled={assignmentsLoading}
                       className="w-flex items-center justify-center gap-2 rounded-2xl border border-green-200 bg-green-100 px-4 py-2.5 text-sm font-semibold text-green-800 hover:bg-green-200 disabled:opacity-60"
                     >
-                      {assignmentsLoading ? <Clock3 size={16} className="animate-spin" /> : ''}
+                      {assignmentsLoading ? <Loader2 size={16} className="animate-spin" /> : ''}
                       {assignmentsLoading ? 'Saving...' : 'Assign Subject'}
                     </button>
                   </div>
@@ -702,7 +710,7 @@ export const FacultyManagement: React.FC = () => {
               <DropdownSelect
                 aria-label="Filter faculty by role"
                 value={roleFilter}
-                onChange={(e) => setRoleFilter(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setRoleFilter(e.target.value)}
                 className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
               >
                 <option value="all">All roles</option>
@@ -730,7 +738,7 @@ export const FacultyManagement: React.FC = () => {
                           </div>
                           <div>
                             <div className="text-sm font-semibold text-gray-900 truncate">{fac.name}</div>
-                            <div className="text-xs text-gray-500 font-mono mt-0.5">{fac.id}</div>
+                            <div className="text-xs text-gray-500 mt-0.5">{fac.email || '—'}</div>
                           </div>
                         </div>
                         <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold shrink-0
@@ -797,7 +805,7 @@ export const FacultyManagement: React.FC = () => {
                               </div>
                               <div>
                                 <div className="text-sm font-semibold text-gray-900">{fac.name}</div>
-                                <div className="text-xs text-gray-500 font-mono mt-0.5">{fac.id}</div>
+                                <div className="text-xs text-gray-500 mt-0.5">{fac.email || '—'}</div>
                               </div>
                             </div>
                           </td>

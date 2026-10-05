@@ -40,7 +40,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, pageType }) => {
 
     try {
       const response = await API.post('/auth/login', {
-        id: userId,
+        email: userId,
         password,
       });
       const { token, user: loggedInUser } = response.data;

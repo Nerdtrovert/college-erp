@@ -31,7 +31,13 @@ export const getTeacherClasses = async (req: AuthRequest, res: Response) => {
         assignmentId: { not: null },
         semester: { status: 'ACTIVE' },
       },
-      include: { assignment: { include: { subject: true } } },
+      include: {
+        assignment: {
+          include: {
+            subject: true
+          }
+        }
+      },
       orderBy: { slotIndex: 'asc' },
     });
 
@@ -266,13 +272,18 @@ export const saveTeacherAttendance = async (req: AuthRequest, res: Response) => 
       },
       update: { room: room || null },
       create: {
-        assignmentId: assignment.id,
         date,
         classGroup,
-        semesterId: activeSem.id,
         startTime,
         endTime,
         room: room || null,
+        updatedAt: new Date(),
+        assignment: {
+          connect: { id: assignment.id }
+        },
+        semester: {
+          connect: { id: activeSem.id }
+        }
       },
     });
 
@@ -324,7 +335,7 @@ export const getCorrectionSessions = async (req: AuthRequest, res: Response) => 
           }
         },
         records: {
-          include: { student: { select: { id: true, name: true } } },
+          include: { student: { select: { id: true, email: true, name: true } } },
           orderBy: { studentId: 'asc' },
         },
       },
@@ -365,8 +376,8 @@ export const updateAttendanceRecord = async (req: AuthRequest, res: Response) =>
     });
     if (!record) return res.status(404).json({ error: 'Attendance record not found' });
 
-    const isTheoryFaculty = record.session.assignment.theoryFacultyId === req.user?.id;
-    const isLabFaculty = record.session.assignment.labFacultyId === req.user?.id;
+    const isTheoryFaculty = record.session?.assignment?.theoryFacultyId === req.user?.id;
+    const isLabFaculty = record.session?.assignment?.labFacultyId === req.user?.id;
     const canEdit = req.user?.role !== 'teacher' || isTheoryFaculty || isLabFaculty;
     if (!canEdit) return res.status(403).json({ error: 'You can only correct attendance for your assigned subjects' });
 

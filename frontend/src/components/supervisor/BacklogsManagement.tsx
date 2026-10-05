@@ -10,6 +10,7 @@ import { DropdownSelect } from '../ui/DropdownSelect';
 
 interface ReportStudent {
   id: string;
+  email?: string | null;
   name: string;
   program?: StudentProgram;
   currentSemester?: number;
@@ -180,7 +181,7 @@ export const BacklogsManagement: React.FC<Props> = () => {
 
     head = [['ID', 'Name', 'Current Sem', 'Section', '# Backlogs', 'Backlog Subjects']];
     tableData = displayedData.map(s => [
-      s.id,
+      s.email ? s.email.toUpperCase() : '-',
       s.name,
       s.currentSemester || '-',
       s.classGroup || '-',
@@ -211,7 +212,7 @@ export const BacklogsManagement: React.FC<Props> = () => {
 
     const tableRows = displayedData.map((student: any) => {
       let cells = [
-        createCell(student.id),
+        createCell(student.email ? student.email.toUpperCase() : '-'),
         createCell(student.name),
         createCell(student.currentSemester || '-'),
         createCell(student.classGroup || '-'),
@@ -464,7 +465,7 @@ export const BacklogsManagement: React.FC<Props> = () => {
               <tbody className="divide-y divide-gray-50 bg-white">
                 {displayedData.map((student) => (
                   <tr key={student.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-6 py-4 text-sm font-medium text-gray-900">{student.id}</td>
+                    <td className="px-6 py-4 text-sm font-medium text-gray-900">{student.email ? student.email.toUpperCase() : '—'}</td>
                     <td className="px-6 py-4 text-sm text-gray-700 whitespace-nowrap">{student.name}</td>
                     <td className="px-6 py-4 text-sm text-gray-700">{student.currentSemester || '-'}</td>
                     <td className="px-6 py-4 text-sm text-gray-700">{student.classGroup || '-'}</td>

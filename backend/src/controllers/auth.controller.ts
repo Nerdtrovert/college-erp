@@ -29,35 +29,28 @@ const hasExpectedFileSignature = (buffer: Buffer, ext: string): boolean => {
 };
 
 export const login = async (req: Request, res: Response) => {
-  const { password } = req.body;
-  const rawId = String(req.body.id).trim();
+  const { email, password } = req.body;
 
-  // 1. Auto-detect expected role category from ID format
-  const isEmailFormat = rawId.includes('@') && (rawId.endsWith('@hnnce.in') || rawId.endsWith('@hnnce.com'));
-  const isStudentFormat = !isEmailFormat;
-
-  // 2. Normalize IDs: student IDs uppercase, faculty IDs preserve case
-  const id = isStudentFormat ? rawId.toUpperCase() : rawId;
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email and password are required' });
+  }
 
   try {
-    // Find the user by ID
-    const user = isStudentFormat
-      ? await prisma.user.findUnique({ where: { id } })
-      : await prisma.user.findFirst({
-          where: { id: { equals: id, mode: 'insensitive' } },
-        });
+    // Find the user by email
+    const user = await prisma.user.findFirst({
+      where: {
+        email: {
+          equals: email.trim(),
+          mode: 'insensitive',
+        },
+      },
+    });
 
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
     if (!user.isActive) {
       return res.status(401).json({ error: 'Student portal access is inactive. Contact administration for backlog support.' });
-    }
-
-    // 3. Verify actual role matches expected format
-    const isActualStudent = user.role === 'student';
-    if (isStudentFormat !== isActualStudent) {
-      return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     // Verify bcrypt password
@@ -70,6 +63,7 @@ export const login = async (req: Request, res: Response) => {
     const token = jwt.sign(
       {
         id: user.id,
+        email: user.email,
         role: user.role,
         name: user.name,
         department: user.department,
@@ -84,6 +78,7 @@ export const login = async (req: Request, res: Response) => {
       token,
       user: {
         id: user.id,
+        email: user.email,
         role: user.role,
         name: user.name,
         department: user.department,
@@ -98,16 +93,16 @@ export const login = async (req: Request, res: Response) => {
 };
 
 export const register = async (req: Request, res: Response) => {
-  const { name, password, role, department, program, classGroup, semesterId, numberOfBacklogs, backlogSubjects } = req.body;
-  const id = role === 'student'
-    ? String(req.body.id).toUpperCase()
-    : String(req.body.id).trim();
+  const { name, password, role, department, program, classGroup, semesterId, numberOfBacklogs, backlogSubjects, email } = req.body;
+  const identifier = role === 'student'
+    ? String(email).toUpperCase()
+    : String(email).trim();
 
   try {
-    // Check if user ID is already registered
+    // Check if user with this email is already registered
     // Use generic error message to prevent user enumeration
     const existingUser = await prisma.user.findUnique({
-      where: { id },
+      where: { email: identifier.toLowerCase() },
     });
     if (existingUser) {
       return res.status(400).json({ error: 'Registration failed' });
@@ -116,12 +111,12 @@ export const register = async (req: Request, res: Response) => {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const batch = role === 'student' ? batchYearsFromUsn(id) : null;
+    const batch = role === 'student' ? batchYearsFromUsn(identifier) : null;
     const enrollmentSemester = role === 'student' && semesterId
       ? await prisma.semester.findUnique({ where: { id: semesterId } })
       : null;
     const semesterNumber = role === 'student' && enrollmentSemester
-      ? semesterNumberFromUsn(id, enrollmentSemester.startDate || '')
+      ? semesterNumberFromUsn(identifier, enrollmentSemester.startDate || '')
       : null;
     if (role === 'student' && semesterId && (!enrollmentSemester || !semesterNumber)) {
       return res.status(400).json({ error: 'Unable to derive semester number from the student USN and semester dates' });
@@ -130,7 +125,7 @@ export const register = async (req: Request, res: Response) => {
     const user = await prisma.$transaction(async (tx) => {
       const createdUser = await tx.user.create({
         data: {
-          id,
+          email: identifier.toLowerCase(),
           name,
           password: hashedPassword,
           role,
@@ -208,6 +203,7 @@ export const getUsersByRole = async (req: AuthRequest, res: Response) => {
       },
       select: {
         id: true,
+        email: true,
         name: true,
         role: true,
         department: true,

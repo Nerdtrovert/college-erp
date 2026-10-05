@@ -224,7 +224,7 @@ export const TeacherMarks: React.FC = () => {
             <div className="relative">
               <DropdownSelect
                 value={selectedClass}
-                onChange={(e) => { setSelectedClass(e.target.value); setSaved(false) }}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { setSelectedClass(e.target.value); setSaved(false) }}
                 className="w-full appearance-none px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500 pr-10"
               >
                 {subjects.map(c => <option key={c.code} value={c.code}>{c.code} — {c.name} ({c.classGroup})</option>)}

@@ -255,7 +255,7 @@ export const processGradecard = async (req: AuthRequest, res: Response) => {
 
         const txResult = await prisma.$transaction(async (tx) => {
           const student = await tx.user.findFirst({
-            where: { id: usn, role: 'student' }
+            where: { email: usn.toLowerCase(), role: 'student' }
           });
 
           if (!student) {
@@ -366,7 +366,7 @@ export const processGradecard = async (req: AuthRequest, res: Response) => {
           updatedStudents.push({
             id: txResult.updatedStudent!.id,
             name: txResult.updatedStudent!.name,
-            usn: txResult.updatedStudent!.id,
+            usn: txResult.updatedStudent!.email?.toUpperCase() || txResult.updatedStudent!.id,
             backlogCount: txResult.updatedStudent!.numberOfBacklogs,
             backlogSubjects: txResult.updatedStudent!.backlogSubjects
           });
@@ -426,6 +426,7 @@ export const getStudentsWithBacklogs = async (req: AuthRequest, res: Response) =
       where: whereClause,
       select: {
         id: true,
+        email: true,
         name: true,
         department: true,
         program: true,
@@ -435,11 +436,11 @@ export const getStudentsWithBacklogs = async (req: AuthRequest, res: Response) =
       }
     });
 
-    // Format the response
+    // Format the response. USN is stored in the email field (id is a UUID).
     const formattedStudents = students.map(student => ({
       id: student.id,
       name: student.name,
-      usn: student.id, // Assuming USN is stored as id
+      usn: student.email?.toUpperCase() || student.id,
       program: student.program || 'CSE',
       semester: student.semesterId || 'N/A',
       backlogCount: student.numberOfBacklogs,

@@ -18,6 +18,7 @@ interface Semester {
 
 interface StudentUser {
   id: string; // roll number
+  email?: string | null;
   name: string;
   role: string;
   program: StudentProgram;
@@ -332,6 +333,7 @@ export const StudentManagement: React.FC = () => {
         program: student.program,
         classGroup: student.classGroup,
         semester: student.semester,
+        semesterNumber: student.semesterNumber ?? 0,
       }];
       return enrollments.map((enrollment) => ({
         ...student,
@@ -435,7 +437,7 @@ export const StudentManagement: React.FC = () => {
           <div className="flex items-center gap-2">
             <DropdownSelect
               value={reportType}
-              onChange={(e) => setReportType(e.target.value as "students" | "faculty-marks")}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setReportType(e.target.value as "students" | "faculty-marks")}
               className="px-3 h-[42px] rounded-xl border border-gray-200 bg-gray-50 text-gray-900 text-sm focus:outline-none focus:border-blue-500 cursor-pointer"
             >
               <option value="students">Student List</option>
@@ -445,7 +447,7 @@ export const StudentManagement: React.FC = () => {
           <div className="flex items-center gap-2">
             <DropdownSelect
               value={exportFormat}
-              onChange={(e) => setExportFormat(e.target.value as "json" | "csv" | "excel" | "pdf")}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setExportFormat(e.target.value as "json" | "csv" | "excel" | "pdf")}
               className="px-3 h-[42px] rounded-xl border border-gray-200 bg-gray-50 text-gray-900 text-sm focus:outline-none focus:border-blue-500 cursor-pointer"
             >
               <option value="csv">CSV</option>
@@ -482,7 +484,7 @@ export const StudentManagement: React.FC = () => {
                 <div className="relative">
                   <DropdownSelect
                     value={selectedSemester}
-                    onChange={(e) => setSelectedSemester(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedSemester(e.target.value)}
                     className="w-full appearance-none px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500 pr-10"
                   >
                     <option value="" disabled>Select target semester...</option>
@@ -499,7 +501,7 @@ export const StudentManagement: React.FC = () => {
                 <input
                   type="text"
                   value={defaultClassGroup}
-                  onChange={(e) => setDefaultClassGroup(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDefaultClassGroup(e.target.value)}
                   placeholder="e.g. CSE-B"
                   className="w-full px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500"
                 />
@@ -510,7 +512,7 @@ export const StudentManagement: React.FC = () => {
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Default Program (Fallback)</label>
               <DropdownSelect
                 value={defaultProgram}
-                onChange={(e) => setDefaultProgram(e.target.value as StudentProgram)}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setDefaultProgram(e.target.value as StudentProgram)}
                 className="w-full px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500"
               >
                 {STUDENT_PROGRAMS.map(program => <option key={program} value={program}>{PROGRAM_LABELS[program]}</option>)}
@@ -691,7 +693,7 @@ Section: CSE-B`}
             <div className="relative">
               <DropdownSelect
                 value={filterProgram}
-                onChange={(e) => { setFilterProgram(e.target.value); setCurrentPage(1); }}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { setFilterProgram(e.target.value); setCurrentPage(1); }}
                 className="appearance-none bg-gray-50 border border-gray-200 rounded-xl px-4 py-1.5 pr-8 font-semibold text-xs text-gray-700 focus:outline-none focus:border-blue-500"
               >
                 <option value="all">All Programs</option>
@@ -704,7 +706,7 @@ Section: CSE-B`}
             <div className="relative">
               <DropdownSelect
                 value={filterSemester}
-                onChange={(e) => { setFilterSemester(e.target.value); setCurrentPage(1); }}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { setFilterSemester(e.target.value); setCurrentPage(1); }}
                 className="appearance-none bg-gray-50 border border-gray-200 rounded-xl px-4 py-1.5 pr-8 font-semibold text-xs text-gray-700 focus:outline-none focus:border-blue-500"
               >
                 <option value="all">All Semesters</option>
@@ -717,7 +719,7 @@ Section: CSE-B`}
             <div className="relative">
               <DropdownSelect
                 value={filterSemesterNumber}
-                onChange={(e) => { setFilterSemesterNumber(e.target.value); setCurrentPage(1); }}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { setFilterSemesterNumber(e.target.value); setCurrentPage(1); }}
                 className="appearance-none bg-gray-50 border border-gray-200 rounded-xl px-4 py-1.5 pr-8 font-semibold text-xs text-gray-700 focus:outline-none focus:border-blue-500"
               >
                 <option value="all">All Semester Numbers</option>
@@ -732,7 +734,7 @@ Section: CSE-B`}
             <div className="relative">
               <DropdownSelect
                 value={filterSection}
-                onChange={(e) => { setFilterSection(e.target.value); setCurrentPage(1); }}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { setFilterSection(e.target.value); setCurrentPage(1); }}
                 className="appearance-none bg-gray-50 border border-gray-200 rounded-xl px-4 py-1.5 pr-8 font-semibold text-xs text-gray-700 focus:outline-none focus:border-blue-500"
               >
                 <option value="all">All Sections</option>
@@ -755,7 +757,7 @@ Section: CSE-B`}
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold text-gray-900 break-words">{stud.name}</p>
-                  <p className="mt-0.5 font-mono text-xs text-gray-500">{stud.id}</p>
+                  <p className="mt-0.5 font-mono text-xs text-gray-500">{stud.email ? stud.email.toUpperCase() : '—'}</p>
                 </div>
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
@@ -819,7 +821,7 @@ Section: CSE-B`}
                         </div>
                       </div>
                     </td>
-                    <td className="py-4 px-5 font-mono text-xs font-semibold text-gray-700">{stud.id}</td>
+                    <td className="py-4 px-5 font-mono text-xs font-semibold text-gray-700">{stud.email ? stud.email.toUpperCase() : '—'}</td>
                     <td className="py-4 px-5 text-gray-600 max-w-[200px] truncate">{PROGRAM_LABELS[stud.program]}</td>
                     <td className="py-4 px-5">
                       <div className="space-y-0.5">
@@ -967,7 +969,7 @@ Section: CSE-B`}
                 <DropdownSelect
                   required
                   value={editingStudent ? editingStudent.program : (newStudent?.program || '')}
-                  onChange={(value) => {
+                  onChange={(value: string) => {
                     if (editingStudent) {
                       const program = value as StudentProgram;
                       setEditingStudent({ ...editingStudent, program, classGroup: SECTION_OPTIONS[program][0] });
@@ -1003,7 +1005,7 @@ Section: CSE-B`}
                   <DropdownSelect
                     required
                     value={editingStudent ? (editingStudent.classGroup || '') : (newStudent?.classGroup || '')}
-                    onChange={(e) => {
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                       if (editingStudent) {
                         setEditingStudent({ ...editingStudent, classGroup: e.target.value });
                       } else if (newStudent) {
@@ -1024,7 +1026,7 @@ Section: CSE-B`}
                   <div className="relative">
                     <DropdownSelect
                       value={editingStudent ? (editingStudent.semesterId || '') : (newStudent?.semesterId || '')}
-                      onChange={(e) => {
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                         if (editingStudent) {
                           setEditingStudent({ ...editingStudent, semesterId: e.target.value });
                         } else if (newStudent) {

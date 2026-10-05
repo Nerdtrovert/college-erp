@@ -345,7 +345,7 @@ export const AcademicCalendar: React.FC<AcademicCalendarProps> = ({
             </label>
             <label className="text-xs font-medium text-gray-700">
               Category
-              <DropdownSelect value={form.type} onChange={(event) => setForm({ ...form, type: event.target.value as EventType })} className="mt-1.5 h-11 rounded-xl px-3">
+              <DropdownSelect value={form.type} onChange={(event: React.ChangeEvent<HTMLSelectElement>) => setForm({ ...form, type: event.target.value as EventType })} className="mt-1.5 h-11 rounded-xl px-3">
                 {Object.entries(EVENT_STYLES).filter(([type]) => editableTypes.includes(type as EventType) && type !== 'general').map(([type, style]) => <option key={type} value={type}>{style.label}</option>)}
               </DropdownSelect>
             </label>

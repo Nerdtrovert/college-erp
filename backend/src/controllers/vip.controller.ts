@@ -28,6 +28,7 @@ export const getStudentById = async (req: AuthRequest, res: Response) => {
       where: { id: studentId, role: 'student' as const },
       select: {
         id: true,
+        email: true,
         name: true,
         role: true,
         department: true,
@@ -426,6 +427,7 @@ const computeLeaderboard = async (groupBy: 'department' | 'classGroup' | null, m
       .slice(0, 5)
       .map((student) => ({
         id: student.id,
+        email: student.email,
         name: student.name,
         program: student.program,
         classGroup: student.classGroup,
@@ -650,11 +652,11 @@ export const downloadFacultyMarksReport = async (req: AuthRequest, res: Response
 
     // Transform to flat array for export
     const rows = marksWithDetails.map(mark => ({
-      'Faculty ID': (mark.assignment.theoryFaculty?.id ?? mark.assignment.labFaculty?.id ?? null),
-      'Faculty Name': (mark.assignment.theoryFaculty?.name ?? mark.assignment.labFaculty?.name ?? ''),
-      'Faculty Department': (mark.assignment.theoryFaculty?.department ?? mark.assignment.labFaculty?.department ?? ''),
-      'Subject Code': mark.assignment.subject.code,
-      'Subject Name': mark.assignment.subject.name,
+      'Faculty ID': (mark.assignment?.theoryFaculty?.id ?? mark.assignment?.labFaculty?.id ?? null),
+      'Faculty Name': (mark.assignment?.theoryFaculty?.name ?? mark.assignment?.labFaculty?.name ?? ''),
+      'Faculty Department': (mark.assignment?.theoryFaculty?.department ?? mark.assignment?.labFaculty?.department ?? ''),
+      'Subject Code': mark.assignment?.subject?.code ?? '',
+      'Subject Name': mark.assignment?.subject?.name ?? '',
       'Student ID': mark.student.id,
       'Student Name': mark.student.name,
       'Student Program': mark.student.program,

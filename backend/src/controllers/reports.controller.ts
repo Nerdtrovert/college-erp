@@ -166,6 +166,7 @@ export const getVergeOfBacklogReport = async (req: AuthRequest, res: Response) =
       where,
       select: {
         id: true,
+        email: true,
         name: true,
         program: true,
         classGroup: true,
@@ -317,6 +318,7 @@ export const getVergeOfBacklogReport = async (req: AuthRequest, res: Response) =
 
       return {
         id: student.id,
+        email: student.email,
         name: student.name,
         ...studentDetails,
         numberOfBacklogs: student.numberOfBacklogs || 0,
@@ -404,6 +406,7 @@ export const getAttendanceAndAssignmentReport = async (req: AuthRequest, res: Re
       where: getStudentReportWhere(semesterId, program, classGroup, teacherClassGroups, semesterNumber),
       select: {
         id: true,
+        email: true,
         name: true,
         program: true,
         classGroup: true,
@@ -477,6 +480,7 @@ export const getAttendanceAndAssignmentReport = async (req: AuthRequest, res: Re
             return (missingAssignment1 || missingAssignment2) ? [{
               studentId: student.id,
               studentName: student.name,
+              email: student.email,
               ...studentDetails,
               subjectCode: assign.subject.code,
               subjectName: assign.subject.name,
@@ -523,14 +527,19 @@ export const getAttendanceAndAssignmentReport = async (req: AuthRequest, res: Re
       ? new Set((await prisma.subjectSectionAssignment.findMany({ where: { OR: [{ theoryFacultyId: req.user.id }, { labFacultyId: req.user.id }] }, select: { id: true } })).map((a) => a.id))
       : null;
     const scopedSessions = taughtCodes
-      ? sessions.filter((session) => taughtCodes.has(session.assignmentId))
+      ? sessions.filter((session) => session.assignmentId !== null && taughtCodes.has(session.assignmentId))
       : sessions;
     const totals = new Map<string, { present: number; total: number; subjects: Map<string, { present: number; total: number; name: string; code: string }> }>();
     scopedSessions.forEach((session) => session.records.forEach((record) => {
       const current = totals.get(record.studentId) || { present: 0, total: 0, subjects: new Map() };
       current.total += 1;
       if (record.status === 'present') current.present += 1;
-      const subject = current.subjects.get(session.assignmentId) || { present: 0, total: 0, name: session.assignment.subject.name, code: session.assignment.subject.code };
+      const subject = current.subjects.get(session.assignmentId) || {
+        present: 0,
+        total: 0,
+        name: session.assignment?.subject?.name || 'Unknown',
+        code: session.assignment?.subject?.code || 'UNKNOWN'
+      };
       subject.total += 1;
       if (record.status === 'present') subject.present += 1;
       current.subjects.set(session.assignmentId, subject);
@@ -545,6 +554,7 @@ export const getAttendanceAndAssignmentReport = async (req: AuthRequest, res: Re
       return Array.from(total.subjects.entries()).map(([assignmentId, subject]) => ({
         studentId: student.id,
         studentName: student.name,
+        email: student.email,
         ...studentDetails,
         subjectCode: subject.code, // Now correct
         subjectName: subject.name,

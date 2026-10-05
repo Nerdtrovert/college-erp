@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Bell, CalendarDays, User } from 'lucide-react';
+import { CalendarDays, User } from 'lucide-react';
 import API from '../../services/api';
 import { sortAnnouncements } from '../../utils/announcements';
 
@@ -30,16 +30,17 @@ const MessageCircle = () => <span className="text-gray-600">💬</span>;
 export const StudentAnnouncements: React.FC = () => {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<boolean>(false);
 
   useEffect(() => {
     const fetchAnnouncements = async () => {
       try {
         const res = await API.get('/announcements');
         setAnnouncements(sortAnnouncements(res.data));
+        setError(false);
       } catch (err: any) {
         console.error(err);
-        setError('Failed to fetch announcements.');
+        setError(true);
       } finally {
         setLoading(false);
       }
@@ -51,8 +52,8 @@ export const StudentAnnouncements: React.FC = () => {
     return <div className="p-6 text-center text-gray-500 font-medium">Loading announcements...</div>;
   }
 
-  if (error) {
-    return <div className="p-6 text-center text-red-500 font-medium">{error}</div>;
+  if (error || announcements.length === 0) {
+    return <div className="p-6 text-center text-gray-500">No announcements yet.</div>;
   }
 
   return (
@@ -91,30 +92,6 @@ export const StudentAnnouncements: React.FC = () => {
               </div>
             </div>
           ))}
-        </div>
-      </div>
-
-      <div className="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
-        <div className="flex items-center gap-3">
-          <Bell size={18} className="text-blue-600" />
-          <div>
-            <h3 className="font-semibold text-gray-900">Notification Preferences</h3>
-            <p className="text-sm text-gray-600">Get instant alerts for important announcements</p>
-          </div>
-        </div>
-        <div className="mt-3 flex flex-col sm:flex-row sm:flex-wrap gap-3">
-          <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-            <input type="checkbox" className="h-4 w-4 text-blue-600 border-gray-300 rounded" />
-            Email notifications
-          </label>
-          <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-            <input type="checkbox" className="h-4 w-4 text-blue-600 border-gray-300 rounded" />
-            SMS alerts
-          </label>
-          <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-            <input type="checkbox" className="h-4 w-4 text-blue-600 border-gray-300 rounded" />
-            In-app notifications
-          </label>
         </div>
       </div>
     </div>

@@ -5,7 +5,6 @@ import { DropdownSelect } from '../ui/DropdownSelect';
 
 export const SubjectManagement: React.FC = () => {
   const [subjects, setSubjects] = useState<any[]>([]);
-  const [faculty, setFaculty] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveMessageType, setSaveMessageType] = useState<'success' | 'error' | null>(null);
@@ -17,7 +16,6 @@ export const SubjectManagement: React.FC = () => {
 
   useEffect(() => {
     fetchSubjects();
-    fetchFaculty();
   }, []);
 
   const fetchSubjects = async () => {
@@ -32,14 +30,6 @@ export const SubjectManagement: React.FC = () => {
     }
   };
 
-  const fetchFaculty = async () => {
-    try {
-      const res = await API.get('/auth/users?role=teacher');
-      setFaculty(res.data || []);
-    } catch (err: any) {
-      console.error('Failed to fetch faculty:', err);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,7 +105,7 @@ export const SubjectManagement: React.FC = () => {
               <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Subject Type (Evaluation Schema)</label>
               <DropdownSelect
                 value={form.type}
-                onChange={(e) => setForm({ ...form, type: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setForm({ ...form, type: e.target.value })}
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-gray-50 focus:bg-white transition-colors"
               >
                 <option value="STANDALONE">Standalone (CIE: Best 2 of 3 scaled to 25 + 25 Assignment)</option>

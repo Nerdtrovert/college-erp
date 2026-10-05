@@ -1,10 +1,244 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-generator client {
-  provider = "prisma-client-js"
+model User {
+  id                String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email             String?                    @unique
+  name              String
+  password          String
+  role              Role
+  department        String?
+  classGroup        String?
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+  semesterId        String?                    @db.Uuid
+  backlogSubjects   String[]                   @default([])
+  numberOfBacklogs  Int                        @default(0)
+  program           String?
+  batchEndYear      Int?
+  batchStartYear    Int?
+  isActive          Boolean                    @default(true)
+  adminUploads      AdminUpload[]              @relation("AdminUploads")
+  announcements     Announcement[]             @relation("UserAnnouncements")
+  attendanceRecords AttendanceRecord[]
+  marks             Mark[]
+  notes             Note[]
+  enrollments       StudentEnrollment[]
+  labAssignments    SubjectSectionAssignment[] @relation("LabAssignments")
+  theoryAssignments SubjectSectionAssignment[] @relation("TheoryAssignments")
+  semester          Semester?                  @relation(fields: [semesterId], references: [id])
+
+  @@index([classGroup])
+  @@index([role])
+  @@index([role, classGroup])
+  @@index([role, program])
+}
+
+model Subject {
+  code        String                     @id
+  name        String
+  type        SubjectType                @default(STANDALONE)
+  createdAt   DateTime                   @default(now())
+  updatedAt   DateTime                   @updatedAt
+  id          String                     @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  description String?
+  assignments SubjectSectionAssignment[] @relation("SubjectAssignments")
+}
+
+model SubjectSectionAssignment {
+  id                 String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  subjectId          String              @db.Uuid
+  theoryFacultyId    String?             @db.Uuid
+  labFacultyId       String?             @db.Uuid
+  classGroup         String
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  attendanceSessions AttendanceSession[] @relation("AttendanceSessionAssignment")
+  marks              Mark[]              @relation("MarkAssignment")
+  labFaculty         User?               @relation("LabAssignments", fields: [labFacultyId], references: [id])
+  subject            Subject             @relation("SubjectAssignments", fields: [subjectId], references: [id])
+  theoryFaculty      User?               @relation("TheoryAssignments", fields: [theoryFacultyId], references: [id])
+  timetableSlots     TimetableSlot[]     @relation("TimetableSlotAssignment")
+
+  @@unique([subjectId, classGroup])
+  @@index([labFacultyId])
+  @@index([subjectId])
+  @@index([theoryFacultyId])
+}
+
+model Semester {
+  id                 String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code               String              @unique
+  name               String
+  startDate          String?
+  endDate            String?
+  status             SemesterStatus
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  attendanceSessions AttendanceSession[]
+  marks              Mark[]
+  enrollments        StudentEnrollment[]
+  timetableSlots     TimetableSlot[]
+  students           User[]
+
+  @@index([status])
+}
+
+model StudentEnrollment {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId      String   @db.Uuid
+  semesterId     String   @db.Uuid
+  semesterNumber Int
+  program        String
+  classGroup     String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  semester       Semester @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+  student        User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, semesterId])
+  @@index([semesterId, semesterNumber])
+  @@index([semesterId, program])
+  @@index([semesterId, classGroup])
+  @@index([studentId])
+}
+
+model AttendanceSession {
+  id           String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  date         String
+  classGroup   String
+  semesterId   String                    @db.Uuid
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime
+  endTime      String
+  room         String?
+  startTime    String
+  assignmentId String?                   @db.Uuid
+  records      AttendanceRecord[]
+  assignment   SubjectSectionAssignment? @relation("AttendanceSessionAssignment", fields: [assignmentId], references: [id], onUpdate: NoAction)
+  semester     Semester                  @relation(fields: [semesterId], references: [id])
+
+  @@unique([assignmentId, date, classGroup, semesterId, startTime, endTime])
+  @@index([date, semesterId])
+  @@index([assignmentId])
+}
+
+model AttendanceRecord {
+  id        String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sessionId String            @db.Uuid
+  studentId String            @db.Uuid
+  status    String
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  session   AttendanceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  student   User              @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, studentId])
+}
+
+model Mark {
+  id               String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId        String                    @db.Uuid
+  type             String
+  score            Float?
+  maxScore         Float
+  semesterId       String                    @db.Uuid
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+  assign1Submitted Boolean                   @default(false)
+  assign2Submitted Boolean                   @default(false)
+  assignmentId     String?                   @db.Uuid
+  assignment       SubjectSectionAssignment? @relation("MarkAssignment", fields: [assignmentId], references: [id], onUpdate: NoAction)
+  semester         Semester                  @relation(fields: [semesterId], references: [id])
+  student          User                      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, assignmentId, type, semesterId])
+  @@index([studentId, semesterId])
+  @@index([assignmentId])
+}
+
+model Announcement {
+  id        Int      @id @default(autoincrement())
+  title     String
+  body      String
+  category  String
+  date      String
+  authorId  String   @db.Uuid
+  target    String
+  pinned    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  author    User     @relation("UserAnnouncements", fields: [authorId], references: [id])
+}
+
+model TimetableSlot {
+  id           String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  day          String
+  slotIndex    Int
+  room         String?
+  classGroup   String
+  teacherId    String
+  semesterId   String                    @db.Uuid
+  batchYear    Int?                     // batch year of students
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
+  coTeacherId  String?
+  assignmentId String?                   @db.Uuid
+  activityType String? // Added activityType field
+  assignment   SubjectSectionAssignment? @relation("TimetableSlotAssignment", fields: [assignmentId], references: [id], onUpdate: NoAction)
+  semester     Semester                  @relation(fields: [semesterId], references: [id])
+
+  @@unique([classGroup, day, slotIndex, semesterId, batchYear])
+  @@index([teacherId, semesterId])
+  @@index([classGroup, semesterId])
+  @@index([coTeacherId])
+  @@index([assignmentId])
+  @@index([batchYear])
+}
+
+model Note {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title        String
+  description  String?
+  fileName     String
+  filePath     String
+  uploadedById String   @db.Uuid
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+}
+
+model AdminUpload {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title        String
+  description  String?
+  fileName     String
+  filePath     String
+  uploadedById String   @db.Uuid
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  uploadedBy   User     @relation("AdminUploads", fields: [uploadedById], references: [id], onDelete: Cascade)
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model SubjectOld {
+  code        String?
+  name        String?
+  facultyId   String?
+  classGroup  String?
+  type        SubjectType?
+  createdAt   DateTime?
+  updatedAt   DateTime?
+  coFacultyId String?
+
+  @@map("_SubjectOld")
+  @@ignore
 }
 
 enum Role {
@@ -24,253 +258,4 @@ enum SemesterStatus {
 enum SubjectType {
   STANDALONE
   INTEGRATED
-}
-
-enum ActivityType {
-  THEORY
-  LAB
-  TUTORIAL
-  PRACTICAL
-}
-
-model User {
-  id               String   @id // Roll Number (e.g. CS21B042) or Faculty ID (e.g. FAC2018)
-  name             String
-  password         String
-  role             Role
-  isActive         Boolean  @default(true)
-  batchStartYear   Int?
-  batchEndYear     Int?
-  department       String? // Free-text faculty metadata; students use program instead
-  program          String? // Canonical student program: CSE, ISE, AI&DS, or ECE
-  classGroup       String? // Section for students (e.g., "CSE-B"). Null for teachers.
-  numberOfBacklogs Int      @default(0)
-  backlogSubjects  String[] @default([])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  theoryAssignments SubjectSectionAssignment[] @relation("TheoryAssignments")
-  labAssignments    SubjectSectionAssignment[] @relation("LabAssignments")
-  attendanceRecords AttendanceRecord[]
-  marks             Mark[]
-  announcements     Announcement[]             @relation("UserAnnouncements")
-  notes             Note[]
-  adminUploads      AdminUpload[]              @relation("AdminUploads")
-  semesterId        String?
-  semester          Semester?                  @relation(fields: [semesterId], references: [id])
-  enrollments       StudentEnrollment[]
-  // Role-specific field ownership is enforced by the database migration.
-
-  @@index([classGroup])
-  @@index([role])
-  @@index([role, classGroup])
-  @@index([role, program])
-}
-
-model Subject {
-  id          String      @id @default(uuid())
-  code        String      @unique
-  name        String
-  type        SubjectType @default(STANDALONE)
-  description String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  assignments SubjectSectionAssignment[] @relation("SubjectAssignments")
-}
-
-model SubjectSectionAssignment {
-  id              String   @id @default(uuid())
-  subjectId       String
-  subject         Subject  @relation("SubjectAssignments", fields: [subjectId], references: [id])
-  classGroup      String
-  theoryFacultyId String?
-  theoryFaculty   User?    @relation("TheoryAssignments", fields: [theoryFacultyId], references: [id])
-  labFacultyId    String?
-  labFaculty      User?    @relation("LabAssignments", fields: [labFacultyId], references: [id])
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  // Inverse relations
-  attendanceSessions AttendanceSession[] @relation("AttendanceSessionAssignment")
-  marks              Mark[]              @relation("MarkAssignment")
-  timetableSlots     TimetableSlot[]     @relation("TimetableSlotAssignment")
-
-  @@unique([subjectId, classGroup])
-}
-
-// Updated relations in other models:
-// User: theoryAssignments[], labAssignments[] (to SubjectSectionAssignment)
-// AttendanceSession: assignmentId (to SubjectSectionAssignment)
-// Mark: assignmentId (to SubjectSectionAssignment)
-// TimetableSlot: assignmentId? (to SubjectSectionAssignment)
-
-model Semester {
-  id        String         @id @default(uuid())
-  name      String
-  startDate String? // YYYY-MM-DD
-  endDate   String? // YYYY-MM-DD
-  status    SemesterStatus
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
-
-  // Relations (optional, via foreign keys in other tables)
-  attendanceSessions AttendanceSession[]
-  marks              Mark[]
-  timetableSlots     TimetableSlot[]
-  students           User[]
-  enrollments        StudentEnrollment[]
-
-  @@index([status])
-}
-
-model StudentEnrollment {
-  id             String   @id @default(uuid())
-  studentId      String
-  semesterId     String
-  semesterNumber Int
-  program        String
-  classGroup     String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  student  User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  semester Semester @relation(fields: [semesterId], references: [id], onDelete: Cascade)
-
-  @@unique([studentId, semesterId])
-  @@index([semesterId, semesterNumber])
-  @@index([semesterId, program])
-  @@index([semesterId, classGroup])
-  @@index([studentId])
-}
-
-model AttendanceSession {
-  id           String                   @id @default(uuid())
-  assignmentId String
-  assignment   SubjectSectionAssignment @relation("AttendanceSessionAssignment", fields: [assignmentId], references: [id])
-  date         String // Stored as "YYYY-MM-DD"
-  classGroup   String // e.g. "CSE-B"
-  semesterId   String
-  startTime    String // Stored as "HH:mm"
-  endTime      String // Stored as "HH:mm"
-  room         String?
-
-  // Relations
-  records  AttendanceRecord[]
-  semester Semester           @relation(fields: [semesterId], references: [id])
-
-  @@unique([assignmentId, date, classGroup, semesterId, startTime, endTime])
-  @@index([assignmentId, semesterId])
-  @@index([date, semesterId])
-}
-
-model AttendanceRecord {
-  id        String @id @default(uuid())
-  sessionId String
-  studentId String
-  status    String // "present" or "absent"
-
-  session AttendanceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  student User              @relation(fields: [studentId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([sessionId, studentId])
-}
-
-model Mark {
-  id               String                   @id @default(uuid())
-  studentId        String
-  assignmentId     String
-  assignment       SubjectSectionAssignment @relation("MarkAssignment", fields: [assignmentId], references: [id])
-  type             String // "ia1", "ia2", "assignment", "lab"
-  score            Float? // null represents "Pending"
-  maxScore         Float
-  semesterId       String
-  assign1Submitted Boolean                  @default(false)
-  assign2Submitted Boolean                  @default(false)
-
-  student  User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  semester Semester @relation(fields: [semesterId], references: [id])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([studentId, assignmentId, type, semesterId])
-  @@index([assignmentId, semesterId])
-  @@index([studentId, semesterId])
-  @@index([assignmentId, type, semesterId])
-}
-
-model Announcement {
-  id       Int     @id @default(autoincrement())
-  title    String
-  body     String
-  category String // "exam", "info", "event"
-  date     String // Formatted date (e.g. "Nov 10, 2024")
-  authorId String
-  target   String // e.g. "cs2301-b", "all", "CSE-B"
-  pinned   Boolean @default(false)
-
-  author User @relation("UserAnnouncements", fields: [authorId], references: [id])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model TimetableSlot {
-  id           String                    @id @default(uuid())
-  day          String // "Monday", "Tuesday", etc.
-  slotIndex    Int // 0-indexed position (e.g., 0 for 8:30-9:30, 2 for break, etc.)
-  assignmentId String?
-  assignment   SubjectSectionAssignment? @relation("TimetableSlotAssignment", fields: [assignmentId], references: [id])
-  room         String?
-  classGroup   String // Target section for students (e.g., "CSE-B")
-  teacherId    String // Associated teacher ID
-  coTeacherId  String? // Associated co-teacher ID (Optional)
-  semesterId   String
-  activityType ActivityType? // THEORY, LAB, TUTORIAL, PRACTICAL
-
-  semester Semester @relation(fields: [semesterId], references: [id])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([classGroup, day, slotIndex, semesterId])
-  @@index([teacherId, semesterId])
-  @@index([classGroup, semesterId])
-  @@index([coTeacherId])
-}
-
-model Note {
-  id           String  @id @default(uuid())
-  title        String
-  description  String?
-  fileName     String
-  filePath     String
-  uploadedById String
-
-  uploadedBy User @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model AdminUpload {
-  id           String  @id @default(uuid())
-  title        String
-  description  String?
-  fileName     String
-  filePath     String
-  uploadedById String
-
-  uploadedBy User @relation("AdminUploads", fields: [uploadedById], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }

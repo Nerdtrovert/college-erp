@@ -16,10 +16,11 @@ export const getSemesters = async (_req: Request, res: Response) => {
 };
 
 export const createSemester = async (req: AuthRequest, res: Response) => {
-  const { name, startDate, endDate, status } = req.body;
+  const { code, name, startDate, endDate, status } = req.body;
   try {
     const semester = await prisma.semester.create({
       data: {
+        code,
         name,
         startDate,
         endDate,
@@ -76,11 +77,12 @@ export const getSemesterById = async (req: AuthRequest, res: Response) => {
 
 export const copySemester = async (req: AuthRequest, res: Response) => {
   const { sourceSemesterId } = req.body;
-  const { name, startDate, endDate, status } = req.body; // new semester data
+  const { code, name, startDate, endDate, status } = req.body; // new semester data
   const tx = await prisma.$transaction(async (prisma) => {
     // 1. create new semester
     const newSem = await prisma.semester.create({
       data: {
+        code,
         name,
         startDate,
         endDate,
@@ -93,12 +95,17 @@ export const copySemester = async (req: AuthRequest, res: Response) => {
       include: { records: true },
     });
     for (const sess of sourceSessions) {
+      // Skip sessions without assignmentId
+      if (sess.assignmentId === null) {
+        continue;
+      }
+
       // Get the assignment directly from the session's assignmentId
       const assignment = await prisma.subjectSectionAssignment.findUnique({
         where: { id: sess.assignmentId },
         include: { subject: true }
       });
-      
+
       if (!assignment) {
         throw new Error(`No assignment found for id ${sess.assignmentId}`);
       }
@@ -117,6 +124,7 @@ export const copySemester = async (req: AuthRequest, res: Response) => {
           startTime: sess.startTime,
           endTime: sess.endTime,
           room: sess.room,
+          updatedAt: new Date(),
         },
       });
       // copy records
@@ -142,11 +150,16 @@ export const copySemester = async (req: AuthRequest, res: Response) => {
           semesterId: sourceSemesterId
         }
       });
-      
+
       if (!enrollment) {
         throw new Error(`No enrollment found for student ${m.studentId} in semester ${sourceSemesterId}`);
       }
-      
+
+      // Skip marks without assignmentId
+      if (m.assignmentId === null) {
+        continue;
+      }
+
       // Get the assignment directly from the mark's assignmentId
       const assignment = await prisma.subjectSectionAssignment.findUnique({
         where: { id: m.assignmentId },
@@ -161,7 +174,7 @@ export const copySemester = async (req: AuthRequest, res: Response) => {
       if (assignment.classGroup !== enrollment.classGroup) {
         throw new Error(`Assignment classGroup (${assignment.classGroup}) does not match enrollment classGroup (${enrollment.classGroup}) for mark ${m.id}`);
       }
-      
+
       await prisma.mark.create({
         data: {
           studentId: m.studentId,
@@ -192,7 +205,24 @@ export const copySemester = async (req: AuthRequest, res: Response) => {
       if (!assignment) {
         throw new Error(`No assignment found for id ${s.assignmentId}`);
       }
-      
+
+      // Determine the batch year for this new semester and class group
+      const batchYearRecord = await prisma.studentEnrollment.findFirst({
+        where: {
+          semesterId: newSem.id,
+          classGroup: s.classGroup
+        },
+        select: {
+          student: {
+            select: {
+              batchStartYear: true
+            }
+          }
+        }
+      });
+
+      const batchYear = batchYearRecord?.student?.batchStartYear ?? null;
+
       await prisma.timetableSlot.create({
         data: {
           day: s.day,
@@ -202,6 +232,7 @@ export const copySemester = async (req: AuthRequest, res: Response) => {
           classGroup: s.classGroup,
           teacherId: s.teacherId,
           semesterId: newSem.id,
+          batchYear: batchYear
         },
       });
     }
@@ -316,3 +347,116 @@ export const promoteStudentsToSemester = async (req: AuthRequest, res: Response)
     return res.status(status).json({ error: message });
   }
 };
+
+// NEW ENDPOINTS FOR TIMETABLE MANAGEMENT CASCADING SELECTORS
+export const getStudentSemestersForSemester = async (req: AuthRequest, res: Response) => {
+  let { semesterId } = req.params;
+  if (Array.isArray(semesterId)) semesterId = semesterId[0];
+
+  if (!semesterId) {
+    return res.status(400).json({ error: 'Semester ID is required' });
+  }
+
+  try {
+    // Get distinct student semester numbers for the given semester
+    const studentSemesters = await prisma.studentEnrollment.findMany({
+      where: { semesterId },
+      select: { semesterNumber: true },
+      distinct: ['semesterNumber'],
+      orderBy: { semesterNumber: 'asc' },
+    });
+
+    // Format as array of objects with id and name for frontend compatibility
+    const formatted = studentSemesters.map(ss => ({
+      id: ss.semesterNumber.toString(),
+      name: `${ss.semesterNumber}${getOrdinalSuffix(ss.semesterNumber)} Semester`
+    }));
+
+    return res.status(200).json(formatted);
+  } catch (error) {
+    console.error('Error fetching student semesters for semester:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const getProgramsForSemesterAndStudentSemester = async (req: AuthRequest, res: Response) => {
+  let { semesterId, studentSemesterId } = req.params;
+  if (Array.isArray(semesterId)) semesterId = semesterId[0];
+  if (Array.isArray(studentSemesterId)) studentSemesterId = studentSemesterId[0];
+
+
+  try {
+    const semesterNumber = parseInt(studentSemesterId, 10);
+    if (isNaN(semesterNumber)) {
+      return res.status(400).json({ error: 'Invalid student semester number' });
+    }
+
+    // Get distinct programs for the given semester and student semester number
+    const programs = await prisma.studentEnrollment.findMany({
+      where: {
+        semesterId,
+        semesterNumber
+      },
+      select: { program: true },
+      distinct: ['program'],
+      orderBy: { program: 'asc' },
+    });
+
+    // Format as array of strings for frontend compatibility
+    const formatted = programs.map(p => p.program);
+
+    return res.status(200).json(formatted);
+  } catch (error) {
+    console.error('Error fetching programs for semester and student semester:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const getSectionsForSemesterStudentSemesterAndProgram = async (req: AuthRequest, res: Response) => {
+  let { semesterId, studentSemesterId, program } = req.params;
+  if (Array.isArray(semesterId)) semesterId = semesterId[0];
+  if (Array.isArray(studentSemesterId)) studentSemesterId = studentSemesterId[0];
+  if (Array.isArray(program)) program = program[0];
+
+  if (!semesterId || !studentSemesterId || !program) {
+    return res.status(400).json({ error: 'Semester ID, Student Semester ID, and Program are required' });
+  }
+
+  try {
+    const semesterNumber = parseInt(studentSemesterId, 10);
+    if (isNaN(semesterNumber)) {
+      return res.status(400).json({ error: 'Invalid student semester number' });
+    }
+
+    // Get distinct classGroups (sections) for the given semester, student semester number, and program
+    const sections = await prisma.studentEnrollment.findMany({
+      where: {
+        semesterId,
+        semesterNumber,
+        program
+      },
+      select: { classGroup: true },
+      distinct: ['classGroup'],
+      orderBy: { classGroup: 'asc' },
+    });
+
+    // Format as array of strings for frontend compatibility
+    const formatted = sections.map(s => s.classGroup);
+
+    return res.status(200).json(formatted);
+  } catch (error) {
+    console.error('Error fetching sections for semester, student semester, and program:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// Helper function to get ordinal suffix for numbers
+function getOrdinalSuffix(n: number): string {
+  if (n >= 11 && n <= 13) return 'th';
+  switch (n % 10) {
+    case 1: return 'st';
+    case 2: return 'nd';
+    case 3: return 'rd';
+    default: return 'th';
+  }
+}

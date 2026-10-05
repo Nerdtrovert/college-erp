@@ -154,7 +154,7 @@ export const TeacherAnnouncements: React.FC = () => {
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Target Audience</label>
                 <DropdownSelect
                   value={newAnnouncement.target}
-                  onChange={(e) => setNewAnnouncement(prev => ({ ...prev, target: e.target.value }))}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setNewAnnouncement(prev => ({ ...prev, target: e.target.value }))}
                   className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all bg-gray-50/50 hover:bg-gray-50 cursor-pointer"
                 >
                   <option value="all">All Students</option>

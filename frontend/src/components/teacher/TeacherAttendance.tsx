@@ -207,7 +207,7 @@ export const TeacherAttendance: React.FC = () => {
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <DropdownSelect
                 value={classForm.subjectCode}
-                onChange={(event) => setClassForm({ ...classForm, subjectCode: event.target.value })}
+                onChange={(event: React.ChangeEvent<HTMLSelectElement>) => setClassForm({ ...classForm, subjectCode: event.target.value })}
                 className="px-3 py-2.5 rounded-lg border border-gray-200 bg-white text-sm"
               >
                 <option value="">Select subject</option>

@@ -6,15 +6,21 @@ const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
 export const getStudentTimetable = async (req: AuthRequest, res: Response) => {
   const classGroup = req.user?.classGroup;
+  const batchYear = req.user?.batchStartYear;
 
   if (!classGroup) {
     return res.status(400).json({ error: 'No class group section assigned to this student user' });
+  }
+
+  if (batchYear === undefined) {
+    return res.status(400).json({ error: 'Batch year not assigned to this student user' });
   }
 
   try {
     const slots = await prisma.timetableSlot.findMany({
       where: {
         classGroup,
+        batchYear,
         semester: {
           status: 'ACTIVE',
         },
@@ -35,9 +41,10 @@ export const getStudentTimetable = async (req: AuthRequest, res: Response) => {
 
       daySlots.forEach((slot) => {
         if (slot.slotIndex >= 0 && slot.slotIndex < 8) {
-          if (slot.assignmentId) {
+          if (slot.assignment) {
             slotsArray[slot.slotIndex] = {
-              subject: slot.assignment?.subject ? slot.assignment.subject.name : slot.assignmentId,
+              subjectCode: slot.assignment?.subject?.code ?? null,
+              activityType: slot.activityType,
               room: slot.room || 'LH-N/A',
             };
           }
@@ -91,11 +98,12 @@ export const getTeacherTimetable = async (req: AuthRequest, res: Response) => {
 
       daySlots.forEach((slot) => {
         if (slot.slotIndex >= 0 && slot.slotIndex < 8) {
-          if (slot.assignmentId) {
+          if (slot.assignment) {
             slotsArray[slot.slotIndex] = {
-              subject: slot.assignment ? slot.assignment.subject.name : slot.assignmentId,
+              subjectCode: slot.assignment?.subject?.code ?? null,
+              activityType: slot.activityType,
               room: slot.room || 'LH-N/A',
-              class: slot.classGroup, // e.g. "CSE-B" for teacher timetable
+              class: slot.classGroup,
             };
           }
         }
@@ -115,7 +123,9 @@ export const getTeacherTimetable = async (req: AuthRequest, res: Response) => {
 };
 
 export const getTimetableBySemester = async (req: AuthRequest, res: Response) => {
-  const semesterId = String(req.params.semesterId);
+  let semesterId = req.params.semesterId;
+  if (Array.isArray(semesterId)) semesterId = semesterId[0];
+  semesterId = String(semesterId);
   const { classGroup, teacherId } = req.query;
 
   // Validate that either classGroup or teacherId is provided
@@ -161,15 +171,16 @@ export const getTimetableBySemester = async (req: AuthRequest, res: Response) =>
 
       daySlots.forEach((slot) => {
         if (slot.slotIndex >= 0 && slot.slotIndex < 8) {
-          if (slot.assignmentId) {
+          if (slot.assignment) {
             slotsArray[slot.slotIndex] = {
               id: slot.id,
               subjectCode: slot.assignment?.subject?.code ?? null,
-              subject: slot.assignment ? slot.assignment.subject.name : slot.assignmentId,
+              subject: slot.assignment.subject.name,
               room: slot.room || 'LH-N/A',
               class: slot.classGroup, // e.g. "CSE-B" for timetable
               teacherId: slot.teacherId,
               coTeacherId: slot.coTeacherId,
+              activityType: slot.activityType,
             };
           }
         }
@@ -189,7 +200,9 @@ export const getTimetableBySemester = async (req: AuthRequest, res: Response) =>
 };
 
 export const getTimetableClassGroups = async (req: AuthRequest, res: Response) => {
-  const semesterId = String(req.params.semesterId);
+  let semesterId = req.params.semesterId;
+  if (Array.isArray(semesterId)) semesterId = semesterId[0];
+  semesterId = String(semesterId);
 
   try {
     const slots = await prisma.timetableSlot.findMany({
@@ -267,7 +280,7 @@ export const getTeacherSubjects = async (req: AuthRequest, res: Response) => {
 };
 
 export const saveTimetableSlot = async (req: AuthRequest, res: Response) => {
-  const { semesterId, day, slotIndex, classGroup, subjectCode, room, teacherId, coTeacherId } = req.body;
+  const { semesterId, day, slotIndex, classGroup, subjectCode, room, teacherId, coTeacherId, activityType } = req.body;
   if (!semesterId || !day || !classGroup || !subjectCode || !teacherId || !Number.isInteger(slotIndex) || slotIndex < 0 || slotIndex > 7) {
     return res.status(400).json({ error: 'Semester, day, class group, subject, faculty, and a slot from 0 to 7 are required' });
   }
@@ -287,15 +300,32 @@ export const saveTimetableSlot = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: 'Subject section assignment not found for the given subject and class group' });
     }
 
+    // Determine the batch year for this semester and class group
+    const batchYearRecord = await prisma.studentEnrollment.findFirst({
+      where: {
+        semesterId,
+        classGroup
+      },
+      select: {
+        student: {
+          select: {
+            batchStartYear: true
+          }
+        }
+      }
+    });
+
+    const batchYear = batchYearRecord?.student?.batchStartYear ?? 0;
+
     const slot = await prisma.timetableSlot.upsert({
-      where: { classGroup_day_slotIndex_semesterId: { classGroup, day, slotIndex, semesterId } },
-      update: { assignmentId: assignment.id, room: room || null, teacherId, coTeacherId: coTeacherId || null },
-      create: { semesterId, day, slotIndex, classGroup, assignmentId: assignment.id, room: room || null, teacherId, coTeacherId: coTeacherId || null },
+      where: { classGroup_day_slotIndex_semesterId_batchYear: { classGroup, day, slotIndex, semesterId, batchYear } },
+      update: { assignmentId: assignment.id, room: room || null, teacherId, coTeacherId: coTeacherId || null, activityType, batchYear },
+      create: { semesterId, day, slotIndex, classGroup, assignmentId: assignment.id, room: room || null, teacherId, coTeacherId: coTeacherId || null, activityType, batchYear },
     });
     return res.status(200).json(slot);
   } catch (error) {
     console.error('Error saving timetable slot:', error);
-    return res.status(500).json({ error: 'Unable to save timetable slot. Check the selected subject and faculty IDs.' });
+    return res.status(500).json({ error: 'Unable to save timetable slot. Check the subject, faculty, and batch year.' });
   }
 };
 
@@ -304,8 +334,10 @@ export const saveTimetableSlot = async (req: AuthRequest, res: Response) => {
  * Allows supervisors to view timetables of any faculty member
  */
 export const getAnyFacultyTimetable = async (req: AuthRequest, res: Response) => {
-  const { teacherId } = req.params;
-  const { semesterId } = req.query;
+  let { teacherId } = req.params;
+  if (Array.isArray(teacherId)) teacherId = teacherId[0];
+  let { semesterId } = req.query;
+  if (Array.isArray(semesterId)) semesterId = semesterId[0];
 
   if (!teacherId) {
     return res.status(400).json({ error: 'Teacher ID is required' });
@@ -355,15 +387,16 @@ export const getAnyFacultyTimetable = async (req: AuthRequest, res: Response) =>
 
       daySlots.forEach((slot) => {
         if (slot.slotIndex >= 0 && slot.slotIndex < 8) {
-          if (slot.assignmentId) {
+          if (slot.assignment) {
             slotsArray[slot.slotIndex] = {
               id: slot.id,
               subjectCode: slot.assignment?.subject?.code ?? null,
-              subject: slot.assignment ? slot.assignment.subject.name : slot.assignmentId,
+              subject: slot.assignment.subject.name,
               room: slot.room || 'LH-N/A',
               class: slot.classGroup,
               teacherId: slot.teacherId,
               coTeacherId: slot.coTeacherId,
+              activityType: slot.activityType,
               semester: slot.semester ? {
                 id: slot.semester.id,
                 name: slot.semester.name,

@@ -3,6 +3,17 @@ import { CalendarDays, Check, Clock3, Pencil, Plus, Save } from 'lucide-react';
 import API from '../../services/api';
 import { DropdownSelect } from '../ui/DropdownSelect';
 
+// Helper function to get ordinal suffix for numbers
+function getOrdinalSuffix(n: number): string {
+  if (n >= 11 && n <= 13) return 'th';
+  switch (n % 10) {
+    case 1: return 'st';
+    case 2: return 'nd';
+    case 3: return 'rd';
+    default: return 'th';
+  }
+}
+
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 const PERIODS = [
   { label: '8:30–9:30', kind: 'class' },
@@ -26,7 +37,7 @@ const subjectColors = [
 interface SlotForm {
   day: string;
   slotIndex: string;
-  classGroup: string;
+  classGroup: string; // Represents the section
   subjectCode: string;
   activityType: string;
   room: string;
@@ -37,7 +48,7 @@ interface SlotForm {
 const emptyForm: SlotForm = {
   day: 'Monday',
   slotIndex: '0',
-  classGroup: '',
+  classGroup: '', // Will be set to section when needed
   subjectCode: '',
   activityType: '',
   room: '',
@@ -49,11 +60,21 @@ export const TimetableManagement: React.FC = () => {
   const [semesters, setSemesters] = useState<any[]>([]);
   const [faculty, setFaculty] = useState<any[]>([]);
   const [timetable, setTimetable] = useState<any[]>([]);
-  const [classGroups, setClassGroups] = useState<string[]>([]);
-  const [selectedSemester, setSelectedSemester] = useState('');
-  const [selectedClassGroup, setSelectedClassGroup] = useState('');
+  const [studentSemesters, setStudentSemesters] = useState<any[]>([]);
+  const [programs, setPrograms] = useState<string[]>([]);
+  const [sections, setSections] = useState<string[]>([]);
+  const [activeSemesterId, setActiveSemesterId] = useState<string>('');
+  const [selectedStudentSemester, setSelectedStudentSemester] = useState('');
+  const [selectedProgram, setSelectedProgram] = useState('');
+  const [selectedSection, setSelectedSection] = useState('');
   const [selectedCell, setSelectedCell] = useState<{ day: string; slotIndex: number } | null>(null);
   const [slotForm, setSlotForm] = useState<SlotForm>(emptyForm);
+
+  // Helper function to get faculty name by ID
+  const getFacultyName = (teacherId: string): string => {
+    const facultyMember = faculty.find((f) => f.id === teacherId);
+    return facultyMember ? facultyMember.name : teacherId; // fallback to ID if not found
+  };
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
@@ -65,27 +86,154 @@ export const TimetableManagement: React.FC = () => {
   const [importError, setImportError] = useState<string | null>(null);
   const [importSuccess, setImportSuccess] = useState<boolean | null>(null);
 
+  // Get active semester on component load
   useEffect(() => {
-    Promise.all([
-      API.get('/semesters'),
-      API.get('/auth/users?role=teacher'),
-    ]).then(([semesterResponse, facultyResponse]) => {
-      setSemesters(semesterResponse.data || []);
-      setFaculty(facultyResponse.data || []);
-    }).catch((error) => {
-      console.error('Failed to load timetable setup:', error);
-      setMessage({ text: 'Unable to load timetable setup.', type: 'error' });
-    }).finally(() => setLoading(false));
+    const loadActiveSemester = async () => {
+      try {
+        // Use the existing faculty status endpoint which returns the active semester
+        const response = await API.get('/timetable/faculty-status');
+        if (response.data?.semester?.id) {
+          setActiveSemesterId(response.data.semester.id);
+
+          // Also load semesters and faculty for dropdowns
+          const [semesterResponse, facultyResponse] = await Promise.all([
+            API.get('/semesters'),
+            API.get('/auth/users?role=teacher'),
+          ]);
+          setSemesters(semesterResponse.data || []);
+          setFaculty(facultyResponse.data || []);
+        } else {
+          // Fallback: get all semesters and find the active one
+          const semesterResponse = await API.get('/semesters');
+          const activeSemester = (semesterResponse.data || []).find((s: any) => s.status === 'ACTIVE');
+          if (activeSemester) {
+            setActiveSemesterId(activeSemester.id);
+          }
+          setSemesters(semesterResponse.data || []);
+
+          const facultyResponse = await API.get('/auth/users?role=teacher');
+          setFaculty(facultyResponse.data || []);
+        }
+      } catch (error) {
+        console.error('Failed to load active semester:', error);
+        // Fallback to loading all semesters
+        Promise.all([
+          API.get('/semesters'),
+          API.get('/auth/users?role=teacher'),
+        ]).then(([semesterResponse, facultyResponse]) => {
+          setSemesters(semesterResponse.data || []);
+          setFaculty(facultyResponse.data || []);
+
+          // Try to find active semester from the list
+          const activeSemester = (semesterResponse.data || []).find((s: any) => s.status === 'ACTIVE');
+          if (activeSemester) {
+            setActiveSemesterId(activeSemester.id);
+          }
+        }).catch((error) => {
+          console.error('Failed to load timetable setup:', error);
+          setMessage({ text: 'Unable to load timetable setup.', type: 'error' });
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadActiveSemester();
   }, []);
 
-  const fetchTimetable = async (semesterId: string, classGroup: string) => {
-    if (!semesterId || !classGroup) {
+  // Load student semesters for the current active academic term once resolved
+  useEffect(() => {
+    if (activeSemesterId) {
+      loadStudentSemestersForSemester(activeSemesterId);
+    }
+  }, [activeSemesterId]);
+
+  const loadStudentSemestersForSemester = async (semesterId: string) => {
+    if (!semesterId) {
+      setStudentSemesters([]);
+      setSelectedStudentSemester('');
+      setPrograms([]);
+      setSelectedProgram('');
+      setSections([]);
+      setSelectedSection('');
+      setTimetable([]);
+      return;
+    }
+    try {
+      const response = await API.get(`/semesters/${semesterId}/student-semesters`);
+      const data = response.data || [];
+      setStudentSemesters(data);
+      // Do not auto-select first student semester - let user choose
+    } catch (error) {
+      console.error('Failed to load student semesters for semester:', error);
+      setStudentSemesters([]);
+    }
+  };
+
+  const loadProgramsForSemesterAndStudentSemester = async (semesterId: string, studentSemesterId: string) => {
+    if (!semesterId || !studentSemesterId) {
+      setPrograms([]);
+      setSelectedProgram('');
+      setSections([]);
+      setSelectedSection('');
+      setTimetable([]);
+      return;
+    }
+    try {
+      const response = await API.get(`/semesters/${semesterId}/student-semesters/${studentSemesterId}/programs`);
+      const data = response.data || [];
+      setPrograms(data);
+    } catch (error) {
+      console.error('Failed to load programs for semester and student semester:', error);
+      setPrograms([]);
+    }
+  };
+
+  const loadSectionsForSemesterStudentSemesterAndProgram = async (semesterId: string, studentSemesterId: string, program: string) => {
+    if (!semesterId || !studentSemesterId || !program) {
+      setSections([]);
+      setSelectedSection('');
+      setTimetable([]);
+      return;
+    }
+    try {
+      const response = await API.get(`/semesters/${semesterId}/student-semesters/${studentSemesterId}/programs/${program}/sections`);
+      const sections = response.data || [];
+      setSections(sections);
+
+      // Auto-select section if only one exists, otherwise reset selection
+      if (sections.length === 1) {
+        setSelectedSection(sections[0]);
+        // Load timetable for the selected semester, program, and section
+        fetchTimetable(semesterId, sections[0]);
+      } else if (sections.length > 1) {
+        setSelectedSection('');
+        setTimetable([]);
+      } else {
+        // No sections exist - leave section selection empty and allow optional section
+        setSelectedSection('');
+        setTimetable([]);
+      }
+    } catch (error) {
+      console.error('Failed to load sections for semester, student semester, and program:', error);
+      setSections([]);
+      setSelectedSection('');
+      setTimetable([]);
+    }
+  };
+
+  const fetchTimetable = async (semesterId: string, section: string) => {
+    // Use the active semester ID for fetching timetable
+    const effectiveSemesterId = activeSemesterId || semesterId;
+    // Section is required as classGroup for the timetable endpoint
+    if (!effectiveSemesterId) {
       setTimetable([]);
       return;
     }
     try {
       setLoading(true);
-      const response = await API.get(`/timetable/semester/${semesterId}?classGroup=${encodeURIComponent(classGroup)}`);
+      // The backend expects classGroup as query parameter, which corresponds to our section
+      const response = await API.get(`/timetable/semester/${effectiveSemesterId}?classGroup=${encodeURIComponent(section || '')}`);
       setTimetable(response.data || []);
     } catch (error) {
       console.error('Failed to fetch timetable:', error);
@@ -96,38 +244,33 @@ export const TimetableManagement: React.FC = () => {
     }
   };
 
-  const selectSemester = async (semesterId: string) => {
-    setSelectedSemester(semesterId);
+  const selectStudentSemester = async (studentSemesterId: string) => {
+    setSelectedStudentSemester(studentSemesterId);
+    setSelectedProgram('');
+    setSelectedSection('');
     setSelectedCell(null);
     setSlotForm(emptyForm);
-    if (!semesterId) {
-      setClassGroups([]);
-      setSelectedClassGroup('');
-      setTimetable([]);
-      return;
-    }
-    try {
-      setLoading(true);
-      const response = await API.get(`/timetable/semester/${semesterId}/classes`);
-      const groups = response.data || [];
-      setClassGroups(groups);
-      setSelectedClassGroup(groups[0] || '');
-      await fetchTimetable(semesterId, groups[0] || '');
-    } catch (error) {
-      console.error('Failed to load sections:', error);
-      setClassGroups([]);
-      setSelectedClassGroup('');
-      setTimetable([]);
-    } finally {
-      setLoading(false);
-    }
+
+    // Load programs for the selected active semester and student semester
+    await loadProgramsForSemesterAndStudentSemester(activeSemesterId, studentSemesterId);
   };
 
-  const selectClassGroup = (classGroup: string) => {
-    setSelectedClassGroup(classGroup);
+  const selectProgram = async (program: string) => {
+    setSelectedProgram(program);
+    setSelectedSection('');
     setSelectedCell(null);
-    setSlotForm((current) => ({ ...current, classGroup }));
-    fetchTimetable(selectedSemester, classGroup);
+    setSlotForm(emptyForm);
+
+    // Load sections for the selected active semester, student semester, and program
+    await loadSectionsForSemesterStudentSemesterAndProgram(activeSemesterId, selectedStudentSemester, program);
+  };
+
+  const selectSection = (section: string) => {
+    setSelectedSection(section);
+    setSelectedCell(null);
+    setSlotForm((current) => ({ ...current, classGroup: section })); // Keep classGroup for form compatibility
+    // Load timetable for the selected active semester, program, and section
+    fetchTimetable(activeSemesterId, section);
   };
 
   const getSlot = (day: string, slotIndex: number) => {
@@ -142,7 +285,7 @@ export const TimetableManagement: React.FC = () => {
     setSlotForm({
       day,
       slotIndex: String(slotIndex),
-      classGroup: selectedClassGroup,
+      classGroup: selectedSection, // Use section for classGroup in the form
       subjectCode: slot?.subjectCode || '',
       activityType: slot?.activityType || '',
       room: slot?.room === 'LH-N/A' ? '' : slot?.room || '',
@@ -154,17 +297,17 @@ export const TimetableManagement: React.FC = () => {
 
   const saveSlot = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!selectedSemester || !selectedClassGroup || !slotForm.subjectCode || !slotForm.teacherId) return;
+    if (!activeSemesterId || !selectedProgram || !slotForm.subjectCode || !slotForm.teacherId) return;
     setSaving(true);
     setMessage(null);
     try {
       await API.put('/timetable/slot', {
         ...slotForm,
-        classGroup: selectedClassGroup,
-        semesterId: selectedSemester,
+        classGroup: selectedSection, // Use section for classGroup in the form
+        semesterId: activeSemesterId,
         slotIndex: Number(slotForm.slotIndex),
       });
-      await fetchTimetable(selectedSemester, selectedClassGroup);
+      await fetchTimetable(activeSemesterId, selectedSection);
       setMessage({ text: 'Timetable updated successfully.', type: 'success' });
     } catch (error: any) {
       setMessage({ text: error.response?.data?.error || 'Unable to save timetable slot.', type: 'error' });
@@ -174,17 +317,18 @@ export const TimetableManagement: React.FC = () => {
   };
 
   const currentSemester = useMemo(
-    () => semesters.find((semester) => semester.id === selectedSemester),
-    [semesters, selectedSemester],
+    () => semesters.find((semester) => semester.id === activeSemesterId),
+    [semesters, activeSemesterId]
   );
 
   // Import feature handlers
   const handleImportFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files[0];
-    if (!file) {
+    const files = event.target.files;
+    if (!files || files.length === 0) {
       setImportFile(null);
       return;
     }
+    const file = files[0];
     if (file.type !== 'application/pdf') {
       setImportError('Please upload a PDF file');
       setImportFile(null);
@@ -206,9 +350,7 @@ export const TimetableManagement: React.FC = () => {
       const formData = new FormData();
       formData.append('file', importFile);
 
-      const response = await API.post('/timetable/parse', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const response = await API.post('/timetable/parse', formData);
 
       setImportPreview(response.data || []);
       setImportSuccess(null);
@@ -230,15 +372,13 @@ export const TimetableManagement: React.FC = () => {
       const formData = new FormData();
       formData.append('file', importFile);
 
-      await API.post('/timetable/import', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      await API.post('/timetable/import', formData);
 
       setImportSuccess(true);
       setImportError(null);
       // Refresh timetable data after successful import
-      if (selectedSemester && selectedClassGroup) {
-        await fetchTimetable(selectedSemester, selectedClassGroup);
+      if (activeSemesterId) {
+        await fetchTimetable(activeSemesterId, selectedSection);
       }
     } catch (error: any) {
       setImportSuccess(false);
@@ -256,7 +396,7 @@ export const TimetableManagement: React.FC = () => {
     // Reset file input
     const fileInput = document.getElementById('import-file-input');
     if (fileInput) {
-      fileInput.value = '';
+      (fileInput as HTMLInputElement).value = '';
     }
   };
 
@@ -272,36 +412,49 @@ export const TimetableManagement: React.FC = () => {
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-        <div className="grid md:grid-cols-2 gap-4">
+        <div className="grid md:grid-cols-3 gap-4">
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Semester</label>
             <DropdownSelect
-              value={selectedSemester}
-              onChange={(event) => selectSemester(event.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-blue-500"
+              value={selectedStudentSemester}
+              onChange={(event: React.ChangeEvent<HTMLSelectElement>) => selectStudentSemester(event.target.value)}
+              disabled={!activeSemesterId}
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-blue-500 disabled:opacity-50"
             >
               <option value="">Select semester</option>
-              {semesters.map((semester) => <option key={semester.id} value={semester.id}>{semester.name} ({semester.status})</option>)}
+              {studentSemesters.map((sem) => <option key={sem.id} value={sem.id}>{sem.name}</option>)}
+            </DropdownSelect>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Program</label>
+            <DropdownSelect
+              value={selectedProgram}
+              onChange={(event: React.ChangeEvent<HTMLSelectElement>) => selectProgram(event.target.value)}
+              disabled={!activeSemesterId || !selectedStudentSemester}
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-blue-500 disabled:opacity-50"
+            >
+              <option value="">Select program</option>
+              {programs.map((program) => <option key={program} value={program}>{program}</option>)}
             </DropdownSelect>
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Section</label>
             <DropdownSelect
-              value={selectedClassGroup}
-              onChange={(event) => selectClassGroup(event.target.value)}
-              disabled={!selectedSemester}
+              value={selectedSection}
+              onChange={(event: React.ChangeEvent<HTMLSelectElement>) => selectSection(event.target.value)}
+              disabled={!activeSemesterId || !selectedStudentSemester || !selectedProgram}
               className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-blue-500 disabled:opacity-50"
             >
-              <option value="">Select section</option>
-              {classGroups.map((group) => <option key={group} value={group}>{group}</option>)}
+              {sections.length === 0 ? <option value="">(Optional)</option> : (sections.length > 1 ? <option value="">Select Section...</option> : null)}
+              {sections.map((section) => <option key={section} value={section}>{section}</option>)}
             </DropdownSelect>
           </div>
         </div>
       </div>
 
-      {!selectedSemester || !selectedClassGroup ? (
+      {!activeSemesterId || !selectedStudentSemester || !selectedProgram ? (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center text-gray-500">
-          Select a semester and section to view the weekly timetable.
+          Select a semester and program to view the weekly timetable.
         </div>
       ) : (
         <>
@@ -317,20 +470,20 @@ export const TimetableManagement: React.FC = () => {
               <form onSubmit={saveSlot} className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Subject code</label>
-                  <input required value={slotForm.subjectCode} onChange={(event) => setSlotForm({ ...slotForm, subjectCode: event.target.value })} placeholder="e.g. SUBJECT101" className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-blue-500" />
+                  <input required value={slotForm.subjectCode} onChange={(event: React.ChangeEvent<HTMLInputElement>) => setSlotForm({ ...slotForm, subjectCode: event.target.value })} placeholder="e.g. SUBJECT101" className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-blue-500" />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Faculty</label>
-                  <DropdownSelect required value={slotForm.teacherId} onChange={(event) => setSlotForm({ ...slotForm, teacherId: event.target.value })} className="w-full rounded-xl px-4 py-2.5">
+                  <DropdownSelect required value={slotForm.teacherId} onChange={(event: React.ChangeEvent<HTMLSelectElement>) => setSlotForm({ ...slotForm, teacherId: event.target.value })} className="w-full rounded-xl px-4 py-2.5">
                     <option value="">Select faculty</option>
-                    {faculty.map((member) => <option key={member.id} value={member.id}>{member.name} ({member.id})</option>)}
+                    {faculty.map((member) => <option key={member.id} value={member.id}>{member.name} ({member.email || '—'})</option>)}
                   </DropdownSelect>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Co-Teacher</label>
-                  <DropdownSelect value={slotForm.coTeacherId || ''} onChange={(event) => setSlotForm({ ...slotForm, coTeacherId: event.target.value })} className="w-full rounded-xl px-4 py-2.5">
+                  <DropdownSelect value={slotForm.coTeacherId || ''} onChange={(event: React.ChangeEvent<HTMLSelectElement>) => setSlotForm({ ...slotForm, coTeacherId: event.target.value })} className="w-full rounded-xl px-4 py-2.5">
                     <option value="">None</option>
-                    {faculty.map((member) => <option key={member.id} value={member.id}>{member.name} ({member.id})</option>)}
+                    {faculty.map((member) => <option key={member.id} value={member.id}>{member.name} ({member.email || '—'})</option>)}
                   </DropdownSelect>
                 </div>
                 <div>
@@ -349,8 +502,15 @@ export const TimetableManagement: React.FC = () => {
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
               <div>
-                <h2 className="font-semibold text-gray-900">{selectedClassGroup} weekly timetable</h2>
-                <p className="text-xs text-gray-500 mt-1">{currentSemester?.name || 'Selected semester'} · Click any class period to edit</p>
+                <h2 className="font-semibold text-gray-900">
+                  {selectedSection ? `${getOrdinalSuffix(parseInt(selectedStudentSemester))} Semester · ${selectedProgram} · ${selectedSection}` : `${getOrdinalSuffix(parseInt(selectedStudentSemester))} Semester · ${selectedProgram}`} weekly timetable
+                </h2>
+                <p className="text-xs text-gray-500 mt-1">
+                  {currentSemester?.name || 'Active semester'} ·
+                  {selectedProgram} ·
+                  {selectedSection || ''} ·
+                  Click any class period to edit
+                </p>
               </div>
               <CalendarDays size={19} className="text-blue-600" />
             </div>
@@ -388,7 +548,10 @@ export const TimetableManagement: React.FC = () => {
                                 <span className="block text-[11px] text-gray-500 mt-1">{slot.activityType}</span>
                               </div>
                               <span className="block text-[11px] text-gray-500 mt-1 truncate">{slot.room || 'Room TBD'}</span>
-                              <span className="block text-[11px] text-gray-400 mt-1 truncate">{slot.teacherId}</span>
+                              <span className="block text-[11px] text-gray-400 mt-1 truncate">{getFacultyName(slot.teacherId || '')}</span>
+                              {slot.coTeacherId && (
+                                <span className="block text-[11px] text-gray-400 mt-1 truncate">{getFacultyName(slot.coTeacherId || '')}</span>
+                              )}
                             </span>
                           ) : (
                             <span className="flex min-h-10 min-w-0 flex-1 items-center justify-center rounded-lg border border-dashed border-gray-200 bg-gray-50 text-xs text-gray-400">
@@ -426,11 +589,11 @@ export const TimetableManagement: React.FC = () => {
                         const color = subjectColors[(day.length + slotIndex) % subjectColors.length];
                         const selected = selectedCell?.day === day && selectedCell.slotIndex === slotIndex;
                         return (
-                          <td key={period.label} className="px-2 py-2 align-middle">
+                          <td key={period.label} className={`px-2 py-2 align-middle ${selected ? 'bg-blue-50' : ''}`}>
                             <button
                               type="button"
                               onClick={() => selectCell(day, slotIndex)}
-                              className={`w-full min-h-[76px] rounded-xl border px-3 py-3 text-left transition-all ${slot ? `${color[0]} ${color[1]}` : 'bg-gray-50 border-dashed border-gray-200'} ${selected ? 'ring-2 ring-blue-500 ring-offset-1' : 'hover:border-blue-300 hover:shadow-sm'}`}
+                              className="w-full min-h-[76px] rounded-xl border px-3 py-3 text-left"
                             >
                               {slot ? (
                                 <>
@@ -439,10 +602,13 @@ export const TimetableManagement: React.FC = () => {
                                     <span className="block text-[11px] text-gray-500 mt-1">{slot.activityType}</span>
                                   </div>
                                   <span className="block text-[11px] text-gray-500 mt-1 truncate">{slot.room || 'Room TBD'}</span>
-                                  <span className="block text-[11px] text-gray-400 mt-1 truncate">{slot.teacherId}</span>
+                                  <span className="block text-[11px] text-gray-500 mt-1 truncate">{getFacultyName(slot.teacherId || '')}</span>
+                                  {slot.coTeacherId && (
+                                    <span className="block text-[11px] text-gray-400 mt-1 truncate">{getFacultyName(slot.coTeacherId || '')}</span>
+                                  )}
                                 </>
                               ) : (
-                                <span className="flex h-full min-h-[50px] items-center justify-center text-gray-300"><Plus size={17} /></span>
+                                <span className="flex h-full min-h-[50px] items-center justify-center text-gray-300"><Plus size={14} className="mr-1" /> Add class</span>
                               )}
                             </button>
                           </td>
@@ -472,7 +638,44 @@ export const TimetableManagement: React.FC = () => {
               </button>
             )}
           </div>
-
+          <div className="grid md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Semester</label>
+              <DropdownSelect
+                value={selectedStudentSemester}
+                onChange={(event: React.ChangeEvent<HTMLSelectElement>) => selectStudentSemester(event.target.value)}
+                disabled={!activeSemesterId}
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-blue-500 disabled:opacity-50"
+              >
+                <option value="">Select semester</option>
+                {studentSemesters.map((sem) => <option key={sem.id} value={sem.id}>{sem.name}</option>)}
+              </DropdownSelect>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Program</label>
+              <DropdownSelect
+                value={selectedProgram}
+                onChange={(event: React.ChangeEvent<HTMLSelectElement>) => selectProgram(event.target.value)}
+                disabled={!activeSemesterId || !selectedStudentSemester}
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-blue-500 disabled:opacity-50"
+              >
+                <option value="">Select program</option>
+                {programs.map((program) => <option key={program} value={program}>{program}</option>)}
+              </DropdownSelect>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Section</label>
+              <DropdownSelect
+                value={selectedSection}
+                onChange={(event: React.ChangeEvent<HTMLSelectElement>) => selectSection(event.target.value)}
+                disabled={!activeSemesterId || !selectedStudentSemester || !selectedProgram}
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-blue-500 disabled:opacity-50"
+              >
+                {sections.length === 0 ? <option value="">(Optional)</option> : (sections.length > 1 ? <option value="">Select Section...</option> : null)}
+                {sections.map((section) => <option key={section} value={section}>{section}</option>)}
+              </DropdownSelect>
+            </div>
+          </div>
           {/* File Upload */}
           <div className="space-y-3">
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">

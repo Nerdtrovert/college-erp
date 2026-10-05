@@ -237,7 +237,7 @@ export const SemesterManagement: React.FC = () => {
                 <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Status</label>
                 <DropdownSelect
                   value={newSemester.status}
-                  onChange={(e) => setNewSemester({...newSemester, status: e.target.value})}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setNewSemester({...newSemester, status: e.target.value})}
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-gray-50 focus:bg-white transition-colors"
                 >
                   <option value="ACTIVE">Active</option>
@@ -279,7 +279,7 @@ export const SemesterManagement: React.FC = () => {
                 <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Source Semester</label>
                 <DropdownSelect
                   value={copySemesterData.sourceSemesterId}
-                  onChange={(e) => setCopySemesterData({...copySemesterData, sourceSemesterId: e.target.value})}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setCopySemesterData({...copySemesterData, sourceSemesterId: e.target.value})}
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-gray-50 focus:bg-white transition-colors"
                   required
                 >
@@ -326,7 +326,7 @@ export const SemesterManagement: React.FC = () => {
                 <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Status</label>
                 <DropdownSelect
                   value={copySemesterData.status}
-                  onChange={(e) => setCopySemesterData({...copySemesterData, status: e.target.value})}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setCopySemesterData({...copySemesterData, status: e.target.value})}
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-gray-50 focus:bg-white transition-colors"
                 >
                   <option value="ACTIVE">Active</option>
@@ -398,7 +398,7 @@ export const SemesterManagement: React.FC = () => {
                 <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Status</label>
                 <DropdownSelect
                   value={editingSemester.status}
-                  onChange={(e) => setEditingSemester({...editingSemester, status: e.target.value})}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEditingSemester({...editingSemester, status: e.target.value})}
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-gray-50 focus:bg-white transition-colors"
                 >
                   <option value="ACTIVE">Active</option>

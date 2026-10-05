@@ -714,6 +714,12 @@ export const currentStudents = [
     "classGroup": "CSE-B"
   },
   {
+    "id": "1HC24CS071",
+    "name": "SADASHIVA KONASHIRASAGI",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
     "id": "1HC24CS072",
     "name": "SAGAR M",
     "program": "CSE",

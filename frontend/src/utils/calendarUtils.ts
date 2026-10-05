@@ -1,4 +1,4 @@
-import { CalendarEvent, EventType } from '../components/AcademicCalendar';
+import { CalendarEvent } from '../components/AcademicCalendar';
 
 /**
  * Check if an event is a duplicate based on date and title

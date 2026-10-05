@@ -7,7 +7,7 @@ interface AttendanceRecord {
   id: string;
   studentId: string;
   status: 'present' | 'absent';
-  student: { id: string; name: string };
+  student: { id: string; email?: string | null; name: string };
 }
 
 interface AttendanceSession {
@@ -94,7 +94,7 @@ export const AttendanceCorrections: React.FC = () => {
         ) : sessions.length === 0 ? (
           <p className="text-sm text-gray-500 py-4">No saved attendance sessions found for this date.</p>
         ) : (
-          <DropdownSelect value={selectedId} onChange={(event) => setSelectedId(event.target.value)} className="w-full px-4 py-2.5 rounded-xl">
+          <DropdownSelect value={selectedId} onChange={(event: React.ChangeEvent<HTMLSelectElement>) => setSelectedId(event.target.value)} className="w-full px-4 py-2.5 rounded-xl">
             {sessions.map((session) => <option key={session.id} value={session.id}>{session.date} · {session.subject.code} — {session.subject.name} · {session.classGroup} · {session.startTime}-{session.endTime}</option>)}
           </DropdownSelect>
         )}
@@ -109,7 +109,7 @@ export const AttendanceCorrections: React.FC = () => {
           <div className="divide-y divide-gray-100">
             {selected.records.map((record) => (
               <div key={record.id} className="px-5 py-3 flex items-center justify-between gap-3">
-                <div><p className="text-sm font-semibold text-gray-900">{record.student.name}</p><p className="text-xs text-gray-500">{record.student.id}</p></div>
+                <div><p className="text-sm font-semibold text-gray-900">{record.student.name}</p><p className="text-xs text-gray-500">{record.student.email || '—'}</p></div>
                 <button type="button" onClick={() => updateStatus(record)} disabled={saving === record.id} className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold ${record.status === 'present' ? 'bg-green-50 text-green-700 hover:bg-green-100' : 'bg-red-50 text-red-700 hover:bg-red-100'} disabled:opacity-50`}>
                   <CheckCircle2 size={14} /> {saving === record.id ? 'Saving...' : record.status === 'present' ? 'Present · Change to absent' : 'Absent · Change to present'}
                 </button>

@@ -8,7 +8,7 @@ export const parsePDFForEvents = async (file: File): Promise<CalendarEvent[]> =>
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     
-    reader.onload = async (e) => {
+    reader.onload = async (_) => {
       try {
         // In a real implementation, we would use pdfjs-dist here:
         // const { PDFDocument } = require('pdfjs-dist');
@@ -30,8 +30,9 @@ export const parsePDFForEvents = async (file: File): Promise<CalendarEvent[]> =>
         
         // Simulate network delay
         setTimeout(() => resolve(mockEvents), 1000);
-      } catch (error) {
-        reject(new Error(`Failed to parse PDF: ${error.message}`));
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        reject(new Error(`Failed to parse PDF: ${message}`));
       }
     };
     

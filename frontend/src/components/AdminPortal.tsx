@@ -4,8 +4,9 @@ import { useNavigate } from 'react-router-dom';
 import API from '../services/api';
 import { StudentManagement } from './supervisor/StudentManagement';
 import { FacultyManagement } from './supervisor/FacultyManagement';
+import { BacklogsManagement } from './supervisor/BacklogsManagement';
 
-type AdminSection = 'uploads' | 'logs';
+type AdminSection = 'uploads' | 'logs' | 'backlogs';
 
 export const AdminLoginPage: React.FC<{ onLogin: (user: any) => void }> = ({ onLogin }) => {
   const navigate = useNavigate();
@@ -127,7 +128,8 @@ const AdminLogs: React.FC = () => {
 
 export const AdminPortal: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
   const navigate = useNavigate();
-  const section: AdminSection = window.location.pathname.includes('/logs') ? 'logs' : 'uploads';
+  const section: AdminSection = window.location.pathname.includes('/logs') ? 'logs' :
+                               window.location.pathname.includes('/backlogs') ? 'backlogs' : 'uploads';
   const [uploadType, setUploadType] = useState<'students' | 'faculty'>('students');
 
   const logout = () => {
@@ -147,19 +149,22 @@ export const AdminPortal: React.FC<{ onLogout: () => void }> = ({ onLogout }) =>
         <aside className="w-48 shrink-0">
           <nav className="space-y-2">
             <button onClick={() => navigate('/admin/uploads')} className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-semibold ${section === 'uploads' ? 'bg-blue-700 text-white' : 'text-gray-600 hover:bg-white'}`}><Upload size={17} /> Uploads</button>
+            <button onClick={() => navigate('/admin/backlogs')} className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-semibold ${section === 'backlogs' ? 'bg-blue-700 text-white' : 'text-gray-600 hover:bg-white'}`}><FileText size={17} /> Backlogs</button>
             <button onClick={() => navigate('/admin/logs')} className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-semibold ${section === 'logs' ? 'bg-blue-700 text-white' : 'text-gray-600 hover:bg-white'}`}><FileText size={17} /> Logs</button>
           </nav>
         </aside>
         <main className="min-w-0 flex-1">
           {section === 'logs' ? <AdminLogs /> : (
-            <div className="space-y-5">
-              <div><h1 className="text-2xl font-bold text-gray-900">Uploads</h1><p className="mt-1 text-sm text-gray-500">Import records using the existing supervisor management workflows.</p></div>
-              <div className="flex gap-2 rounded-2xl border border-gray-200 bg-white p-2">
-                <button onClick={() => setUploadType('students')} className={`rounded-xl px-4 py-2 text-sm font-semibold ${uploadType === 'students' ? 'bg-blue-50 text-blue-700' : 'text-gray-600'}`}>Students</button>
-                <button onClick={() => setUploadType('faculty')} className={`rounded-xl px-4 py-2 text-sm font-semibold ${uploadType === 'faculty' ? 'bg-blue-50 text-blue-700' : 'text-gray-600'}`}>Faculty</button>
+            section === 'backlogs' ? <BacklogsManagement /> : (
+              <div className="space-y-5">
+                <div><h1 className="text-2xl font-bold text-gray-900">Uploads</h1><p className="mt-1 text-sm text-gray-500">Import records using the existing supervisor management workflows.</p></div>
+                <div className="flex gap-2 rounded-2xl border border-gray-200 bg-white p-2">
+                  <button onClick={() => setUploadType('students')} className={`rounded-xl px-4 py-2 text-sm font-semibold ${uploadType === 'students' ? 'bg-blue-50 text-blue-700' : 'text-gray-600'}`}>Students</button>
+                  <button onClick={() => setUploadType('faculty')} className={`rounded-xl px-4 py-2 text-sm font-semibold ${uploadType === 'faculty' ? 'bg-blue-50 text-blue-700' : 'text-gray-600'}`}>Faculty</button>
+                </div>
+                {uploadType === 'students' ? <StudentManagement /> : <FacultyManagement />}
               </div>
-              {uploadType === 'students' ? <StudentManagement /> : <FacultyManagement />}
-            </div>
+            )
           )}
         </main>
       </div>

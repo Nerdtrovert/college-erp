@@ -4,18 +4,18 @@ import { sectionMatchesProgram, STUDENT_PROGRAMS } from '../constants/program';
 
 export const loginSchema = z.object({
   body: z.object({
-    id: commonIdFields.userId,
+    email: commonIdFields.userId,
     password: z.string().min(6, 'Password must be at least 6 characters'),
   }).superRefine((value, ctx) => {
-    const isStudent = !value.id.includes('@');
+    const isStudent = !value.email.includes('@');
     const validIdentifier = isStudent
-      ? /^1HC\d{2}[A-Z]{2}\d{3}$/.test(value.id)  // Case sensitive for USN
-      : /^[a-zA-Z0-9._%+-]+@hnnce\.(in|com)$/i.test(value.id);  // More specific email pattern
+      ? /^1HC\d{2}[A-Z]{2}\d{3}$/i.test(value.email)  // Case-insensitive for USN
+      : /^[a-zA-Z0-9._%+-]+@hnnce\.(in|com)$/i.test(value.email);  // More specific email pattern
 
     if (!validIdentifier) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ['id'],
+        path: ['email'],
         message: 'Invalid USN or @hnnce.in/com email format',
       });
     }
@@ -24,7 +24,7 @@ export const loginSchema = z.object({
 
 export const registerSchema = z.object({
   body: z.object({
-    id: commonIdFields.userIdMin3,
+    email: commonIdFields.userIdMin3,
     name: commonStringFields.name,
     password: z.string().min(6, 'Password must be at least 6 characters'),
     role: roleSchemas.all, // student or teacher
@@ -37,13 +37,13 @@ export const registerSchema = z.object({
   }).superRefine((value, ctx) => {
     const isStudent = value.role === 'student';
     const validIdentifier = isStudent
-      ? /^1HC\d{2}[A-Z]{2}\d{3}$/.test(value.id)  // Case sensitive for USN
-      : /^[a-zA-Z0-9._%+-]+@hnnce\.(in|com)$/i.test(value.id);  // More specific email pattern
+      ? /^1HC\d{2}[A-Z]{2}\d{3}$/i.test(value.email)  // Case-insensitive for USN
+      : /^[a-zA-Z0-9._%+-]+@hnnce\.(in|com)$/i.test(value.email);  // More specific email pattern
 
     if (!validIdentifier) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ['id'],
+        path: ['email'],
         message: isStudent
           ? 'Student ID must be a USN such as 1HC24CS001'
           : 'Faculty and supervisor ID must be an @hnnce.in or @hnnce.com email address',

@@ -26,6 +26,7 @@ interface SubjectMarkDetail {
 
 interface ReportStudent {
   id: string;
+  email?: string | null;
   name: string;
   currentSemester?: number;
   semester?: { id: string; name: string };
@@ -189,14 +190,14 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
 
     if (reportDetail === 'low_attendance') {
       head = [['USN', 'Name', 'Current Semester', 'Section', 'Subject', 'Present', 'Total', 'Attendance %']];
-      tableData = (data as any[]).map((row) => [row.studentId, row.studentName, row.currentSemester ?? '-', row.classGroup || '-', `${row.subjectCode} — ${row.subjectName}`, row.present, row.total, `${row.percentage}%`]);
+      tableData = (data as any[]).map((row) => [row.email ? String(row.email).toUpperCase() : row.studentId, row.studentName, row.currentSemester ?? '-', row.classGroup || '-', `${row.subjectCode} — ${row.subjectName}`, row.present, row.total, `${row.percentage}%`]);
     } else if (reportDetail === 'missing_assignments') {
       head = [['USN', 'Name', 'Current Semester', 'Section', 'Subject', 'Missing']];
-      tableData = (data as any[]).map((row) => [row.studentId, row.studentName, row.currentSemester ?? '-', row.classGroup || '-', `${row.subjectCode} — ${row.subjectName}`, [row.missingAssignment1 && 'Assignment 1', row.missingAssignment2 && 'Assignment 2'].filter(Boolean).join(', ') || 'Assignment']);
+      tableData = (data as any[]).map((row) => [row.email ? String(row.email).toUpperCase() : row.studentId, row.studentName, row.currentSemester ?? '-', row.classGroup || '-', `${row.subjectCode} — ${row.subjectName}`, [row.missingAssignment1 && 'Assignment 1', row.missingAssignment2 && 'Assignment 2'].filter(Boolean).join(', ') || 'Assignment']);
     } else if (reportDetail === 'verge') {
       head = [['ID', 'Name', 'Current Semester', 'Section', 'At Risk Subjects', 'Status']];
       tableData = data.map(s => [
-        s.id, s.name, (s as any).currentSemester ?? '-', s.classGroup || '-',
+        s.email ? s.email.toUpperCase() : s.id, s.name, (s as any).currentSemester ?? '-', s.classGroup || '-',
         s.atRiskSubjects.join(', ') || '-', s.vergeStatus
       ]);
     } else if (reportCategory === 'marks') {
@@ -208,7 +209,7 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
         ...subjectCodes.map((code) => `${code} (${selectedCie.toUpperCase()} / 50)`),
       ]];
       tableData = data.map((student) => [
-        student.id,
+        student.email ? student.email.toUpperCase() : student.id,
         student.name,
         student.currentSemester ?? '-',
         student.classGroup || '-',
@@ -224,7 +225,7 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
     } else if (reportDetail === 'all') {
       head = [['ID', 'Name', 'Current Semester', 'Section', ...subjectCodes.map(c => `${c} (Total)`)]];
       tableData = data.map(s => {
-        const row: any[] = [s.id || (s as any).studentId, s.name || (s as any).studentName, s.currentSemester ?? '-', s.classGroup || '-'];
+        const row: any[] = [s.email ? s.email.toUpperCase() : (s.id || (s as any).studentId), s.name || (s as any).studentName, s.currentSemester ?? '-', s.classGroup || '-'];
         subjectCodes.forEach(code => {
           const sub = (s.subjects || []).find(x => x.subjectCode === code);
           row.push(sub?.total ?? '-');
@@ -234,7 +235,7 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
     } else if (reportDetail === 'cie_total') {
       head = [['ID', 'Name', 'Current Semester', 'Section', ...subjectCodes.map(c => `${c} (CIE)`)]];
       tableData = data.map(s => {
-        const row: any[] = [s.id || (s as any).studentId, s.name || (s as any).studentName, s.currentSemester ?? '-', s.classGroup || '-'];
+        const row: any[] = [s.email ? s.email.toUpperCase() : (s.id || (s as any).studentId), s.name || (s as any).studentName, s.currentSemester ?? '-', s.classGroup || '-'];
         subjectCodes.forEach(code => {
           const sub = (s.subjects || []).find(x => x.subjectCode === code);
           const cieScore = (sub?.cie1 || 0) + (sub?.cie2 || 0) + (sub?.cie3 || 0);
@@ -245,7 +246,7 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
     } else if (reportDetail === 'specific_cie') {
       head = [['ID', 'Name', 'Current Semester', 'Section', ...subjectCodes.map(c => `${c} (${selectedCie.toUpperCase()})`)]];
       tableData = data.map(s => {
-        const row: any[] = [s.id || (s as any).studentId, s.name || (s as any).studentName, s.currentSemester ?? '-', s.classGroup || '-'];
+        const row: any[] = [s.email ? s.email.toUpperCase() : (s.id || (s as any).studentId), s.name || (s as any).studentName, s.currentSemester ?? '-', s.classGroup || '-'];
         subjectCodes.forEach(code => {
           const sub = (s.subjects || []).find(x => x.subjectCode === code);
           row.push(sub?.[selectedCie] ?? '-');
@@ -278,7 +279,7 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
 
     const tableRows = data.map((student: any) => {
       let cells = [
-        createCell(student.id || (student as any).studentId),
+        createCell(student.email ? String(student.email).toUpperCase() : (student.id || (student as any).studentId)),
         createCell(student.name || (student as any).studentName),
         createCell(student.currentSemester ?? '-'),
         createCell(student.classGroup || '-')
@@ -627,7 +628,7 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
               <tbody className="divide-y divide-gray-50 bg-white">
                 {paginatedData.map((student) => (
                   <tr key={student.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-6 py-4 text-sm font-medium text-gray-900">{student.id || (student as any).studentId}</td>
+                    <td className="px-6 py-4 text-sm font-medium text-gray-900">{student.email ? student.email.toUpperCase() : (student.id || (student as any).studentId)}</td>
                     <td className="px-6 py-4 text-sm text-gray-700 whitespace-nowrap">{student.name || (student as any).studentName}</td>
                     <td className="px-6 py-4 text-sm text-gray-700">{student.currentSemester ?? '-'}</td>
                     <td className="px-6 py-4 text-sm text-gray-700">{student.classGroup || '-'}</td>

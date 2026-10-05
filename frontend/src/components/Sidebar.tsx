@@ -75,7 +75,7 @@ export const Sidebar: React.FC<Props> = ({ user, items, active, onNavigate, onLo
           </div>
           <div className="min-w-0">
             <div className="text-white text-sm font-medium truncate">{user.name}</div>
-            <div className="text-white/40 text-xs truncate">{user.id}</div>
+            <div className="text-white/40 text-xs truncate">{user.email || '—'}</div>
           </div>
         </div>
         <button
