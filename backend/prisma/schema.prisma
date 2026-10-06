@@ -183,6 +183,7 @@ model TimetableSlot {
   slotIndex    Int
   room         String?
   classGroup   String
+  subjectCode  String?
   teacherId    String
   semesterId   String                    @db.Uuid
   batchYear    Int?                     // batch year of students

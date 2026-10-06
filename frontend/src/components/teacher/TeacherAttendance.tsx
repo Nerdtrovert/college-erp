@@ -93,6 +93,7 @@ export const TeacherAttendance: React.FC = () => {
           date,
           startTime: selectedClass.startTime,
           endTime: selectedClass.endTime,
+          classGroup: selectedClass.classGroup,
         });
         const res = await API.get(`/attendance/teacher/${selectedClass.subjectCode}?${query}`);
         setStudents(res.data.students);

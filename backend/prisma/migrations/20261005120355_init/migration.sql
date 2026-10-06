@@ -1,0 +1,1 @@
+$(cat /tmp/init_final.sql)

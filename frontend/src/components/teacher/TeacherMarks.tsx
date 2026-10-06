@@ -52,7 +52,7 @@ export const TeacherMarks: React.FC = () => {
         const res = await API.get('/timetable/teacher-subjects');
         setSubjects(res.data);
         if (res.data.length > 0) {
-          setSelectedClass(res.data[0].code);
+          setSelectedClass(`${res.data[0].code}|${res.data[0].classGroup}`);
         }
       } catch (err) {
         console.error('Error fetching teacher subjects:', err);
@@ -68,7 +68,9 @@ export const TeacherMarks: React.FC = () => {
     if (!selectedClass || !selectedAssessment) return;
     const fetchMarksRoster = async () => {
       try {
-        const res = await API.get(`/marks/teacher/${selectedClass}/${selectedAssessment}`);
+        const selectedSubject = subjects.find((subject) => `${subject.code}|${subject.classGroup}` === selectedClass);
+        if (!selectedSubject) return;
+        const res = await API.get(`/marks/teacher/${encodeURIComponent(selectedSubject.code)}/${selectedAssessment}?classGroup=${encodeURIComponent(selectedSubject.classGroup)}`);
         setStudents(res.data.students);
         setMarks(
           Object.fromEntries(
@@ -80,9 +82,9 @@ export const TeacherMarks: React.FC = () => {
       }
     };
     fetchMarksRoster();
-  }, [selectedClass, selectedAssessment]);
+  }, [selectedClass, selectedAssessment, subjects]);
 
-  const currentSubject = subjects.find(s => s.code === selectedClass);
+  const currentSubject = subjects.find((subject) => `${subject.code}|${subject.classGroup}` === selectedClass);
   const activeAssessments = currentSubject?.type === 'INTEGRATED'
     ? INTEGRATED_ASSESSMENTS
     : STANDALONE_ASSESSMENTS;
@@ -159,7 +161,8 @@ export const TeacherMarks: React.FC = () => {
       }));
 
       await API.post('/marks/teacher', {
-        subjectCode: selectedClass,
+        subjectCode: currentSubject?.code,
+        classGroup: currentSubject?.classGroup,
         type: selectedAssessment,
         maxScore: assessment.max,
         records,
@@ -180,7 +183,7 @@ export const TeacherMarks: React.FC = () => {
     setExporting(true);
     try {
       const response = await API.get(
-        `/marks/teacher/${encodeURIComponent(selectedClass)}/${encodeURIComponent(selectedAssessment)}/export`,
+        `/marks/teacher/${encodeURIComponent(currentSubject?.code || '')}/${encodeURIComponent(selectedAssessment)}/export?classGroup=${encodeURIComponent(currentSubject?.classGroup || '')}`,
         { responseType: 'blob' },
       );
       const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
@@ -227,7 +230,7 @@ export const TeacherMarks: React.FC = () => {
                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { setSelectedClass(e.target.value); setSaved(false) }}
                 className="w-full appearance-none px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500 pr-10"
               >
-                {subjects.map(c => <option key={c.code} value={c.code}>{c.code} — {c.name} ({c.classGroup})</option>)}
+                {subjects.map(c => <option key={`${c.code}|${c.classGroup}`} value={`${c.code}|${c.classGroup}`}>{c.code} — {c.name} ({c.classGroup})</option>)}
               </DropdownSelect>
               <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
             </div>

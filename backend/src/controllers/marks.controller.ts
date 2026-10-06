@@ -487,6 +487,7 @@ export const getStudentMarks = async (req: AuthRequest, res: Response) => {
 export const getTeacherMarks = async (req: AuthRequest, res: Response) => {
   const { subjectCode, assessmentType } = req.params as { subjectCode: string; assessmentType: string };
   const teacherId = req.user?.id;
+  const classGroup = String(req.query.classGroup || '');
 
   if (!teacherId) {
     return res.status(400).json({ error: 'Teacher ID not found' });
@@ -499,39 +500,17 @@ export const getTeacherMarks = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'No active semester found' });
     }
 
-    // Find the assignment for this subject and teacher in the active semester to get classGroup
-    const assignmentForSlot = await prisma.subjectSectionAssignment.findFirst({
-      where: {
-        subject: {
-          code: subjectCode
-        },
-        OR: [
-          { theoryFacultyId: teacherId },
-          { labFacultyId: teacherId }
-        ]
-      },
-      include: {
-        subject: { select: { code: true, name: true, type: true } }
-      }
-    });
+    if (!classGroup) return res.status(400).json({ error: 'Class group is required' });
 
-    if (!assignmentForSlot) {
-      return res.status(404).json({ error: 'Subject section assignment not found for this teacher and subject' });
-    }
-
-    // Find the timetable slot for this assignment in the active semester to get classGroup
-    const slot = await prisma.timetableSlot.findFirst({
+    const timetableSlot = await prisma.timetableSlot.findFirst({
       where: {
-        assignmentId: assignmentForSlot.id,
+        subjectCode,
+        classGroup,
         semesterId: activeSem.id,
+        OR: [{ teacherId: req.user?.email ?? '' }, { coTeacherId: req.user?.email ?? '' }],
       },
-      select: { classGroup: true }
     });
-
-    if (!slot) {
-      return res.status(404).json({ error: 'No timetable slot found for this subject and semester' });
-    }
-    const classGroup = slot.classGroup;
+    if (!timetableSlot) return res.status(404).json({ error: 'No matching faculty timetable slot found for this class' });
 
     // Get the assignment (SubjectSectionAssignment) for this subject and classGroup
     const targetAssignment = await prisma.subjectSectionAssignment.findFirst({
@@ -548,24 +527,18 @@ export const getTeacherMarks = async (req: AuthRequest, res: Response) => {
       }
     });
 
-    if (!targetAssignment) {
-      return res.status(404).json({ error: 'Subject section assignment not found' });
-    }
-
     // Get all students inside this class group section
-    const students = await prisma.user.findMany({
-      where: { role: 'student', classGroup },
-      orderBy: { id: 'asc' },
+    const enrollments = await prisma.studentEnrollment.findMany({
+      where: { semesterId: activeSem.id, classGroup, student: { is: { role: 'student' } } },
+      include: { student: true },
+      orderBy: { studentId: 'asc' },
     });
+    const students = enrollments.map(({ student }) => student);
 
     // Get marks records matching the assignment, type, student, and active semester
-    const marks = await prisma.mark.findMany({
-      where: {
-        assignmentId: targetAssignment.id,
-        type: assessmentType,
-        semesterId: activeSem.id,
-      },
-    });
+    const marks = targetAssignment ? await prisma.mark.findMany({
+      where: { assignmentId: targetAssignment.id, type: assessmentType, semesterId: activeSem.id },
+    }) : [];
 
     const marksMap = Object.fromEntries(marks.map((m) => [m.studentId, m.score]));
 
@@ -576,10 +549,10 @@ export const getTeacherMarks = async (req: AuthRequest, res: Response) => {
     }));
 
     // Determine faculty name for the response (prefer theory faculty)
-    const facultyName = targetAssignment.theoryFaculty?.name ?? targetAssignment.labFaculty?.name ?? '';
+    const facultyName = targetAssignment?.theoryFaculty?.name ?? targetAssignment?.labFaculty?.name ?? req.user?.name ?? '';
 
     return res.status(200).json({
-      subjectCode: targetAssignment.subject.code,
+      subjectCode,
       classGroup,
       assessmentType,
       faculty: facultyName,
@@ -660,11 +633,11 @@ export const exportTeacherMarks = async (req: AuthRequest, res: Response) => {
     }
 
     const [students, marks] = await Promise.all([
-      prisma.user.findMany({
-        where: { role: 'student', classGroup },
-        orderBy: { id: 'asc' },
-        select: { id: true, name: true },
-      }),
+      prisma.studentEnrollment.findMany({
+        where: { semesterId: activeSem.id, classGroup, student: { is: { role: 'student' } } },
+        select: { student: { select: { id: true, name: true } } },
+        orderBy: { studentId: 'asc' },
+      }).then((enrollments) => enrollments.map(({ student }) => student)),
       prisma.mark.findMany({
         where: {
           assignmentId: targetAssignment.id,
@@ -738,7 +711,7 @@ export const exportTeacherMarks = async (req: AuthRequest, res: Response) => {
 };
 
 export const saveTeacherMarks = async (req: AuthRequest, res: Response) => {
-  const { subjectCode, type, maxScore, records } = req.body;
+  const { subjectCode, classGroup, type, maxScore, records } = req.body;
   const teacherId = req.user?.id;
 
   if (!teacherId) {
@@ -752,39 +725,17 @@ export const saveTeacherMarks = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'No active semester found' });
     }
 
-    // Find the assignment for this subject and teacher in the active semester to get classGroup
-    const assignmentForSlot = await prisma.subjectSectionAssignment.findFirst({
-      where: {
-        subject: {
-          code: subjectCode
-        },
-        OR: [
-          { theoryFacultyId: teacherId },
-          { labFacultyId: teacherId }
-        ]
-      },
-      include: {
-        subject: { select: { code: true, name: true, type: true } }
-      }
-    });
+    if (!classGroup) return res.status(400).json({ error: 'Class group is required' });
 
-    if (!assignmentForSlot) {
-      return res.status(404).json({ error: 'Subject section assignment not found for this teacher and subject' });
-    }
-
-    // Find the timetable slot for this assignment in the active semester to get classGroup
-    const slot = await prisma.timetableSlot.findFirst({
+    const timetableSlot = await prisma.timetableSlot.findFirst({
       where: {
-        assignmentId: assignmentForSlot.id,
+        subjectCode,
+        classGroup,
         semesterId: activeSem.id,
+        OR: [{ teacherId: req.user?.email ?? '' }, { coTeacherId: req.user?.email ?? '' }],
       },
-      select: { classGroup: true }
     });
-
-    if (!slot) {
-      return res.status(404).json({ error: 'No timetable slot found for this subject and semester' });
-    }
-    const classGroup = slot.classGroup;
+    if (!timetableSlot) return res.status(404).json({ error: 'No matching faculty timetable slot found for this class' });
 
     // Verify the assignment exists for this subject and classGroup
     const targetAssignment = await prisma.subjectSectionAssignment.findFirst({
