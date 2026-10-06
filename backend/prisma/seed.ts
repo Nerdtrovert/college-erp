@@ -98,62 +98,106 @@ async function main() {
   }
   console.log('Faculty seeded and email-to-ID map built.');
 
-  // Current roster from the 09.07.2026 seating list. Semester numbers are
-  // derived from each USN cohort and the academic period start date.
-  // Replacing all student rows removes the old demo students and stale names.
-  await prisma.user.deleteMany({ where: { role: Role.student } });
-  const studentUsers = await prisma.user.createMany({
-    data: currentStudents.map((student) => ({
-      email: student.id.toLowerCase(), // Use USN as email (lowercase)
-      name: student.name,
-      password: studentPasswordHash,
-      role: Role.student,
-      isActive: true,
-      batchStartYear: batchYearsFromUsn(student.id)?.startYear,
-      batchEndYear: batchYearsFromUsn(student.id)?.endYear,
-      department: null,
+
+// Upsert students based on email (USN)
+const studentUsers = [];
+for (const student of currentStudents) {
+  const email = student.id.toLowerCase();
+  const existingStudent = await prisma.user.findUnique({
+    where: { email },
+  });
+  const studentData = {
+    email,
+    name: student.name,
+    password: studentPasswordHash,
+    role: Role.student,
+    isActive: true,
+    batchStartYear: batchYearsFromUsn(student.id)?.startYear,
+    batchEndYear: batchYearsFromUsn(student.id)?.endYear,
+    department: null,
+    program: student.program,
+    classGroup: student.classGroup,
+    semesterId: defaultSemester.id,
+  };
+  let studentUser;
+  if (existingStudent) {
+    studentUser = await prisma.user.update({
+      where: { email },
+      data: studentData,
+    });
+  } else {
+    studentUser = await prisma.user.create({
+      data: studentData,
+    });
+  }
+  studentUsers.push(studentUser);
+}
+console.log("Students seeded.");
+
+// Map classGroup to batchYear from student data
+const classGroupBatchYearMap = new Map<string, number>();
+for (const student of currentStudents) {
+  const batchYearInfo = batchYearsFromUsn(student.id);
+  if (batchYearInfo) {
+    classGroupBatchYearMap.set(student.classGroup, batchYearInfo.startYear);
+  }
+}
+
+// Get the actual student users with their generated UUID IDs (we already have them in studentUsers, but we need to map by email for enrollment)
+const studentEmailToIdMap = new Map<string, string>();
+for (const su of studentUsers) {
+  studentEmailToIdMap.set(su.email ?? '', su.id);
+}
+
+// Upsert enrollments for each student
+for (const student of currentStudents) {
+  const studentId = studentEmailToIdMap.get(student.id.toLowerCase());
+  if (!studentId) {
+    throw new Error(`Could not find student user for USN: ${student.id}`);
+  }
+  await prisma.studentEnrollment.upsert({
+    where: {
+      studentId_semesterId: {
+        studentId,
+        semesterId: defaultSemester.id,
+      },
+    },
+    update: {
+      semesterNumber: semesterNumberFromUsn(student.id, defaultSemester.startDate!)!,
       program: student.program,
       classGroup: student.classGroup,
-      semesterId: defaultSemester.id,
-    })),
-  });
-
-  // Get the actual student users with their generated UUID IDs
-  const studentRecords = await prisma.user.findMany({
-    where: {
-      email: {
-        in: currentStudents.map(s => s.id.toLowerCase())
-      }
     },
-    select: { id: true, email: true }
+    create: {
+      studentId,
+      semesterId: defaultSemester.id,
+      semesterNumber: semesterNumberFromUsn(student.id, defaultSemester.startDate!)!,
+      program: student.program,
+      classGroup: student.classGroup,
+    },
   });
+}
 
-  // Create student enrollment records using the actual user IDs
-  await prisma.studentEnrollment.createMany({
-    data: currentStudents.map((student) => {
-      const studentUser = studentRecords.find(u => u.email === student.id.toLowerCase());
-      if (!studentUser) {
-        throw new Error(`Could not find student user for USN: ${student.id}`);
-      }
-      return {
-        studentId: studentUser.id, // Use the actual UUID ID
-        semesterId: defaultSemester.id,
-        semesterNumber: semesterNumberFromUsn(student.id, defaultSemester.startDate!)!,
-        program: student.program,
-        classGroup: student.classGroup,
-      };
-    }),
-  });
-  console.log('Students seeded.');
+// Delete enrollments for the default semester that are not for the current students
+const currentStudentEmails = currentStudents.map(s => s.id.toLowerCase());
+const currentStudentIds = await prisma.user.findMany({
+  where: {
+    email: {
+      in: currentStudentEmails
+    }
+  },
+  select: { id: true }
+}).then(ids => ids.map(i => i.id));
 
-  // Map classGroup to batchYear from student data
-  const classGroupBatchYearMap = new Map<string, number>();
-  for (const student of currentStudents) {
-    const batchYearInfo = batchYearsFromUsn(student.id);
-    if (batchYearInfo) {
-      classGroupBatchYearMap.set(student.classGroup, batchYearInfo.startYear);
+await prisma.studentEnrollment.deleteMany({
+  where: {
+    semesterId: defaultSemester.id,
+    studentId: {
+      notIn: currentStudentIds
     }
   }
+});
+
+  
 
   // Subjects Data - CANONICAL SUBJECTS ONLY (no section suffixes)
   // First, define all canonical subjects
@@ -404,11 +448,8 @@ async function main() {
         : (String(subjectCode) === 'BCS502' && String(activityType) === 'LAB' ? 'Lab3' : 'MB 02'),
       teacherId: String(teacherId), activityType: String(activityType),
       coTeacherId: String(subjectCode) === 'BEC502' && String(activityType) === 'LAB' ? 'archana.s@hnnce.in' : String(subjectCode) === 'BCS502' && String(activityType) === 'LAB' ? 'harshitha@hnnce.in' : undefined,
-    })) as any
-  });
-
-  // Replace this semester's source-scoped grids so removed/moved cells from
-  // earlier seed drafts cannot survive as duplicate or stale periods.
+    })))
+  // Replace this semester's source-scoped grids so removed/moved cells from earlier seed drafts cannot survive as duplicate or stale periods.
   await prisma.timetableSlot.deleteMany({
     where: {
       semesterId: defaultSemester.id,
@@ -503,10 +544,8 @@ async function main() {
   }
 
   console.log('Seeding completed successfully!');
-
-
-
 }
+
 main()
   .catch((e) => {
     console.error(e);

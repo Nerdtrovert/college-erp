@@ -76,16 +76,5 @@ if (!isReady) {
   process.exit(1);
 }
 
-console.log('Database is ready. Syncing migration status...');
-const backendDir = path.join(__dirname, '..', 'backend');
-
-try {
-  execSync('npx prisma migrate resolve --applied 20260712000000_add_semester', {
-    cwd: backendDir,
-    stdio: 'inherit'
-  });
-} catch (error) {
-  console.log('Migration status checked (either already applied or resolved).');
-}
-
+console.log('Database is ready.');
 console.log('Database start process completed successfully.');
