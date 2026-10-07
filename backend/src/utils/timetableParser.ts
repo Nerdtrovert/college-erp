@@ -16,6 +16,7 @@ export interface ParsedTimetableEntry {
   activityType: string; // THEORY, LAB, TUTORIAL
   facultyId?: string; // Optional faculty ID
   facultyNames?: string[]; // Faculty names explicitly listed in the PDF course table
+  facultyUserIds?: Array<string | null>; // Positional matches for facultyNames during validation
   coFacultyIds?: string[];
 }
 
@@ -47,13 +48,14 @@ export function extractSemesterInfo(text: string): { semester: string; section: 
   const semesterPatterns = [
     /(?:Semester|SEM)[\s:-]*(\d+)/i,
     /(?:Odd|Even)\s*sem[\s:-]*(\d+)/i,
-    /Sem[\s:-]*(\d+)/i
+    /Sem[\s:-]*(\d+)/i,
+    /(?:Semester|SEM)[\s:-]*([IVXLCDM]+)/i
   ];
 
   const sectionPatterns = [
-    /(?:Section|SEC|Sec)[\s:-]*([A-Z])/i,
-    /[\s-]([A-Z])[\s-]/, // Section like -B- in filename
-    /Section[\s:-]*([A-Z])\b/i
+    /(?:Section|SEC|Sec)[\s:-]*([A-Z0-9-]+)/i,
+    /[\s-]([A-Z0-9-]+)[\s-]/,
+    /Section[\s:-]*([A-Z0-9-]+)\b/i
   ];
 
   const datePatterns = [
@@ -63,43 +65,55 @@ export function extractSemesterInfo(text: string): { semester: string; section: 
   ];
 
   const roomPatterns = [
-    /Room\s*Number[\s:-]*(\S+)/i,
-    /Room[\s:-]*(\S+)/i,
-    /[\s-]Room[\s:-]*(\S+)/i
+    /Room\s*Number[\s:-]*([^\n\r]*?)(?=\s*(?:SECTION|SEMESTER|SEM|Wef|Effective\s+Date|Days\/Time)|$)/i,
+    /Room[\s:-]*([^\n\r]*?)(?=\s*(?:SECTION|SEMESTER|SEM|Wef|Effective\s+Date|Days\/Time)|$)/i,
+    /[\s-]Room[\s:-]*([^\n\r]*?)(?=\s*(?:SECTION|SEMESTER|SEM|Wef|Effective\s+Date|Days\/Time)|$)/i
   ];
 
-  let semester = null;
   let section = null;
   let effectiveDate = null;
   let room = null;
 
-  const explicitSection = text.match(/SECTION\s*:\s*\(?\s*([A-Z0-9]+)\s*\)?/i);
-  const semesterHeader = text.match(/SEMESTER\s+([IVXLCDM]+)(?:\s*\(\s*(ODD|EVEN)\s*\))?/i);
-  const yearRange = text.match(/Time\s+Table\s+for[\s\S]*?(\d{4}-\d{2})/i);
-  const effectiveDateHeader = text.match(/Wef:\s*(\d{1,2})-(\d{1,2})-(\d{4})/i);
-  const roomHeader = text.match(/Room\s+Number\s*:\s*([A-Z0-9]+(?:\s+\d+)?)/i);
+  const explicitSection = text.match(/SECTION\s*:\s*\(?\s*([A-Z0-9-]+)\s*\)?/i);
+  const semesterHeader = text.match(/(?:SEMESTER|SEM)\s+([IVXLCDM]+)(?:\s*\(\s*(ODD|EVEN)\s*\))?/i);
+  // New header pattern for Odd/Even sem with year range (e.g., "Odd Sem 2026-27")
+  const semesterHeaderOddEven = text.match(/(Odd|Even)\s*sem[\s:-]*(\d{4}-\d{2})/i);
+  const yearRangeMatch = text.match(/Time\s+Table\s+for[\s\S]*?(\d{4}-\d{2})/i);
+  const yearRange = yearRangeMatch ? yearRangeMatch[1] : null;
+  const effectiveDateHeader = text.match(/(?:Wef|Effective\s+Date)\s*[:]\s*(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/i);
+  const roomHeader = text.match(/Room\s+Number\s*:\s*([^\n\r]*?)(?=\s*(?:SECTION|SEMESTER|SEM|Wef|Effective\s+Date|Days\/Time)|$)/i);
 
   // Extract semester
-  if (semesterHeader) {
-    const romanValue = romanToNumber(semesterHeader[1]);
-    semester = semesterHeader[2] && yearRange
-      ? `${semesterHeader[2][0].toUpperCase()}${semesterHeader[2].slice(1).toLowerCase()} sem ${yearRange[1]}`
-      : `Sem${romanValue}`;
+  let semester = null;
+
+  // First, try the new header pattern for Odd/Even sem with year range
+  if (semesterHeaderOddEven) {
+        semester = `${semesterHeaderOddEven[1][0].toUpperCase()}${semesterHeaderOddEven[1].slice(1).toLowerCase()} sem ${semesterHeaderOddEven[2]}`;
   }
-  for (const pattern of semesterPatterns) {
-    if (semester) break;
-    const match = text.match(pattern);
-    if (match) {
-      semester = `Sem${match[1]}`;
-      break;
-    }
+  // Then, try the existing semesterHeader (for SEMESTER/SEM with Roman numerals and optional ODD/EVEN)
+  if (!semester && semesterHeader) {
+        const romanValue = romanToNumber(semesterHeader[1]);
+        semester = semesterHeader[2] && yearRange
+          ? `${semesterHeader[2][0].toUpperCase()}${semesterHeader[2].slice(1).toLowerCase()} sem ${yearRange}`
+          : `Sem${romanValue}`;
+  }
+  // Then, try the patterns for semester number
+  if (!semester) {
+        for (const pattern of semesterPatterns) {
+            if (semester) break;
+            const match = text.match(pattern);
+            if (match) {
+                semester = `Sem${match[1]}`;
+                break;
+            }
+        }
   }
   // If the header has no usable semester, infer its level from subject-code
   // structure: optional leading digits, an alphabetic prefix, then a digit.
   // For example, BCS502 -> 5 and 1BCS304 -> 3.
   if (!semester) {
-    const subjectSemester = text.match(/\b\d*[A-Z]{2,}(\d)\d[A-Z0-9]*\b/i);
-    if (subjectSemester) semester = `Sem${subjectSemester[1]}`;
+        const subjectSemester = text.match(/\b\d*[A-Z]{2,}(\d)\d[A-Z0-9]*\b/i);
+        if (subjectSemester) semester = `Sem${subjectSemester[1]}`;
   }
 
   // Extract section
@@ -139,15 +153,13 @@ export function extractSemesterInfo(text: string): { semester: string; section: 
 
   // Extract room
   if (roomHeader) {
-    room = roomHeader[1].trim().replace(/\s+/g, ' ');
+    room = roomHeader[1].trim().replace(/\s+/g, '');
   }
   for (const pattern of roomPatterns) {
     if (room) break;
     const match = text.match(pattern);
     if (match) {
-      room = match[1].trim();
-      // Clean up common room format issues
-      room = room.replace(/\s+/g, ''); // Remove spaces
+      room = match[1].trim().replace(/\s+/g, '');
       break;
     }
   }
@@ -182,7 +194,7 @@ function to24HourTime(value: string): string {
 
 function isSubjectCell(value: string): boolean {
   const normalized = value.trim().toUpperCase();
-  return /^[A-Z0-9][A-Z0-9&/-]*(?:\s*\([A-Z]+\))?$/.test(normalized) && /[A-Z]/.test(normalized);
+  return normalized.length > 1 && /^[A-Z0-9][A-Z0-9&\/-]+(?:\s*\([A-Z]+\))?$/.test(normalized) && /[A-Z]/.test(normalized);
 }
 
 async function parseTimetablePdfByPosition(fileBuffer: Buffer): Promise<ParsedTimetableEntry[]> {
@@ -211,7 +223,7 @@ async function parseTimetablePdfByPosition(fileBuffer: Buffer): Promise<ParsedTi
     .filter(item => /^\d{1,2}:\d{2}-\d{1,2}:\d{2}$/.test(item.text))
     .sort((left, right) => left.x - right.x);
   const dayItems = allItems
-    .filter(item => /^(Monday|Tuesday|Wednesday|Thursday|Friday)$/i.test(item.text))
+    .filter(item => /^(Monday|Tuesday|Wednesday|Thursday|Friday):?$/i.test(item.text))
     .sort((left, right) => right.y - left.y);
 
   console.debug('[timetable-parser] positional stages', {
@@ -238,26 +250,64 @@ async function parseTimetablePdfByPosition(fileBuffer: Buffer): Promise<ParsedTi
   // cells whose timetable label contains the course name instead of its code.
   const courseCodeHeaders = allItems.filter(item => /^Course code$/i.test(item.text)).sort((a, b) => a.x - b.x);
   const facultyHeaders = allItems.filter(item => /^Name of Faculty$/i.test(item.text)).sort((a, b) => a.x - b.x);
-  const courseMappings = allItems.flatMap(codeItem => {
-    const rawCode = codeItem.text.replace(/^\((.+)\)$/, '$1').trim();
-    const canonicalCode = normalizeSubjectCodeAndActivity(rawCode).subjectCode;
-    if (!/^\d*[A-Z]{2,}[A-Z0-9]*$/i.test(canonicalCode) || !/\d/.test(canonicalCode)) return [];
-    const priorHeaders = courseCodeHeaders.filter(header => header.x <= codeItem.x + 5);
-    const codeHeader = priorHeaders[priorHeaders.length - 1];
-    if (!codeHeader || codeItem.y >= codeHeader.y || codeItem.y < codeHeader.y - 140) return [];
-    const facultyHeader = facultyHeaders.find(header => header.x > codeHeader.x);
+  const headerRows = courseCodeHeaders.flatMap(codeHeader => {
+    const facultyHeader = facultyHeaders.find(candidate =>
+      candidate.x > codeHeader.x && Math.abs(candidate.y - codeHeader.y) < 1,
+    );
     if (!facultyHeader) return [];
-    const names = allItems
-      .filter(item => item.x > codeHeader.x && item.x < facultyHeader.x && Math.abs(item.y - codeItem.y) <= 16)
-      .sort((a, b) => b.y - a.y)
-      .map(item => item.text);
-    const facultyNames = allItems
-      .filter(item => item.x >= facultyHeader.x && item.x < facultyHeader.x + 200 && Math.abs(item.y - codeItem.y) <= 16)
-      .sort((a, b) => b.y - a.y)
-      .map(item => item.text.replace(/\s*\+\s*$/, '').trim())
-      .filter(Boolean);
-    return [{ code: rawCode, canonicalCode, name: names.join(' ').trim(), facultyNames: [...new Set(facultyNames)] }];
+    const nextCodeHeader = courseCodeHeaders.find(candidate =>
+      candidate.x > facultyHeader.x && Math.abs(candidate.y - codeHeader.y) < 1,
+    );
+    const firstAdjacentColumnX = Math.min(...allItems
+      .filter(item => item.x > codeHeader.x && item.x < facultyHeader.x && item.y < codeHeader.y)
+      .map(item => item.x));
+    if (!Number.isFinite(firstAdjacentColumnX)) return [];
+    const pageWidth = Math.max(...allItems.map(item => item.x + item.width));
+    return [{
+      codeHeader,
+      facultyHeader,
+      codeMinX: codeHeader.x,
+      codeMaxX: (codeHeader.x + firstAdjacentColumnX) / 2,
+      facultyMinX: facultyHeader.x,
+      facultyMaxX: nextCodeHeader?.x ?? pageWidth,
+    }];
   });
+  const courseMappings = headerRows.flatMap(columns => {
+    const codeRows = allItems.filter(item => {
+      const raw = item.text.replace(/^\((.+)\)$/, '$1').trim();
+      const normalized = normalizeSubjectCodeAndActivity(raw).subjectCode;
+      return item.x >= columns.codeMinX && item.x < columns.codeMaxX &&
+        item.y < columns.codeHeader.y &&
+        /^[A-Z0-9]{2,}$/i.test(normalized);
+    }).sort((a, b) => b.y - a.y);
+    return codeRows.map((codeItem, index) => {
+      const rawCode = codeItem.text.replace(/^\((.+)\)$/, '$1').trim();
+      const canonicalCode = normalizeSubjectCodeAndActivity(rawCode).subjectCode;
+      const facultyNames = allItems
+        .filter(item => item.x >= columns.facultyMinX && item.x < columns.facultyMaxX &&
+          item.y < columns.facultyHeader.y && item.y < columns.codeHeader.y)
+        .filter(item => {
+          const closestIndex = codeRows.reduce((closest, candidate, candidateIndex) =>
+            Math.abs(candidate.y - item.y) < Math.abs(codeRows[closest].y - item.y) ? candidateIndex : closest,
+          0);
+          if (closestIndex !== index) return false;
+          const previousGap = index > 0 ? Math.abs(codeRows[index - 1].y - codeItem.y) : Infinity;
+          const nextGap = index + 1 < codeRows.length ? Math.abs(codeItem.y - codeRows[index + 1].y) : Infinity;
+          const localRowHeight = Math.min(previousGap, nextGap);
+          return Math.abs(item.y - codeItem.y) <= (Number.isFinite(localRowHeight) ? localRowHeight / 2 : previousGap / 2);
+        })
+        .sort((a, b) => b.y - a.y || a.x - b.x)
+        .map(item => item.text.trim().replace(/\s*\+\s*$/, ''))
+        .filter(text => {
+          if (!text || text.toUpperCase() === 'NAME OF FACULTY') return false;
+          if (/^\(?\d*[A-Z]{2,}[A-Z0-9]*\)?$/i.test(text) && /\d/.test(text)) return false;
+          if (/^[A-Z]{2,}$/.test(text)) return false;
+          return /[A-Za-z]{2}/.test(text) && !/^(Monday|Tuesday|Wednesday|Thursday|Friday)$/i.test(text);
+        });
+      const uniqueFacultyNames = [...new Set(facultyNames)];
+      return [{ code: rawCode, canonicalCode, name: '', facultyNames: uniqueFacultyNames }];
+    });
+  }).flat();
   const timetableMinY = Math.min(...dayItems.map(item => item.y)) - 18;
   const timetableMaxY = Math.max(...dayItems.map(item => item.y)) + 18;
   const rowBoundaries = dayItems.map((day, index) => ({
@@ -265,7 +315,30 @@ async function parseTimetablePdfByPosition(fileBuffer: Buffer): Promise<ParsedTi
     minY: index === dayItems.length - 1 ? timetableMinY : (day.y + dayItems[index + 1].y) / 2,
     maxY: index === 0 ? timetableMaxY : (day.y + dayItems[index - 1].y) / 2,
   }));
-
+  // PASS 1: Determine which columns contain any subject-like text anywhere in the timetable.
+  const columnUsed: boolean[] = new Array(timeItems.length).fill(false);
+  for (const item of allItems) {
+    if (!(isSubjectCell(item.text) || /\bPROJECT\b|\bCOMPUTER LAB\b|^[A-Z0-9]\s+LAB\b/i.test(item.text))) continue;
+    // Determine the span of columns that this item overlaps with
+    const cellCenter = item.x + item.width / 2;
+    let itemSpan: [number, number] | null = null;
+    for (let start = 0; start < columnCenters.length; start += 1) {
+      for (let end = start + 1; end < columnCenters.length; end += 1) {
+        const spanCenter = (columnCenters[start].center + columnCenters[end].center) / 2;
+        const spanWidth = columnCenters[end].center - columnCenters[start].center;
+        const wideSpanHasTextEvidence = end - start <= 1 || item.width >= spanWidth * 0.5;
+        if (Math.abs(spanCenter - cellCenter) <= 9 && wideSpanHasTextEvidence && (!itemSpan || end - start < itemSpan[1] - itemSpan[0])) {
+          itemSpan = [start, end];
+        }
+      }
+    }
+    if (itemSpan) {
+      const [startCol, endCol] = itemSpan;
+      for (let col = startCol; col <= endCol; col++) {
+        columnUsed[col] = true;
+      }
+    }
+  }
   const entries: ParsedTimetableEntry[] = [];
   for (const row of rowBoundaries) {
     const rowItems = allItems.filter(item =>
@@ -303,10 +376,14 @@ async function parseTimetablePdfByPosition(fileBuffer: Buffer): Promise<ParsedTi
       const rawEnd = lastEnd;
       const startTime = to24HourTime(rawStart);
       const endTime = to24HourTime(rawEnd);
-      const spanIsClassTime = columnCenters.slice(span[0], span[1] + 1).every(column => {
-        const [periodStart, periodEnd] = column.label.split('-').map(to24HourTime);
-        return getSlotIndexFromTimeRange(periodStart, periodEnd) !== null;
-      });
+      // PASS 2: Validate that every column in the span has been marked as used (has at least one subject-like item somewhere).
+      let spanIsClassTime = true;
+      for (let i = span[0]; i <= span[1]; i++) {
+        if (!columnUsed[i]) {
+          spanIsClassTime = false;
+          break;
+        }
+      }
       if (!spanIsClassTime) continue;
 
       const subjectLabel = item.text.trim();
@@ -808,7 +885,7 @@ export async function validateTimetableEntry(
       }
     });
 
-    const mappedFacultyIds: string[] = [];
+    const facultyUserIds: Array<string | null> = [];
     if (entry.facultyNames?.length) {
       const teachers = await prisma.user.findMany({ where: { role: 'teacher' }, select: { id: true, name: true } });
       const normalizeName = (name: string) => name.toLowerCase()
@@ -824,16 +901,14 @@ export async function validateTimetableEntry(
           return requested.length > 0 && requested.every(token => known.has(token));
         });
         if (matches.length !== 1) {
-          errors.push(matches.length ? `Faculty name is ambiguous: ${facultyName}` : `Faculty not found: ${facultyName}`);
+          facultyUserIds.push(null);
+          warnings.push(matches.length
+            ? `Faculty name is ambiguous in teacher records; retaining PDF name: ${facultyName}`
+            : `Faculty not found in teacher records; retaining PDF name: ${facultyName}`);
         } else {
-          mappedFacultyIds.push(matches[0].id);
+          facultyUserIds.push(matches[0].id);
         }
       }
-    }
-
-    if (!assignment && mappedFacultyIds.length === 0) {
-      errors.push(`No subject-section assignment found for subject ${entry.subjectCode} in section ${entry.section}`);
-      return { valid: false, errors, warnings };
     }
     if (errors.length) return { valid: false, errors, warnings };
 
@@ -852,11 +927,11 @@ export async function validateTimetableEntry(
     }
 
     // Try to find faculty by name if provided
-    let facultyId: string | undefined = mappedFacultyIds[0] || entry.facultyId;
+    let facultyId: string | undefined = facultyUserIds[0] || entry.facultyId;
     if (!facultyId && assignment) {
       facultyId = entry.activityType === 'LAB' ? assignment.labFacultyId || undefined : assignment.theoryFacultyId || undefined;
     }
-    if (entry.facultyId && !mappedFacultyIds.length) {
+    if (entry.facultyId && !facultyUserIds.some(Boolean)) {
       // If facultyId is already provided (maybe from lookup), use it
       facultyId = entry.facultyId;
     }
@@ -869,7 +944,8 @@ export async function validateTimetableEntry(
         ...entry,
         semester: semester.name,
         facultyId,
-        coFacultyIds: mappedFacultyIds.slice(1),
+        facultyUserIds,
+        coFacultyIds: facultyUserIds.slice(1).filter((id): id is string => Boolean(id)),
       }
     };
   } catch (error: unknown) {

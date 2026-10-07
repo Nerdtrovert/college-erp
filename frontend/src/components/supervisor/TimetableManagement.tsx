@@ -82,6 +82,9 @@ export const TimetableManagement: React.FC = () => {
   // Import feature state
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importPreview, setImportPreview] = useState<any[]>([]);
+  const [subjectsNeedingConfiguration, setSubjectsNeedingConfiguration] = useState<Array<{ code: string; name: string; isNew?: boolean }>>([]);
+  const [courseTypeSelections, setCourseTypeSelections] = useState<Record<string, string>>({});
+  const [importInvalidEntries, setImportInvalidEntries] = useState<any[]>([]);
   const [importLoading, setImportLoading] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [importSuccess, setImportSuccess] = useState<boolean | null>(null);
@@ -337,6 +340,10 @@ export const TimetableManagement: React.FC = () => {
     setImportFile(file);
     setImportError(null);
     setImportSuccess(null);
+    setImportPreview([]);
+    setSubjectsNeedingConfiguration([]);
+    setCourseTypeSelections({});
+    setImportInvalidEntries([]);
   };
 
   const handleParseImport = async () => {
@@ -351,12 +358,20 @@ export const TimetableManagement: React.FC = () => {
       formData.append('file', importFile);
 
       const response = await API.post('/timetable/parse', formData);
-
-      setImportPreview(response.data || []);
+      const data = response.data || {};
+      setImportPreview(data.entries || []);
+      setSubjectsNeedingConfiguration(data.subjectsNeedingConfiguration || []);
+      setCourseTypeSelections(Object.fromEntries(
+        (data.subjectsNeedingConfiguration || []).map((subject: { code: string }) => [subject.code, '']),
+      ));
+      setImportInvalidEntries(data.invalidEntries || []);
       setImportSuccess(null);
     } catch (error: any) {
       setImportError(error.response?.data?.error || 'Failed to parse timetable');
       setImportPreview([]);
+      setSubjectsNeedingConfiguration([]);
+      setCourseTypeSelections({});
+      setImportInvalidEntries([]);
     } finally {
       setImportLoading(false);
     }
@@ -364,15 +379,20 @@ export const TimetableManagement: React.FC = () => {
 
   const handleConfirmImport = async () => {
     if (!importFile || importPreview.length === 0) return;
+    if (importInvalidEntries.length) {
+      setImportError('Resolve all timetable validation errors before importing.');
+      return;
+    }
+    if (subjectsNeedingConfiguration.some(subject => !courseTypeSelections[subject.code])) {
+      setImportError('Select a course type for every subject that needs configuration.');
+      return;
+    }
 
     setImportLoading(true);
     setImportError(null);
 
     try {
-      const formData = new FormData();
-      formData.append('file', importFile);
-
-      await API.post('/timetable/import', formData);
+      await API.post('/timetable/import', { entries: importPreview, courseTypes: courseTypeSelections });
 
       setImportSuccess(true);
       setImportError(null);
@@ -391,6 +411,9 @@ export const TimetableManagement: React.FC = () => {
   const handleCancelImport = () => {
     setImportFile(null);
     setImportPreview([]);
+    setSubjectsNeedingConfiguration([]);
+    setCourseTypeSelections({});
+    setImportInvalidEntries([]);
     setImportError(null);
     setImportSuccess(null);
     // Reset file input
@@ -713,6 +736,49 @@ export const TimetableManagement: React.FC = () => {
             </div>
           )}
 
+          {subjectsNeedingConfiguration.length > 0 && !importLoading && (
+            <section className="rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-3">
+              <div>
+                <h3 className="text-sm font-semibold text-amber-900">New Subjects Detected</h3>
+                <p className="mt-1 text-xs text-amber-800">
+                  Choose a course type for each unconfigured subject. Subject codes come directly from the PDF.
+                </p>
+              </div>
+              {subjectsNeedingConfiguration.map(subject => (
+                <div key={subject.code} className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+                  <div>
+                    <div className="text-sm font-semibold text-gray-800">{subject.code}</div>
+                    {!subject.isNew && <div className="text-xs text-gray-500">Existing subject needs configuration</div>}
+                  </div>
+                  <select
+                    value={courseTypeSelections[subject.code] || ''}
+                    onChange={event => setCourseTypeSelections(current => ({ ...current, [subject.code]: event.target.value }))}
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                    aria-label={`Course type for ${subject.code}`}
+                  >
+                    <option value="">Select course type</option>
+                    <option value="STANDALONE">Standalone (theory-only or lab-only)</option>
+                    <option value="INTEGRATED">Integrated (theory + lab)</option>
+                    <option value="PROJECT">Project</option>
+                  </select>
+                </div>
+              ))}
+            </section>
+          )}
+
+          {importInvalidEntries.length > 0 && !importLoading && (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+              <p className="font-semibold">{importInvalidEntries.length} timetable entries need attention before import.</p>
+              <ul className="mt-2 list-disc pl-5 space-y-1">
+                {importInvalidEntries.map((item, index) => (
+                  <li key={`${item.entry?.subjectCode || 'entry'}-${index}`}>
+                    {item.entry?.subjectCode || 'Entry'} ({item.entry?.day || 'unknown day'}): {(item.errors || []).join('; ')}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {/* Preview Section */}
           {importPreview.length > 0 && !importLoading && (
             <>
@@ -758,7 +824,7 @@ export const TimetableManagement: React.FC = () => {
                         Room
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">
-                        Teacher ID
+                        Faculty from PDF
                       </th>
                     </tr>
                   </thead>
@@ -774,7 +840,7 @@ export const TimetableManagement: React.FC = () => {
                         <td className="px-4 py-2 text-sm text-gray-600">{entry.subjectCode || '-'}</td>
                         <td className="px-4 py-2 text-sm text-gray-600">{entry.activityType || '-'}</td>
                         <td className="px-4 py-2 text-sm text-gray-600">{entry.room || '-'}</td>
-                        <td className="px-4 py-2 text-sm text-gray-600">{entry.teacherId || '-'}</td>
+                        <td className="px-4 py-2 text-sm text-gray-600">{entry.facultyNames?.join(' / ') || '-'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -783,7 +849,7 @@ export const TimetableManagement: React.FC = () => {
 
               <div className="mt-4">
                 <button
-                  disabled={importLoading}
+                  disabled={importLoading || importInvalidEntries.length > 0 || subjectsNeedingConfiguration.some(subject => !courseTypeSelections[subject.code])}
                   onClick={handleConfirmImport}
                   className="w-flex items-center justify-center gap-2 rounded-2xl border border-green-200 bg-green-100 px-4 py-2.5 text-sm font-semibold text-green-800 hover:bg-green-200 disabled:opacity-60"
                 >

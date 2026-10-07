@@ -6,6 +6,24 @@ import * as path from 'path';
 import multer from 'multer';
 import { parseTimetablePDF, ParsedTimetableEntry, validateTimetableEntry, resolveTimetableSemester, PERIOD_TIMES } from '../utils/timetableParser';
 
+const COURSE_TYPES = ['STANDALONE', 'INTEGRATED', 'PROJECT'] as const;
+type CourseType = typeof COURSE_TYPES[number];
+
+export async function ensureSubjectsForEntries(db: any, entries: ParsedTimetableEntry[]) {
+  const codes = [...new Set(entries.map(entry => entry.subjectCode))];
+  if (!codes.length) return { subjects: [], newlyCreatedCodes: new Set<string>() };
+
+  const existing = await db.subject.findMany({ where: { code: { in: codes } }, select: { code: true } });
+  const existingCodes = new Set(existing.map((subject: any) => subject.code));
+
+  await db.subject.createMany({
+    data: codes.map(code => ({ code, name: code })),
+    skipDuplicates: true,
+  });
+  const subjects = await db.subject.findMany({ where: { code: { in: codes } } });
+  return { subjects, newlyCreatedCodes: new Set(codes.filter(code => !existingCodes.has(code))) };
+}
+
 // Configure multer for file upload (reuse similar config as backlog controller)
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -63,22 +81,38 @@ export const parseTimetable = async (req: AuthRequest, res: Response) => {
         // Parse the timetable PDF
         const parsedEntries = await parseTimetablePDF(fileBuffer);
 
-        // Validate each entry
-        const validationResults = await Promise.all(
+        // Create unknown official codes once; their course type remains explicitly pending.
+        const { subjects, newlyCreatedCodes } = await ensureSubjectsForEntries(prisma, parsedEntries);
+
+        // Validate every parsed entry for the import preview.
+        const baseValidationResults = await Promise.all(
           parsedEntries.map(entry => validateTimetableEntry(entry, prisma))
         );
+        const validationResults = baseValidationResults.map((result, index) => {
+          const entry = parsedEntries[index];
+          if (getSlotIndicesForTimeRange(entry.startTime, entry.endTime).length > 0) return result;
+
+          return {
+            ...result,
+            valid: false,
+            errors: [...result.errors, `Could not determine timetable slots for time range ${entry.startTime}-${entry.endTime}`],
+          };
+        });
 
         // Separate valid and invalid entries
-        const validEntries = validationResults
-          .filter(result => result.valid)
-          .map(result => result.entry as ParsedTimetableEntry);
-
         const invalidEntries = validationResults
-          .filter(result => !result.valid)
-          .map(result => ({
-            entry: result.entry,
+          .flatMap((result, index) => result.valid ? [] : [{
+            entry: parsedEntries[index],
             errors: result.errors,
-            warnings: result.warnings || []
+            warnings: result.warnings || [],
+          }]);
+        const subjectsNeedingConfiguration = subjects
+          .filter((subject: any) => subject.courseType === 'NEEDS_CONFIGURATION')
+          .map((subject: any) => ({
+            code: subject.code,
+            name: subject.name,
+            courseType: subject.courseType,
+            isNew: newlyCreatedCodes.has(subject.code),
           }));
 
         // Clean up uploaded file
@@ -87,10 +121,11 @@ export const parseTimetable = async (req: AuthRequest, res: Response) => {
         // Return preview data
         return res.status(200).json({
           totalEntries: parsedEntries.length,
-          validCount: validEntries.length,
+          validCount: validationResults.filter(result => result.valid).length,
           invalidCount: invalidEntries.length,
-          validEntries,
-          invalidEntries
+          entries: parsedEntries,
+          invalidEntries,
+          subjectsNeedingConfiguration,
         });
 
       } catch (parseError) {
@@ -116,7 +151,7 @@ export const parseTimetable = async (req: AuthRequest, res: Response) => {
  */
 export const importTimetable = async (req: AuthRequest, res: Response) => {
   try {
-    const { entries } = req.body;
+    const { entries, courseTypes = {} } = req.body;
 
     if (!entries || !Array.isArray(entries)) {
       return res.status(400).json({ error: 'Timetable entries array is required' });
@@ -125,9 +160,12 @@ export const importTimetable = async (req: AuthRequest, res: Response) => {
     if (entries.length === 0) {
       return res.status(400).json({ error: 'No timetable entries provided for import' });
     }
+    if (!courseTypes || typeof courseTypes !== 'object' || Array.isArray(courseTypes)) {
+      return res.status(400).json({ error: 'Course type selections must be an object keyed by subject code' });
+    }
 
     // Validate that all entries have the required fields
-    const invalidEntries = entries.filter((entry: any) => {
+    const incompleteEntries = entries.filter((entry: any) => {
       return !entry.section ||
              !entry.semester ||
              !entry.room ||
@@ -139,191 +177,110 @@ export const importTimetable = async (req: AuthRequest, res: Response) => {
              !entry.activityType;
     });
 
-    if (invalidEntries.length > 0) {
+    if (incompleteEntries.length > 0) {
       return res.status(400).json({
         error: 'Some timetable entries are missing required fields',
-        invalidCount: invalidEntries.length
+        invalidCount: incompleteEntries.length
       });
     }
 
-    // Process the import transactionally
-    const result = await prisma.$transaction(async (tx) => {
-      // Determine the timetable scope from the first entry (all entries should have same scope)
-      const firstEntry = entries[0];
-      const semesterName = firstEntry.semester;
-      const sectionName = firstEntry.section;
+    const allCodes = [...new Set(entries.map((entry: ParsedTimetableEntry) => entry.subjectCode))];
+    const { subjects } = await ensureSubjectsForEntries(prisma, entries);
+    const needsConfiguration = subjects.filter((subject: any) => subject.courseType === 'NEEDS_CONFIGURATION');
+    const configurationErrors = needsConfiguration.flatMap((subject: any) => {
+      const selected = courseTypes[subject.code];
+      return COURSE_TYPES.includes(selected) ? [] : [subject.code];
+    });
+    const unknownSelections = Object.keys(courseTypes).filter(code => !allCodes.includes(code));
+    if (configurationErrors.length || unknownSelections.length || Object.values(courseTypes).some((value: any) => !COURSE_TYPES.includes(value))) {
+      return res.status(400).json({
+        error: 'Course type configuration is incomplete or invalid',
+        subjectsNeedingConfiguration: needsConfiguration.map((subject: any) => ({ code: subject.code, name: subject.name })),
+        missingCourseTypes: configurationErrors,
+        unknownSubjectCodes: unknownSelections,
+      });
+    }
 
-      // Find the semester
-      const semester = await resolveTimetableSemester(tx, semesterName, firstEntry.effectiveDate);
+    // Validate the entire timetable before opening the replacement transaction.
+    const validationResults = await Promise.all(entries.map((entry: ParsedTimetableEntry) => validateTimetableEntry(entry, prisma)));
+    const invalidEntries = validationResults.flatMap((result, index) => result.valid ? [] : [{
+      entry: entries[index],
+      errors: result.errors,
+      warnings: result.warnings || [],
+    }]);
+    if (invalidEntries.length) {
+      return res.status(422).json({ error: 'Timetable validation failed; existing timetable was not changed', invalidEntries });
+    }
 
-      if (!semester) {
-        throw new Error(`Semester not found: ${semesterName}`);
+    const validEntries = validationResults.map(result => result.entry as ParsedTimetableEntry);
+    const firstEntry = validEntries[0];
+    const semester = await resolveTimetableSemester(prisma, firstEntry.semester, firstEntry.effectiveDate);
+    if (!semester) return res.status(422).json({ error: `Semester not found: ${firstEntry.semester}` });
+
+    const sectionName = firstEntry.section;
+    const mismatchedScope = validEntries.some(entry => entry.section !== sectionName || entry.semester !== firstEntry.semester);
+    if (mismatchedScope) return res.status(400).json({ error: 'All entries must belong to the same semester and section' });
+
+    const batchYearRecord = await prisma.studentEnrollment.findFirst({
+      where: { semesterId: semester.id, classGroup: sectionName },
+      select: { student: { select: { batchStartYear: true } } },
+    });
+    const batchYear = batchYearRecord?.student?.batchStartYear ?? null;
+    const entriesWithSlots = validEntries.map(entry => ({ entry, slotIndices: getSlotIndicesForTimeRange(entry.startTime, entry.endTime) }));
+    const invalidSlotRange = entriesWithSlots.find(item => item.slotIndices.length === 0);
+    if (invalidSlotRange) {
+      return res.status(422).json({
+        error: `Could not determine timetable slots for time range ${invalidSlotRange.entry.startTime}-${invalidSlotRange.entry.endTime}`,
+      });
+    }
+    const occupiedSlots = new Set<string>();
+    for (const { entry, slotIndices } of entriesWithSlots) {
+      for (const slotIndex of slotIndices) {
+        const key = `${entry.day}|${slotIndex}`;
+        if (occupiedSlots.has(key)) {
+          return res.status(422).json({ error: `Multiple timetable entries target ${entry.day} period ${slotIndex + 1}` });
+        }
+        occupiedSlots.add(key);
+      }
+    }
+
+    const result = await prisma.$transaction(async (tx: any) => {
+      for (const subject of needsConfiguration) {
+        await tx.subject.update({
+          where: { code: subject.code },
+          data: { courseType: courseTypes[subject.code] as CourseType },
+        });
       }
 
-      // Determine the batch year for this semester and section
-      const batchYearRecord = await tx.studentEnrollment.findFirst({
-        where: {
-          semesterId: semester.id,
-          classGroup: sectionName
-        },
-        select: {
-          student: {
-            select: {
-              batchStartYear: true
-            }
-          }
-        }
-      });
-
-      const batchYear = batchYearRecord?.student?.batchStartYear ?? null;
-
-      // Delete all existing timetable slots for this semester, section, and batch year
       await tx.timetableSlot.deleteMany({
-        where: {
-          semesterId: semester.id,
-          classGroup: sectionName,
-          batchYear: batchYear
-        }
+        where: { semesterId: semester.id, classGroup: sectionName, batchYear },
       });
 
       let importedCount = 0;
-      let skippedCount = 0;
-      const validationErrors: any[] = [];
-
-      for (const entry of entries) {
-        try {
-          // Validate each entry again (defense in depth)
-          const validationResult = await validateTimetableEntry(entry, tx);
-
-          if (!validationResult.valid) {
-            validationErrors.push({
-              entry,
-              errors: validationResult.errors,
-              warnings: validationResult.warnings || []
-            });
-            skippedCount++;
-            continue;
-          }
-
-          const validEntry = validationResult.entry as ParsedTimetableEntry;
-
-          // Find the subject
-          const subject = await tx.subject.findFirst({
-            where: {
-              code: validEntry.subjectCode
-            }
+      for (const { entry, slotIndices } of entriesWithSlots) {
+        for (const slotIndex of slotIndices) {
+          await tx.timetableSlot.create({
+            data: {
+              day: entry.day,
+              slotIndex,
+              subjectCode: entry.subjectCode,
+              room: entry.room,
+              classGroup: entry.section,
+              teacherId: entry.facultyUserIds?.[0] || entry.facultyNames?.[0] || entry.facultyId || 'UNASSIGNED',
+              coTeacherId: entry.facultyUserIds?.[1] || entry.facultyNames?.[1] || entry.coFacultyIds?.[0] || null,
+              activityType: entry.activityType,
+              semesterId: semester.id,
+              batchYear,
+              assignmentId: null,
+            },
           });
-
-          if (!subject) {
-            validationErrors.push({
-              entry: validEntry,
-              errors: [`Subject not found: ${validEntry.subjectCode}`],
-              warnings: []
-            });
-            skippedCount++;
-            continue;
-          }
-
-          // Find or create the class assignment. PDF course tables provide the
-          // faculty mapping when no assignment has previously been configured.
-          let assignment = await tx.subjectSectionAssignment.findFirst({
-            where: {
-              subjectId: subject.id,
-              classGroup: validEntry.section!
-            }
-          });
-
-          const slotIndices = getSlotIndicesForTimeRange(validEntry.startTime, validEntry.endTime);
-          if (slotIndices.length === 0) {
-            validationErrors.push({
-              entry: validEntry,
-              errors: [`Could not determine timetable slots for time range ${validEntry.startTime}-${validEntry.endTime}`],
-              warnings: []
-            });
-            skippedCount++;
-            continue;
-          }
-
-          if (!assignment && validEntry.facultyId) {
-            assignment = await tx.subjectSectionAssignment.create({
-              data: {
-                subjectId: subject.id,
-                classGroup: validEntry.section!,
-                theoryFacultyId: validEntry.activityType === 'LAB' ? null : validEntry.facultyId,
-                labFacultyId: validEntry.activityType === 'LAB' ? validEntry.facultyId : null,
-              }
-            });
-          }
-          if (!assignment) {
-            validationErrors.push({
-              entry: validEntry,
-              errors: [`No subject-section assignment or PDF faculty mapping found for subject ${validEntry.subjectCode} in section ${validEntry.section}`],
-              warnings: []
-            });
-            skippedCount++;
-            continue;
-          }
-
-          // Check for conflicts (existing timetable slot for same section, day, slot, semester)
-          // First we need to convert time range to slot index
-          // Create the timetable slot
-          // Determine faculty ID based on activity type
-          let facultyId: string | null = null;
-          if (validEntry.activityType === 'LAB') {
-            facultyId = validEntry.facultyId || assignment.labFacultyId;
-          } else if (validEntry.activityType === 'THEORY' || validEntry.activityType === 'TUTORIAL' || validEntry.activityType === 'PRACTICAL' || validEntry.activityType === 'PROJECT') {
-            facultyId = validEntry.facultyId || assignment.theoryFacultyId;
-          } else {
-            // If activity type is not recognized, we cannot determine which faculty to use.
-            throw new Error(`Unrecognized activity type "${validEntry.activityType}" for timetable entry. Entry: ${JSON.stringify(validEntry)}`);
-          }
-
-          if (!facultyId) {
-            throw new Error(`No faculty assigned for ${validEntry.activityType} in assignment ${assignment.id}`);
-          }
-
-          // Create the timetable slot
-          for (const slotIndex of slotIndices) {
-            await tx.timetableSlot.create({
-              data: {
-                day: validEntry.day,
-                slotIndex,
-                assignmentId: assignment.id,
-                room: validEntry.room,
-                classGroup: validEntry.section!,
-                teacherId: facultyId,
-                coTeacherId: validEntry.coFacultyIds?.[0] || null,
-                activityType: validEntry.activityType,
-                semesterId: semester.id,
-                batchYear: batchYear
-              }
-            });
-          }
-
-          importedCount++;
-        } catch (entryError: any) {
-          console.error('Error processing timetable entry:', entryError);
-          validationErrors.push({
-            entry,
-            errors: [`Failed to process entry: ${entryError.message}`],
-            warnings: []
-          });
-          skippedCount++;
         }
+        importedCount += 1;
       }
-
-      return {
-        importedCount,
-        skippedCount,
-        validationErrors
-      };
+      return { importedCount, skippedCount: 0 };
     });
 
-    return res.status(200).json({
-      importedCount: result.importedCount,
-      skippedCount: result.skippedCount,
-      validationErrors: result.validationErrors
-    });
+    return res.status(200).json(result);
 
   } catch (error) {
     console.error('Error importing timetable:', error);

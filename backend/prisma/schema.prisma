@@ -44,6 +44,7 @@ model Subject {
   code        String                     @id
   name        String
   type        SubjectType                @default(STANDALONE)
+  courseType  SubjectCourseType          @default(NEEDS_CONFIGURATION)
   createdAt   DateTime                   @default(now())
   updatedAt   DateTime                   @updatedAt
   id          String                     @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -259,4 +260,11 @@ enum SemesterStatus {
 enum SubjectType {
   STANDALONE
   INTEGRATED
+}
+
+enum SubjectCourseType {
+  NEEDS_CONFIGURATION
+  STANDALONE
+  INTEGRATED
+  PROJECT
 }
