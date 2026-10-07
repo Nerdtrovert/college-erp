@@ -350,7 +350,7 @@ export const AcademicCalendar: React.FC<AcademicCalendarProps> = ({
 
         <div className="grid grid-cols-7 overflow-hidden rounded-xl border border-gray-200">
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-            <div key={day} className="border-b border-gray-200 bg-gray-50 px-0.5 py-2 text-center text-[9px] font-semibold uppercase tracking-wide text-gray-500 sm:px-2 sm:text-xs">
+            <div key={day} className="border-b border-gray-200 bg-gray-50 px-0.5 py-2 text-center text-[9px] font-semibold uppercase text-gray-500 sm:px-2 sm:text-xs sm:tracking-wide">
               {day}
             </div>
           ))}
@@ -362,8 +362,8 @@ export const AcademicCalendar: React.FC<AcademicCalendarProps> = ({
             const hasSundayHoliday = cell.date.getDay() === 0 && !cell.events.some((event) => event.title === 'Sunday holiday');
             const isToday = cell.date.getFullYear() === today.getFullYear() && cell.date.getMonth() === today.getMonth() && cell.day === today.getDate();
             return (
-              <button type="button" key={cell.dateKey} aria-current={isToday ? 'date' : undefined} aria-label={`${isToday ? 'Today, ' : ''}${cell.date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}${cell.events.length ? `, ${cell.events.map((event) => event.title).join(', ')}` : ''}`} onClick={() => setSelectedDate(cell.dateKey)} className={`group relative min-h-20 border-b border-r border-gray-100 p-1 text-left sm:min-h-32 sm:p-2 ${selectedDate === cell.dateKey ? 'bg-blue-50 ring-2 ring-inset ring-blue-400' : hasSundayHoliday ? 'bg-slate-50/70' : 'bg-white'}`}>
-                <div className="mb-2 flex items-center justify-between gap-1">
+              <button type="button" key={cell.dateKey} aria-current={isToday ? 'date' : undefined} aria-label={`${isToday ? 'Today, ' : ''}${cell.date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}${cell.events.length ? `, ${cell.events.map((event) => event.title).join(', ')}` : ''}`} onClick={() => setSelectedDate(cell.dateKey)} className={`group relative min-h-[4.5rem] border-b border-r border-gray-100 p-1 text-left sm:min-h-32 sm:p-2 ${selectedDate === cell.dateKey ? 'bg-blue-50 ring-2 ring-inset ring-blue-400' : hasSundayHoliday ? 'bg-slate-50/70' : 'bg-white'}`}>
+                <div className="mb-1 flex items-center justify-between gap-1 sm:mb-2">
                   <div className={`flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold sm:h-7 sm:w-7 sm:text-xs ${isToday ? 'bg-blue-600 text-white ring-2 ring-blue-100' : primaryEvent?.type === 'cie' ? 'bg-amber-500 text-white' : primaryEvent?.type === 'government' ? 'bg-rose-100 text-rose-700' : hasSundayHoliday ? 'text-gray-400' : 'text-gray-700'}`}>
                     {cell.day}
                   </div>
@@ -376,7 +376,7 @@ export const AcademicCalendar: React.FC<AcademicCalendarProps> = ({
                     )}
                   </div>
                 </div>
-                <div className="space-y-1">
+                <div className="hidden space-y-1 sm:block">
                   {cell.events.map((event) => {
                     const style = EVENT_STYLES[event.type];
                     const isSundayHoliday = event.type === 'general' && event.title === 'Sunday holiday';
@@ -393,6 +393,18 @@ export const AcademicCalendar: React.FC<AcademicCalendarProps> = ({
                     );
                   })}
                 </div>
+                {cell.events.length > 0 && (
+                  <div aria-hidden="true" className="flex min-h-2 items-center gap-1 px-0.5 sm:hidden">
+                    {cell.events.slice(0, 3).map((event) => (
+                      <span key={`${event.date}-${event.title}`} className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                        event.type === 'cie' ? 'bg-amber-500' :
+                        event.type === 'government' ? 'bg-rose-500' :
+                        event.type === 'academic' ? 'bg-blue-500' : 'bg-slate-400'
+                      }`} />
+                    ))}
+                    {cell.events.length > 3 && <span className="text-[9px] font-semibold leading-none text-gray-500">+{cell.events.length - 3}</span>}
+                  </div>
+                )}
               </button>
             );
           })}
@@ -403,31 +415,37 @@ export const AcademicCalendar: React.FC<AcademicCalendarProps> = ({
           if (!selectedCell) return null;
           return (
             <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50/60 p-3 sm:hidden">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs font-semibold text-blue-900">{selectedCell.date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</p>
-                  <div className="mt-2 space-y-1.5">
-                    {selectedCell.events.map((event) => {
-                      const isSundayHoliday = event.type === 'general' && event.title === 'Sunday holiday';
-                      return (
-                        <div key={`${event.date}-${event.title}`} className="rounded-lg border border-blue-100 bg-white/70 px-2.5 py-2">
-                          <p className="break-words text-xs leading-relaxed text-blue-800">{event.title}</p>
-                          {canEditEvent(event) && !isSundayHoliday && (
-                            <span className="mt-2 flex items-center justify-end gap-1 border-t border-blue-100 pt-2">
-                              <button type="button" aria-label={`Edit ${event.title}`} onClick={() => openEditForm(event)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-blue-100 bg-white text-blue-700 hover:bg-blue-50"><Edit3 size={14} /></button>
-                              <button type="button" aria-label={`Delete ${event.title}`} onClick={() => deleteEvent(event)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-rose-100 bg-white text-rose-600 hover:bg-rose-50"><Trash2 size={14} /></button>
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })}
-                    {selectedCell.events.length === 0 && <p className="text-xs text-blue-700">No events scheduled.</p>}
-                  </div>
-                </div>
+              <div className="flex items-center justify-between gap-2">
+                <p className="min-w-0 text-sm font-semibold text-blue-900">{selectedCell.date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</p>
                 <div className="flex shrink-0 items-center gap-2">
-                  {editable && <button type="button" onClick={() => openAddForm(selectedDate)} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-blue-200 bg-white px-2.5 text-xs font-semibold text-blue-700 hover:bg-blue-50" aria-label="Add event"><Plus size={14} /> Add</button>}
-                  <button type="button" onClick={() => setSelectedDate(null)} className="flex h-9 w-9 items-center justify-center rounded-lg border border-blue-200 bg-white text-blue-700 hover:bg-blue-50" aria-label="Close selected date"><X size={16} /></button>
+                  {editable && <button type="button" onClick={() => openAddForm(selectedDate)} className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg border border-blue-200 bg-white px-3 text-xs font-semibold text-blue-700 hover:bg-blue-50" aria-label="Add event"><Plus size={14} /> Add</button>}
+                  <button type="button" onClick={() => setSelectedDate(null)} className="flex h-10 w-10 items-center justify-center rounded-lg border border-blue-200 bg-white text-blue-700 hover:bg-blue-50" aria-label="Close selected date"><X size={16} /></button>
                 </div>
+              </div>
+              <div className="mt-3 space-y-2">
+                {selectedCell.events.map((event) => {
+                  const isSundayHoliday = event.type === 'general' && event.title === 'Sunday holiday';
+                  return (
+                    <div key={`${event.date}-${event.title}`} className="flex min-w-0 items-start gap-3 rounded-lg border border-blue-100 bg-white/80 px-3 py-2.5">
+                      <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
+                        event.type === 'cie' ? 'bg-amber-500' :
+                        event.type === 'government' ? 'bg-rose-500' :
+                        event.type === 'academic' ? 'bg-blue-500' : 'bg-slate-400'
+                      }`} />
+                      <div className="min-w-0 flex-1">
+                        <p className="break-words text-sm leading-snug text-gray-900">{event.title}</p>
+                        <p className="mt-1 text-xs capitalize text-gray-500">{EVENT_STYLES[event.type].label}</p>
+                      </div>
+                      {canEditEvent(event) && !isSundayHoliday && (
+                        <div className="flex shrink-0 items-center gap-1">
+                          <button type="button" aria-label={`Edit ${event.title}`} onClick={() => openEditForm(event)} className="flex h-9 w-9 items-center justify-center rounded-lg border border-blue-100 bg-white text-blue-700 hover:bg-blue-50"><Edit3 size={15} /></button>
+                          <button type="button" aria-label={`Delete ${event.title}`} onClick={() => deleteEvent(event)} className="flex h-9 w-9 items-center justify-center rounded-lg border border-rose-100 bg-white text-rose-600 hover:bg-rose-50"><Trash2 size={15} /></button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {selectedCell.events.length === 0 && <p className="rounded-lg bg-white/70 px-3 py-3 text-sm text-blue-700">No events scheduled.</p>}
               </div>
             </div>
           );

@@ -145,12 +145,12 @@ export const AdminPortal: React.FC<{ onLogout: () => void }> = ({ onLogout }) =>
           <button onClick={logout} className="inline-flex items-center gap-2 text-sm font-semibold text-gray-600 hover:text-red-600"><LogOut size={16} /> Sign out</button>
         </div>
       </header>
-      <div className="mx-auto flex max-w-7xl gap-8 px-4 py-6 sm:px-6 lg:px-8">
-        <aside className="w-48 shrink-0">
-          <nav className="space-y-2">
-            <button onClick={() => navigate('/admin/uploads')} className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-semibold ${section === 'uploads' ? 'bg-blue-700 text-white' : 'text-gray-600 hover:bg-white'}`}><Upload size={17} /> Uploads</button>
-            <button onClick={() => navigate('/admin/backlogs')} className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-semibold ${section === 'backlogs' ? 'bg-blue-700 text-white' : 'text-gray-600 hover:bg-white'}`}><FileText size={17} /> Backlogs</button>
-            <button onClick={() => navigate('/admin/logs')} className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-semibold ${section === 'logs' ? 'bg-blue-700 text-white' : 'text-gray-600 hover:bg-white'}`}><FileText size={17} /> Logs</button>
+      <div className="mx-auto flex max-w-7xl flex-col gap-5 px-3 py-4 sm:px-6 sm:py-6 md:flex-row md:gap-8 lg:px-8">
+      <aside className="w-full shrink-0 md:w-48">
+        <nav className="flex gap-2 overflow-x-auto pb-1 md:flex-col md:overflow-visible md:pb-0">
+          <button onClick={() => navigate('/admin/uploads')} className={`flex min-h-11 shrink-0 items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-semibold sm:gap-3 sm:px-4 md:w-full ${section === 'uploads' ? 'bg-blue-700 text-white' : 'text-gray-600 hover:bg-white'}`}><Upload size={17} /> Uploads</button>
+          <button onClick={() => navigate('/admin/backlogs')} className={`flex min-h-11 shrink-0 items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-semibold sm:gap-3 sm:px-4 md:w-full ${section === 'backlogs' ? 'bg-blue-700 text-white' : 'text-gray-600 hover:bg-white'}`}><FileText size={17} /> Backlogs</button>
+          <button onClick={() => navigate('/admin/logs')} className={`flex min-h-11 shrink-0 items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-semibold sm:gap-3 sm:px-4 md:w-full ${section === 'logs' ? 'bg-blue-700 text-white' : 'text-gray-600 hover:bg-white'}`}><FileText size={17} /> Logs</button>
           </nav>
         </aside>
         <main className="min-w-0 flex-1">

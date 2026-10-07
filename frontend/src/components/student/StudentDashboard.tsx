@@ -98,7 +98,7 @@ export const StudentDashboard: React.FC<Props> = ({ user, onLogout }) => {
       {/* Main */}
       <main className="flex-1 flex min-h-0 min-w-0 w-full flex-col overflow-hidden">
         {/* Mobile topbar */}
-        <div className="md:hidden sticky top-0 z-40 flex items-center justify-between px-3 py-2.5 bg-white/95 backdrop-blur border-b border-gray-200">
+        <div className="md:hidden sticky top-0 z-40 flex items-center justify-between border-b border-gray-200 bg-white/95 px-3 pb-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] backdrop-blur">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-blue-700 flex items-center justify-center">
               <BookOpen size={15} className="text-white" />
@@ -115,7 +115,7 @@ export const StudentDashboard: React.FC<Props> = ({ user, onLogout }) => {
           aria-label="Open navigation menu"
           aria-expanded={mobileMenuOpen}
             onClick={() => setMobileMenuOpen(true)} 
-            className="text-gray-600 active:scale-90 transition-transform duration-150 p-2 rounded-xl hover:bg-gray-50 active:bg-gray-100"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-xl p-2 text-gray-600 transition-transform duration-150 hover:bg-gray-50 active:scale-90 active:bg-gray-100"
           >
             <Menu size={20} />
           </button>
