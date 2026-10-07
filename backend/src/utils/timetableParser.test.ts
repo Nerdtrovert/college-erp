@@ -49,5 +49,3 @@ Tuesday
 // }
 
 // testTimetableParser();
-
-export {};

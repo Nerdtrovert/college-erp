@@ -16,16 +16,12 @@ async function main() {
 
   const defaultSemester = await prisma.semester.upsert({
     where: { code: 'sem1' },
-    update: {
-      name: 'Odd sem 2026-27',
-      startDate: '2026-09-07',
-      endDate: '2027-01-02',
-    },
+    update: { name: 'Odd sem 2026-27' },
     create: {
       code: 'sem1',
       name: 'Odd sem 2026-27',
-      startDate: '2026-09-07',
-      endDate: '2027-01-02',
+      startDate: '2026-08-01',
+      endDate: '2026-12-20',
       status: SemesterStatus.ACTIVE,
     },
   });
@@ -464,8 +460,10 @@ await prisma.studentEnrollment.deleteMany({
   // Create timetable slots using assignmentId
   for (const t of timetable) {
     if (t.subjectCode === '__NCMC__' || t.subjectCode === '__UNASSIGNED__') {
-      const teacherUuid = facultyEmailToIdMap.get(t.teacherId) ?? '';
-      const coTeacherUuid = t.coTeacherId ? facultyEmailToIdMap.get(t.coTeacherId) ?? null : null;
+      // TimetableSlot.teacherId/coTeacherId are queried by faculty email in the
+      // timetable endpoints; assignment faculty fields separately use UUIDs.
+      const teacherEmail = t.teacherId;
+      const coTeacherEmail = t.coTeacherId ?? null;
       await prisma.timetableSlot.upsert({
         where: {
           classGroup_day_slotIndex_semesterId_batchYear: {
@@ -476,8 +474,8 @@ await prisma.studentEnrollment.deleteMany({
             batchYear: classGroupBatchYearMap.get(t.classGroup) ?? 0,
           },
         },
-        update: { assignmentId: null, room: t.room, classGroup: t.classGroup, teacherId: teacherUuid, coTeacherId: coTeacherUuid, activityType: t.activityType, batchYear: classGroupBatchYearMap.get(t.classGroup) ?? 0 },
-        create: { day: t.day, slotIndex: t.slotIndex, assignmentId: null, room: t.room, classGroup: t.classGroup, teacherId: teacherUuid, coTeacherId: coTeacherUuid, activityType: t.activityType, semesterId: defaultSemester.id, batchYear: classGroupBatchYearMap.get(t.classGroup) ?? 0 }
+        update: { assignmentId: null, subjectCode: t.subjectCode, activityType: t.activityType, room: t.room, teacherId: teacherEmail, coTeacherId: coTeacherEmail, batchYear: classGroupBatchYearMap.get(t.classGroup) ?? 0 },
+        create: { day: t.day, slotIndex: t.slotIndex, assignmentId: null, subjectCode: t.subjectCode, activityType: t.activityType, room: t.room, classGroup: t.classGroup, teacherId: teacherEmail, coTeacherId: coTeacherEmail, semesterId: defaultSemester.id, batchYear: classGroupBatchYearMap.get(t.classGroup) ?? 0 }
       });
       continue;
     }
@@ -491,8 +489,8 @@ await prisma.studentEnrollment.deleteMany({
     const assignmentId = assignmentMap.get(assignmentKey);
 
     if (assignmentId) {
-      const teacherUuid = facultyEmailToIdMap.get(t.teacherId) ?? '';
-      const coTeacherUuid = t.coTeacherId ? facultyEmailToIdMap.get(t.coTeacherId) ?? null : null;
+      const teacherEmail = t.teacherId;
+      const coTeacherEmail = t.coTeacherId ?? null;
       await prisma.timetableSlot.upsert({
         where: {
           classGroup_day_slotIndex_semesterId_batchYear: {
@@ -505,21 +503,23 @@ await prisma.studentEnrollment.deleteMany({
         },
         update: {
           assignmentId,
-          room: t.room,
-          teacherId: teacherUuid,
-          coTeacherId: coTeacherUuid,
+          subjectCode: t.subjectCode,
           activityType: t.activityType,
+          room: t.room,
+          teacherId: teacherEmail,
+          coTeacherId: coTeacherEmail,
           batchYear: classGroupBatchYearMap.get(t.classGroup) ?? 0,
         },
         create: {
           day: t.day,
           slotIndex: t.slotIndex,
           assignmentId,
+          subjectCode: t.subjectCode,
+          activityType: t.activityType,
           room: t.room,
           classGroup: t.classGroup,
-          teacherId: teacherUuid,
-          coTeacherId: coTeacherUuid,
-          activityType: t.activityType,
+          teacherId: teacherEmail,
+          coTeacherId: coTeacherEmail,
           semesterId: defaultSemester.id,
           batchYear: classGroupBatchYearMap.get(t.classGroup) ?? 0,
         }

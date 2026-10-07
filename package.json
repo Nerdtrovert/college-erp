@@ -8,7 +8,7 @@
     "db:status": "cd backend && npx prisma migrate status",
     "db:setup": "npm run db:start && cd backend && npm run prisma:generate && npx prisma migrate deploy && npx prisma db seed",
     "db:seed": "cd backend && npx prisma db seed",
-    "db:seed:run": "cd backend && npx tsc prisma/seed.ts --ignoreConfig --esModuleInterop --module commonjs --target es2020 --outDir prisma/dist --skipLibCheck --types node && node prisma/dist/prisma/seed.js",
+    "db:seed:run": "cd backend && npx tsc prisma/seed.ts --esModuleInterop --module commonjs --target es2020 --outDir prisma/dist --skipLibCheck --types node && node prisma/dist/prisma/seed.js",
     "db:seed:run:with-generate": "npm run db:sync && npm run db:seed:run",
     "db:sync": "cd backend && npm run prisma:generate && npx prisma db push",
     "db:clear": "cd backend && npx tsx prisma/clear.ts",

@@ -10,6 +10,7 @@ export const getSubjects = async (req: AuthRequest, res: Response) => {
         code: true,
         name: true,
         type: true,
+        courseType: true,
         description: true,
         createdAt: true,
         updatedAt: true,
