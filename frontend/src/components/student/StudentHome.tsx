@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BarChart2, AlertTriangle, Clock } from 'lucide-react';
+import { BarChart2, AlertTriangle, Clock, Info } from 'lucide-react';
 import type { User } from '../../types';
 import { getTimeBasedGreeting } from '../../utils/greeting';
 import API from '../../services/api';
@@ -215,6 +215,13 @@ export const StudentHome: React.FC<Props> = ({ user, onNavigate }) => {
     return { current: currentClass, next: nextClass };
   };
 
+  const lowAttendanceSubjects = subjectAttendance.filter(
+    (subject) => subject.total > 0 && (subject.present / subject.total) * 100 < 75,
+  );
+  const hasTimetableEntries = timetable.some(
+    (day) => Array.isArray(day.slots) && day.slots.some(Boolean),
+  );
+
   if (loading) {
     return (
       <div className="p-6 text-center text-gray-500 font-medium">
@@ -231,16 +238,14 @@ export const StudentHome: React.FC<Props> = ({ user, onNavigate }) => {
         <p className="text-gray-500 text-sm mt-1">{user.program || 'Program'} · {user.classGroup || 'Section'} · {user.email || '—'}</p>
       </div>
 
-      {/* Alert - only show if we have data and there's an issue */}
-      {subjectAttendance.length > 0 && announcements.length >= 0 && (
+      {/* Show an alert only when at least one subject is below the attendance threshold. */}
+      {lowAttendanceSubjects.length > 0 && (
         <div className="flex items-start gap-3 p-3.5 sm:p-4 bg-red-50 border border-red-200 rounded-xl sm:rounded-2xl">
           <AlertTriangle size={18} className="text-red-600 mt-0.5 flex-shrink-0" />
           <div>
             <p className="text-sm font-semibold text-red-800">Attendance warning</p>
             <p className="text-sm text-red-700 mt-0.5">
-              {subjectAttendance.filter(subject => subject.total > 0 && (subject.present / subject.total) * 100 < 75).length > 0 ?
-                `${subjectAttendance.filter(subject => subject.total > 0 && (subject.present / subject.total) * 100 < 75).length} subject${subjectAttendance.filter(subject => subject.total > 0 && (subject.present / subject.total) * 100 < 75).length > 1 ? 's are' : ' is'} below 75%. Attend classes to avoid detention.` :
-                'All subjects have good attendance.'}
+              {`${lowAttendanceSubjects.length} subject${lowAttendanceSubjects.length > 1 ? 's are' : ' is'} below 75%. Attend classes to avoid detention.`}
             </p>
           </div>
         </div>
@@ -256,7 +261,12 @@ export const StudentHome: React.FC<Props> = ({ user, onNavigate }) => {
               Current & Next Class
             </h2>
           </div>
-          <div className="space-y-3">
+          {!hasTimetableEntries ? (
+            <div role="status" className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              <Info size={17} className="mt-0.5 shrink-0" />
+              <p>No timetable has been published for <span className="font-semibold">{user.classGroup || 'your class'}</span> yet. Please contact your department administrator.</p>
+            </div>
+          ) : <div className="space-y-3">
             {/* Current Class */}
             <div className="border-b pb-3">
               <div className="flex items-start gap-3">
@@ -294,7 +304,7 @@ export const StudentHome: React.FC<Props> = ({ user, onNavigate }) => {
                 </div>
               </div>
             </div>
-          </div>
+          </div>}
         </div>
 
         {/* Attendance Risk Card */}

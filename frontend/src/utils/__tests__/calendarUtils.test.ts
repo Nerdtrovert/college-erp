@@ -5,6 +5,7 @@ import {
   sortEventsByDate,
   EVENT_STYLES
 } from '../calendarUtils';
+import { CALENDAR_EVENTS, migrateAcademicCalendarEvents } from '../../data/academicCalendar';
 
 describe('calendarUtils', () => {
   const mockEvents = [
@@ -32,6 +33,24 @@ describe('calendarUtils', () => {
     it('should return empty array when no events and not Sunday', () => {
       const result = getEventsForDate(mockEvents, '2025-09-30', 1); // Monday
       expect(result.length).toBe(0);
+    });
+
+    it('should show multi-day events throughout their date range', () => {
+      const rangedEvents = [
+        { date: '2026-10-26', endDate: '2026-10-29', title: 'CIE - I', type: 'cie' as const },
+      ];
+
+      expect(getEventsForDate(rangedEvents, '2026-10-26', 1)).toHaveLength(1);
+      expect(getEventsForDate(rangedEvents, '2026-10-28', 3)[0].title).toBe('CIE - I');
+      expect(getEventsForDate(rangedEvents, '2026-10-30', 5)).toHaveLength(0);
+    });
+
+    it('should not add a Sunday holiday over an existing multi-day event', () => {
+      const rangedEvents = [
+        { date: '2026-11-29', endDate: '2026-12-04', title: 'Mentoring Week', type: 'academic' as const },
+      ];
+
+      expect(getEventsForDate(rangedEvents, '2026-11-29', 0)[0].title).toBe('Mentoring Week');
     });
   });
 
@@ -115,6 +134,44 @@ describe('calendarUtils', () => {
       expect(EVENT_STYLES.government.className).toContain('bg-rose-50');
       expect(EVENT_STYLES.general.className).toContain('bg-slate-100');
       expect(EVENT_STYLES.academic.className).toContain('bg-blue-50');
+    });
+
+    describe('academic calendar migration', () => {
+      it('replaces old built-in dates and keeps user events in the new session', () => {
+        const migrated = migrateAcademicCalendarEvents([
+          { date: '2025-11-22', title: 'Old calendar PTM', type: 'academic' },
+          { date: '2026-11-01', title: 'Karnataka Rajyotsava', type: 'government' },
+          { date: '2026-10-08', title: 'User-added event', type: 'academic' },
+        ]);
+
+        expect(migrated.some((event) => event.title === 'Old calendar PTM')).toBe(false);
+        expect(migrated.some((event) => event.title === 'Karnataka Rajyotsava')).toBe(false);
+        expect(migrated.some((event) => event.title === 'User-added event')).toBe(true);
+        expect(migrated).toEqual(expect.arrayContaining(CALENDAR_EVENTS));
+      });
+
+      it('includes the semester dates and CIE periods from the supplied calendar', () => {
+        expect(CALENDAR_EVENTS).toEqual(expect.arrayContaining([
+          expect.objectContaining({
+            date: '2026-09-07',
+            title: 'Commencement of classes for V semester',
+          }),
+          expect.objectContaining({
+            date: '2026-11-02',
+            endDate: '2026-11-04',
+            title: 'CIE - I for V semester',
+          }),
+          expect.objectContaining({
+            date: '2026-12-14',
+            endDate: '2026-12-16',
+            title: 'CIE - II for V semester',
+          }),
+          expect.objectContaining({
+            date: '2027-01-02',
+            title: 'I Saturday Holiday',
+          }),
+        ]));
+      });
     });
   });
 });

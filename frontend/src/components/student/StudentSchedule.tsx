@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
+import { Info } from 'lucide-react';
 import API from '../../services/api';
 
 // Unified color palette for subjects - each subject gets a consistent visual style
@@ -39,7 +40,11 @@ const timeRanges = [
   '2:45–3:45',
 ];
 
-export const StudentSchedule: React.FC = () => {
+interface StudentScheduleProps {
+  classGroup: string;
+}
+
+export const StudentSchedule: React.FC<StudentScheduleProps> = ({ classGroup }) => {
   const [schedule, setSchedule] = useState<DaySchedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -76,6 +81,25 @@ export const StudentSchedule: React.FC = () => {
 
   if (schedule.length === 0) {
     return <div className="p-6 text-center text-gray-500 font-medium">No timetable schedule loaded.</div>;
+  }
+
+  const hasTimetableEntries = schedule.some((day) => day.slots.some(Boolean));
+  if (!hasTimetableEntries) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Timetable</h1>
+          <p className="text-gray-500 text-sm mt-1">Current academic period schedule</p>
+        </div>
+        <div role="status" className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900">
+          <Info size={18} className="mt-0.5 shrink-0" />
+          <p className="text-sm">
+            No timetable has been published for <span className="font-semibold">{classGroup}</span> yet.
+            Please contact your department administrator.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   const todaySchedule = todayIndex >= 0 ? schedule[todayIndex] : schedule[0];

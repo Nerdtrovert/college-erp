@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import API, { getAnyFacultyTimetable, getCurrentFacultyStatus } from '../../services/api';
 import { CalendarDays, Users, ClipboardList, Clock, BarChart3 } from 'lucide-react';
-import { CALENDAR_EVENTS, type CalendarEvent } from '../AcademicCalendar';
+import type { CalendarEvent } from '../AcademicCalendar';
+import {
+  ACADEMIC_CALENDAR_STORAGE_KEY,
+  ACADEMIC_CALENDAR_VERSION_KEY,
+  CALENDAR_EVENTS,
+  migrateAcademicCalendarEvents,
+} from '../../data/academicCalendar';
 import { getTimeBasedGreeting } from '../../utils/greeting';
 import type { User } from '../../types';
 
@@ -113,16 +119,29 @@ export const SupervisorHome: React.FC<Props> = ({ user, onNavigate }) => {
   }, []);
 
   useEffect(() => {
-    const stored = localStorage.getItem('academic-calendar-events');
     let events = CALENDAR_EVENTS;
 
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored) as CalendarEvent[];
-        if (Array.isArray(parsed)) events = parsed;
-      } catch {
-        events = CALENDAR_EVENTS;
+    try {
+      const stored = window.localStorage.getItem(ACADEMIC_CALENDAR_STORAGE_KEY);
+      if (stored) {
+        const parsed: unknown = JSON.parse(stored);
+        if (!Array.isArray(parsed)) {
+          throw new Error('Stored academic calendar data is not an event list.');
+        }
+        events = parsed as CalendarEvent[];
       }
+
+      if (window.localStorage.getItem(ACADEMIC_CALENDAR_VERSION_KEY) !== 'complete') {
+        events = migrateAcademicCalendarEvents(events);
+        try {
+          window.localStorage.setItem(ACADEMIC_CALENDAR_STORAGE_KEY, JSON.stringify(events));
+          window.localStorage.setItem(ACADEMIC_CALENDAR_VERSION_KEY, 'complete');
+        } catch (error) {
+          console.error('Unable to save the updated academic calendar:', error);
+        }
+      }
+    } catch (error) {
+      console.error('Unable to load the academic calendar from browser storage:', error);
     }
     setCalendarEvents(events);
 
@@ -130,7 +149,7 @@ export const SupervisorHome: React.FC<Props> = ({ user, onNavigate }) => {
     today.setHours(0, 0, 0, 0);
     const upcoming = events
       .filter((event) => {
-        const eventDate = new Date(`${event.date}T00:00:00`);
+        const eventDate = new Date(`${event.endDate ?? event.date}T00:00:00`);
         return !Number.isNaN(eventDate.getTime()) && eventDate >= today;
       })
       .sort((a, b) => a.date.localeCompare(b.date))
@@ -139,10 +158,21 @@ export const SupervisorHome: React.FC<Props> = ({ user, onNavigate }) => {
     setUpcomingEvents(upcoming);
   }, []);
 
-  const formatEventDate = (date: string) =>
-    new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(
-      new Date(`${date}T00:00:00`),
+  const formatEventDate = (event: CalendarEvent) => {
+    const startDate = new Date(`${event.date}T00:00:00`);
+    if (!event.endDate) {
+      return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(startDate);
+    }
+
+    const endDate = new Date(`${event.endDate}T00:00:00`);
+    const monthAndDay = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' });
+    const sameYear = startDate.getFullYear() === endDate.getFullYear();
+    const endFormatter = new Intl.DateTimeFormat(
+      'en-US',
+      sameYear ? { month: 'short', day: 'numeric' } : { month: 'short', day: 'numeric', year: 'numeric' },
     );
+    return `${monthAndDay.format(startDate)}–${endFormatter.format(endDate)}${sameYear ? `, ${endDate.getFullYear()}` : ''}`;
+  };
   const currentlyTeaching = facultyStatus?.facultyStatus.filter((faculty) => faculty.status !== 'free') ?? [];
   const currentlyFree = facultyStatus?.facultyStatus.filter((faculty) => faculty.status === 'free') ?? [];
   const today = new Date();
@@ -392,8 +422,8 @@ export const SupervisorHome: React.FC<Props> = ({ user, onNavigate }) => {
           </div>
           <div className="space-y-3">
             {upcomingEvents.length > 0 ? upcomingEvents.map((event) => (
-              <div key={`${event.date}-${event.title}`} className="flex items-start gap-3 rounded-xl border border-gray-100 bg-gray-50/70 p-3">
-                <div className="min-w-[4.75rem] text-xs font-semibold text-blue-700">{formatEventDate(event.date)}</div>
+              <div key={`${event.date}-${event.title}`} className="grid grid-cols-1 gap-1 rounded-xl border border-gray-100 bg-gray-50/70 p-3 sm:grid-cols-[9rem_minmax(0,1fr)] sm:gap-3">
+                <div className="whitespace-nowrap text-xs font-semibold text-blue-700">{formatEventDate(event)}</div>
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-gray-900">{event.title}</p>
                   <p className="mt-0.5 text-xs capitalize text-gray-500">{event.type} event</p>

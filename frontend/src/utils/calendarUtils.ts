@@ -1,4 +1,7 @@
-import { CalendarEvent } from '../components/AcademicCalendar';
+import type { CalendarEvent } from '../components/AcademicCalendar';
+
+const getEventKey = (event: CalendarEvent): string =>
+  `${event.date}|${event.endDate ?? ''}|${event.title.trim().toLowerCase()}`;
 
 /**
  * Check if an event is a duplicate based on date and title
@@ -7,7 +10,8 @@ import { CalendarEvent } from '../components/AcademicCalendar';
  * @returns true if duplicate exists
  */
 export const isDuplicateEvent = (events: CalendarEvent[], newEvent: CalendarEvent): boolean => {
-  return events.some(event => event.date === newEvent.date && event.title === newEvent.title);
+  const key = getEventKey(newEvent);
+  return events.some((event) => getEventKey(event) === key);
 };
 
 /**
@@ -17,8 +21,13 @@ export const isDuplicateEvent = (events: CalendarEvent[], newEvent: CalendarEven
  * @returns Merged array of events
  */
 export const mergeEvents = (existingEvents: CalendarEvent[], newEvents: CalendarEvent[]): CalendarEvent[] => {
-  const existingKeys = new Set(existingEvents.map(event => `${event.date}|${event.title}`));
-  const uniqueNewEvents = newEvents.filter(event => !existingKeys.has(`${event.date}|${event.title}`));
+  const existingKeys = new Set(existingEvents.map(getEventKey));
+  const uniqueNewEvents = newEvents.filter((event) => {
+    const key = getEventKey(event);
+    if (existingKeys.has(key)) return false;
+    existingKeys.add(key);
+    return true;
+  });
   return [...existingEvents, ...uniqueNewEvents];
 };
 
@@ -39,7 +48,9 @@ export const sortEventsByDate = (events: CalendarEvent[]): CalendarEvent[] => {
  * @returns Array of events for the date, or Sunday holiday event if no events and it's Sunday
  */
 export const getEventsForDate = (events: CalendarEvent[], dateKey: string, dayOfWeek: number): CalendarEvent[] => {
-  const eventsForDate = events.filter(event => event.date === dateKey);
+  const eventsForDate = events.filter(
+    (event) => event.date <= dateKey && (event.endDate ?? event.date) >= dateKey,
+  );
 
   // If no events and it's Sunday (dayOfWeek === 0), return Sunday holiday
   if (eventsForDate.length === 0 && dayOfWeek === 0) {

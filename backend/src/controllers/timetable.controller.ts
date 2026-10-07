@@ -4,6 +4,11 @@ import { AuthRequest } from '../types';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
+const getSlotSubjectCode = (slot: {
+  subjectCode: string | null;
+  assignment?: { subject: { code: string } | null } | null;
+}) => slot.subjectCode ?? slot.assignment?.subject?.code ?? null;
+
 export const getStudentTimetable = async (req: AuthRequest, res: Response) => {
   try {
     const enrollment = await prisma.studentEnrollment.findFirst({
@@ -13,6 +18,7 @@ export const getStudentTimetable = async (req: AuthRequest, res: Response) => {
     if (!enrollment) return res.status(404).json({ error: 'No current student enrollment found' });
     const slots = await prisma.timetableSlot.findMany({
       where: { semesterId: enrollment.semesterId, classGroup: enrollment.classGroup },
+      include: { assignment: { select: { subject: { select: { code: true } } } } },
     });
 
     // Format schedule for Monday through Friday with 8 periods per day
@@ -21,10 +27,11 @@ export const getStudentTimetable = async (req: AuthRequest, res: Response) => {
       const daySlots = slots.filter((s) => s.day.toLowerCase() === day.toLowerCase());
 
       daySlots.forEach((slot) => {
+        const subjectCode = getSlotSubjectCode(slot);
         if (slot.slotIndex >= 0 && slot.slotIndex < 8) {
-          if (slot.subjectCode) {
+          if (subjectCode) {
             slotsArray[slot.slotIndex] = {
-              subjectCode: slot.subjectCode,
+              subjectCode,
               activityType: slot.activityType,
               room: slot.room || 'LH-N/A',
               semesterId: slot.semesterId,
@@ -55,13 +62,19 @@ export const getTeacherTimetable = async (req: AuthRequest, res: Response) => {
   }
 
   try {
+    const teacher = await prisma.user.findFirst({
+      where: { email: { equals: teacherId, mode: 'insensitive' } },
+      select: { id: true, email: true },
+    });
+    const teacherIdentifiers = [...new Set([teacherId, teacher?.id].filter((value): value is string => Boolean(value)))];
     const slots = await prisma.timetableSlot.findMany({
       where: {
-        OR: [{ teacherId }, { coTeacherId: teacherId }],
+        OR: teacherIdentifiers.flatMap((id) => [{ teacherId: id }, { coTeacherId: id }]),
         semester: {
           status: 'ACTIVE',
         },
       },
+      include: { assignment: { select: { subject: { select: { code: true } } } } },
     });
 
     // Format schedule for Monday through Friday with 8 periods per day
@@ -70,10 +83,11 @@ export const getTeacherTimetable = async (req: AuthRequest, res: Response) => {
       const daySlots = slots.filter((s) => s.day.toLowerCase() === day.toLowerCase());
 
       daySlots.forEach((slot) => {
+        const subjectCode = getSlotSubjectCode(slot);
         if (slot.slotIndex >= 0 && slot.slotIndex < 8) {
-          if (slot.subjectCode) {
+          if (subjectCode) {
             slotsArray[slot.slotIndex] = {
-              subjectCode: slot.subjectCode,
+              subjectCode,
               activityType: slot.activityType,
               room: slot.room || 'LH-N/A',
               class: slot.classGroup,
@@ -118,14 +132,20 @@ export const getTimetableBySemester = async (req: AuthRequest, res: Response) =>
     }
 
     if (teacherId) {
-      whereClause.OR = [
-        { teacherId: String(teacherId) },
-        { coTeacherId: String(teacherId) }
-      ];
+      const identifier = String(teacherId);
+      const teacher = await prisma.user.findFirst({
+        where: { email: { equals: identifier, mode: 'insensitive' } },
+        select: { id: true, email: true },
+      }) ?? (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(identifier)
+        ? await prisma.user.findUnique({ where: { id: identifier }, select: { id: true, email: true } })
+        : null);
+      const identifiers = [...new Set([identifier, teacher?.id, teacher?.email].filter((value): value is string => Boolean(value)))];
+      whereClause.OR = identifiers.flatMap((id) => [{ teacherId: id }, { coTeacherId: id }]);
     }
 
     const slots = await prisma.timetableSlot.findMany({
       where: whereClause,
+      include: { assignment: { select: { subject: { select: { code: true } } } } },
       orderBy: [
         { day: 'asc' },
         { slotIndex: 'asc' },
@@ -138,11 +158,12 @@ export const getTimetableBySemester = async (req: AuthRequest, res: Response) =>
       const daySlots = slots.filter((s) => s.day.toLowerCase() === day.toLowerCase());
 
       daySlots.forEach((slot) => {
+        const subjectCode = getSlotSubjectCode(slot);
         if (slot.slotIndex >= 0 && slot.slotIndex < 8) {
-          if (slot.subjectCode) {
+          if (subjectCode) {
             slotsArray[slot.slotIndex] = {
               id: slot.id,
-              subjectCode: slot.subjectCode,
+              subjectCode,
               room: slot.room || 'LH-N/A',
               class: slot.classGroup, // e.g. "CSE-B" for timetable
               teacherId: slot.teacherId,
@@ -187,28 +208,43 @@ export const getTimetableClassGroups = async (req: AuthRequest, res: Response) =
 };
 
 export const getTeacherSubjects = async (req: AuthRequest, res: Response) => {
-  const teacherId = req.user?.email;
-  if (!teacherId) {
+  const teacherEmail = req.user?.email;
+  if (!teacherEmail) {
     return res.status(400).json({ error: 'Teacher ID not found' });
   }
   try {
+    const teacher = await prisma.user.findFirst({
+      where: { email: { equals: teacherEmail, mode: 'insensitive' } },
+      select: { id: true, email: true },
+    });
+    const teacherIdentifiers = [...new Set([teacherEmail, teacher?.id].filter((value): value is string => Boolean(value)))];
     // Get distinct subjects taught by the teacher in the active semester via timetable slots
     const slots = await prisma.timetableSlot.findMany({
       where: {
-        OR: [
-          { teacherId },
-          { coTeacherId: teacherId }
-        ],
+        OR: teacherIdentifiers.flatMap((id) => [{ teacherId: id }, { coTeacherId: id }]),
         semester: {
           status: 'ACTIVE',
         },
       },
+      include: { assignment: { select: { subject: { select: { code: true, name: true, type: true } } } } },
     });
 
-    const uniqueSlots = [...new Map(slots.map((slot) => [`${slot.semesterId}|${slot.classGroup}|${slot.subjectCode}`, slot])).values()];
-    const subjects = await Promise.all(uniqueSlots.filter((slot) => slot.subjectCode).map(async (slot) => {
-      const subject = await prisma.subject.findUnique({ where: { code: slot.subjectCode! } });
-      return { code: slot.subjectCode!, name: subject?.name ?? slot.subjectCode!, classGroup: slot.classGroup, semesterId: slot.semesterId, type: subject?.type ?? null };
+    const uniqueSlots = [...new Map(slots.map((slot) => {
+      const subjectCode = getSlotSubjectCode(slot);
+      return [`${slot.semesterId}|${slot.classGroup}|${subjectCode}`, { slot, subjectCode }];
+    })).values()];
+    const subjects = await Promise.all(uniqueSlots.filter(({ subjectCode }) => subjectCode).map(async ({ slot, subjectCode }) => {
+      const subject = slot.assignment?.subject;
+      const legacySubject = !subject && subjectCode
+        ? await prisma.subject.findUnique({ where: { code: subjectCode } })
+        : null;
+      return {
+        code: subjectCode!,
+        name: subject?.name ?? legacySubject?.name ?? subjectCode!,
+        classGroup: slot.classGroup,
+        semesterId: slot.semesterId,
+        type: subject?.type ?? legacySubject?.type ?? null,
+      };
     }));
 
     return res.status(200).json(subjects);
@@ -274,16 +310,14 @@ export const getAnyFacultyTimetable = async (req: AuthRequest, res: Response) =>
   try {
     const faculty = await prisma.user.findFirst({
       where: { email: { equals: teacherId, mode: 'insensitive' } },
-      select: { email: true },
+      select: { id: true, email: true },
     }) ?? (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(teacherId)
-      ? await prisma.user.findUnique({ where: { id: teacherId }, select: { email: true } })
+      ? await prisma.user.findUnique({ where: { id: teacherId }, select: { id: true, email: true } })
       : null);
     const facultyEmail = faculty?.email ?? teacherId;
+    const facultyIdentifiers = [...new Set([facultyEmail, faculty?.id].filter((value): value is string => Boolean(value)))];
     const whereClause: any = {
-      OR: [
-        { teacherId: facultyEmail },
-        { coTeacherId: facultyEmail },
-      ],
+      OR: facultyIdentifiers.flatMap((id) => [{ teacherId: id }, { coTeacherId: id }]),
       semester: {
         status: semesterId ? undefined : 'ACTIVE', // If semesterId provided, don't filter by status
       },
@@ -298,7 +332,10 @@ export const getAnyFacultyTimetable = async (req: AuthRequest, res: Response) =>
 
     const slots = await prisma.timetableSlot.findMany({
       where: whereClause,
-      include: { semester: true },
+      include: {
+        semester: true,
+        assignment: { select: { subject: { select: { code: true } } } },
+      },
       orderBy: [
         { day: 'asc' },
         { slotIndex: 'asc' },
@@ -311,12 +348,13 @@ export const getAnyFacultyTimetable = async (req: AuthRequest, res: Response) =>
       const daySlots = slots.filter((s) => s.day.toLowerCase() === day.toLowerCase());
 
       daySlots.forEach((slot) => {
+        const subjectCode = getSlotSubjectCode(slot);
         if (slot.slotIndex >= 0 && slot.slotIndex < 8) {
-          if (slot.subjectCode) {
+          if (subjectCode) {
             slotsArray[slot.slotIndex] = {
               id: slot.id,
-              subjectCode: slot.subjectCode,
-              subject: slot.subjectCode,
+              subjectCode,
+              subject: subjectCode,
               room: slot.room || 'LH-N/A',
               class: slot.classGroup,
               teacherId: facultyEmail,
@@ -435,6 +473,7 @@ export const getCurrentFacultyStatus = async (req: AuthRequest, res: Response) =
       const facultyMembers = await prisma.user.findMany({
         where: { role: 'teacher' },
         select: {
+          id: true,
           email: true,
           name: true,
           department: true,
@@ -447,22 +486,28 @@ export const getCurrentFacultyStatus = async (req: AuthRequest, res: Response) =
             where: {
               OR: [
                 { teacherId: faculty.email ?? '' },
-                { coTeacherId: faculty.email ?? '' }
+                { coTeacherId: faculty.email ?? '' },
+                { teacherId: faculty.id },
+                { coTeacherId: faculty.id },
               ],
               day: currentDay,
               slotIndex: currentPeriodIndex,
               semesterId: activeSemester.id,
             },
+            include: { assignment: { select: { subject: { select: { code: true, name: true } } } } },
           });
 
-          if (timetableSlot?.subjectCode) {
-            const subject = await prisma.subject.findUnique({ where: { code: timetableSlot.subjectCode }, select: { name: true } });
+          const subjectCode = timetableSlot ? getSlotSubjectCode(timetableSlot) : null;
+          if (timetableSlot && subjectCode) {
+            const subjectName = timetableSlot.assignment?.subject?.name
+              ?? (await prisma.subject.findUnique({ where: { code: subjectCode }, select: { name: true } }))?.name
+              ?? subjectCode;
             return {
               facultyId: faculty.email ?? '',
               facultyName: faculty.name,
               department: faculty.department || 'N/A',
-              subjectCode: timetableSlot.subjectCode,
-              subjectName: subject?.name ?? timetableSlot.subjectCode,
+              subjectCode,
+              subjectName,
               room: timetableSlot.room || 'TBD',
               classGroup: timetableSlot.classGroup,
               periodIndex: currentPeriodIndex,

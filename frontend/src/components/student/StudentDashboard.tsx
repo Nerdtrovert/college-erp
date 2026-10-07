@@ -53,7 +53,7 @@ export const StudentDashboard: React.FC<Props> = ({ user, onLogout }) => {
       case 'home': return <StudentHome user={user} onNavigate={navigateTo} />;
       case 'attendance': return <StudentAttendance />;
       case 'marks': return <StudentMarks />;
-      case 'schedule': return <StudentSchedule />;
+      case 'schedule': return <StudentSchedule classGroup={user.classGroup || 'your class'} />;
       case 'academic-calendar': return <AcademicCalendar />;
       case 'announcements': return <StudentAnnouncements />;
       case 'notes': return <StudentNotes user={user} />;

@@ -16,12 +16,16 @@ async function main() {
 
   const defaultSemester = await prisma.semester.upsert({
     where: { code: 'sem1' },
-    update: { name: 'Odd sem 2026-27' },
+    update: {
+      name: 'Odd sem 2026-27',
+      startDate: '2026-09-07',
+      endDate: '2027-01-02',
+    },
     create: {
       code: 'sem1',
       name: 'Odd sem 2026-27',
-      startDate: '2026-08-01',
-      endDate: '2026-12-20',
+      startDate: '2026-09-07',
+      endDate: '2027-01-02',
       status: SemesterStatus.ACTIVE,
     },
   });
@@ -472,8 +476,8 @@ await prisma.studentEnrollment.deleteMany({
             batchYear: classGroupBatchYearMap.get(t.classGroup) ?? 0,
           },
         },
-        update: { assignmentId: null, room: t.room, teacherId: teacherUuid, coTeacherId: coTeacherUuid, batchYear: classGroupBatchYearMap.get(t.classGroup) ?? 0 },
-        create: { day: t.day, slotIndex: t.slotIndex, assignmentId: null, room: t.room, classGroup: t.classGroup, teacherId: teacherUuid, coTeacherId: coTeacherUuid, semesterId: defaultSemester.id, batchYear: classGroupBatchYearMap.get(t.classGroup) ?? 0 }
+        update: { assignmentId: null, room: t.room, classGroup: t.classGroup, teacherId: teacherUuid, coTeacherId: coTeacherUuid, activityType: t.activityType, batchYear: classGroupBatchYearMap.get(t.classGroup) ?? 0 },
+        create: { day: t.day, slotIndex: t.slotIndex, assignmentId: null, room: t.room, classGroup: t.classGroup, teacherId: teacherUuid, coTeacherId: coTeacherUuid, activityType: t.activityType, semesterId: defaultSemester.id, batchYear: classGroupBatchYearMap.get(t.classGroup) ?? 0 }
       });
       continue;
     }
@@ -504,6 +508,7 @@ await prisma.studentEnrollment.deleteMany({
           room: t.room,
           teacherId: teacherUuid,
           coTeacherId: coTeacherUuid,
+          activityType: t.activityType,
           batchYear: classGroupBatchYearMap.get(t.classGroup) ?? 0,
         },
         create: {
@@ -514,6 +519,7 @@ await prisma.studentEnrollment.deleteMany({
           classGroup: t.classGroup,
           teacherId: teacherUuid,
           coTeacherId: coTeacherUuid,
+          activityType: t.activityType,
           semesterId: defaultSemester.id,
           batchYear: classGroupBatchYearMap.get(t.classGroup) ?? 0,
         }
