@@ -297,7 +297,7 @@ export const extractStudentsFromText = (text: string): ParsedStudent[] => {
         id: roll,
         name: name || 'Unknown Name',
         department: department || 'Computer Science & Engineering', // fallback default
-        classGroup: section || 'CSE-B', // fallback default
+        classGroup: section || '',
       });
     }
   }

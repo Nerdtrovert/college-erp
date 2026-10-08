@@ -5,7 +5,7 @@ import {
   Download
 } from 'lucide-react';
 import API from '../../services/api';
-import { PROGRAM_LABELS, SECTION_OPTIONS, STUDENT_PROGRAMS, type StudentProgram } from '../../constants/program';
+import { PROGRAM_LABELS, STUDENT_PROGRAMS, type StudentProgram } from '../../constants/program';
 import { DropdownSelect } from '../ui/DropdownSelect';
 
 interface Semester {
@@ -44,7 +44,7 @@ export const StudentManagement: React.FC = () => {
   const [students, setStudents] = useState<StudentUser[]>([]);
   const [selectedSemester, setSelectedSemester] = useState('');
   const [defaultProgram, setDefaultProgram] = useState<StudentProgram>('CSE');
-  const [defaultClassGroup, setDefaultClassGroup] = useState('CSE-B');
+  const [defaultClassGroup, setDefaultClassGroup] = useState('');
   const [file, setFile] = useState<File | null>(null);
   
   // App UI states
@@ -422,7 +422,7 @@ export const StudentManagement: React.FC = () => {
                 id: '',
                 name: '',
                 program: defaultProgram,
-                classGroup: defaultClassGroup,
+                classGroup: '',
                 semesterId: selectedSemester || (semesters[0]?.id || ''),
               });
               setEditingStudent(null);
@@ -502,7 +502,7 @@ export const StudentManagement: React.FC = () => {
                   type="text"
                   value={defaultClassGroup}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDefaultClassGroup(e.target.value)}
-                  placeholder="e.g. CSE-B"
+                  placeholder="Leave blank to require a section on each row"
                   className="w-full px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500"
                 />
               </div>
@@ -972,10 +972,10 @@ Section: CSE-B`}
                   onChange={(value: string) => {
                     if (editingStudent) {
                       const program = value as StudentProgram;
-                      setEditingStudent({ ...editingStudent, program, classGroup: SECTION_OPTIONS[program][0] });
+                      setEditingStudent({ ...editingStudent, program, classGroup: '' });
                     } else if (newStudent) {
                       const program = value as StudentProgram;
-                      setNewStudent({ ...newStudent, program, classGroup: SECTION_OPTIONS[program][0] });
+                      setNewStudent({ ...newStudent, program, classGroup: '' });
                     }
                   }}
                   placeholder="Select Program"
@@ -1002,23 +1002,20 @@ Section: CSE-B`}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase mb-2">Section</label>
-                  <DropdownSelect
+                  <input
+                    type="text"
                     required
                     value={editingStudent ? (editingStudent.classGroup || '') : (newStudent?.classGroup || '')}
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                       if (editingStudent) {
                         setEditingStudent({ ...editingStudent, classGroup: e.target.value });
                       } else if (newStudent) {
                         setNewStudent({ ...newStudent, classGroup: e.target.value });
                       }
                     }}
+                    placeholder="Enter class group, e.g. ISE-A"
                     className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-blue-500"
-                  >
-                    <option value="" disabled>Select Section</option>
-                    {(editingStudent ? SECTION_OPTIONS[editingStudent.program] : SECTION_OPTIONS[newStudent?.program || defaultProgram]).map(section => (
-                      <option key={section} value={section}>{section}</option>
-                    ))}
-                  </DropdownSelect>
+                  />
                 </div>
 
                 <div>

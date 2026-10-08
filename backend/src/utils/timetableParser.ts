@@ -319,6 +319,8 @@ async function parseTimetablePdfByPosition(fileBuffer: Buffer): Promise<ParsedTi
   const columnUsed: boolean[] = new Array(timeItems.length).fill(false);
   for (const item of allItems) {
     if (!(isSubjectCell(item.text) || /\bPROJECT\b|\bCOMPUTER LAB\b|^[A-Z0-9]\s+LAB\b/i.test(item.text))) continue;
+    const isTimetableDayRow = rowBoundaries.some(row => item.y >= row.minY && item.y <= row.maxY);
+    if (!isTimetableDayRow || item.x <= columnCenters[0].center - 45) continue;
     // Determine the span of columns that this item overlaps with
     const cellCenter = item.x + item.width / 2;
     let itemSpan: [number, number] | null = null;
@@ -336,6 +338,15 @@ async function parseTimetablePdfByPosition(fileBuffer: Buffer): Promise<ParsedTi
       const [startCol, endCol] = itemSpan;
       for (let col = startCol; col <= endCol; col++) {
         columnUsed[col] = true;
+      }
+    } else {
+      const nearest = columnCenters.reduce((closest, candidate, index) =>
+        Math.abs(candidate.center - cellCenter) < Math.abs(columnCenters[closest].center - cellCenter)
+          ? index
+          : closest,
+      0);
+      if (Math.abs(columnCenters[nearest].center - cellCenter) <= 9) {
+        columnUsed[nearest] = true;
       }
     }
   }

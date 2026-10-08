@@ -379,6 +379,10 @@ export const TimetableManagement: React.FC = () => {
 
   const handleConfirmImport = async () => {
     if (!importFile || importPreview.length === 0) return;
+    if (!activeSemesterId || !selectedStudentSemester || !selectedProgram || !selectedSection) {
+      setImportError('Select the semester, program, and section before importing.');
+      return;
+    }
     if (importInvalidEntries.length) {
       setImportError('Resolve all timetable validation errors before importing.');
       return;
@@ -392,7 +396,14 @@ export const TimetableManagement: React.FC = () => {
     setImportError(null);
 
     try {
-      await API.post('/timetable/import', { entries: importPreview, courseTypes: courseTypeSelections });
+      await API.post('/timetable/import', {
+        entries: importPreview,
+        courseTypes: courseTypeSelections,
+        semesterId: activeSemesterId,
+        studentSemesterNumber: Number(selectedStudentSemester),
+        program: selectedProgram,
+        classGroup: selectedSection,
+      });
 
       setImportSuccess(true);
       setImportError(null);
@@ -849,7 +860,7 @@ export const TimetableManagement: React.FC = () => {
 
               <div className="mt-4">
                 <button
-                  disabled={importLoading || importInvalidEntries.length > 0 || subjectsNeedingConfiguration.some(subject => !courseTypeSelections[subject.code])}
+                  disabled={importLoading || !activeSemesterId || !selectedStudentSemester || !selectedProgram || !selectedSection || importInvalidEntries.length > 0 || subjectsNeedingConfiguration.some(subject => !courseTypeSelections[subject.code])}
                   onClick={handleConfirmImport}
                   className="w-flex items-center justify-center gap-2 rounded-2xl border border-green-200 bg-green-100 px-4 py-2.5 text-sm font-semibold text-green-800 hover:bg-green-200 disabled:opacity-60"
                 >

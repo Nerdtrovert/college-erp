@@ -488,8 +488,7 @@ export const uploadStudents = async (req: AuthRequest, res: Response) => {
             row['Class Group'] ||
             row['classGroup'] ||
             row['section'] ||
-            defaultClassGroup ||
-            'CSE-B'
+            String(defaultClassGroup || '').trim()
           ).trim(),
           numberOfBacklogs: parseInt(row['Backlogs'] || row['Number of Backlogs'] || row['numberOfBacklogs'] || '0') || 0,
           backlogSubjects: (row['Backlog Subjects'] || row['backlogSubjects'] || '').split(',').map((s: string) => s.trim()).filter(Boolean)
@@ -504,7 +503,7 @@ export const uploadStudents = async (req: AuthRequest, res: Response) => {
         ...s,
         department: s.department || defaultDepartment || 'Computer Science & Engineering',
         program: s.program || defaultProgram || programFromLegacyDepartment(s.department) || 'CSE',
-        classGroup: s.classGroup || defaultClassGroup || 'CSE-B',
+        classGroup: s.classGroup || String(defaultClassGroup || '').trim(),
         numberOfBacklogs: s.numberOfBacklogs || 0,
         backlogSubjects: s.backlogSubjects || [],
       }));
@@ -517,7 +516,7 @@ export const uploadStudents = async (req: AuthRequest, res: Response) => {
         ...s,
         department: s.department || defaultDepartment || 'Computer Science & Engineering',
         program: s.program || defaultProgram || programFromLegacyDepartment(s.department) || 'CSE',
-        classGroup: s.classGroup || defaultClassGroup || 'CSE-B',
+        classGroup: s.classGroup || String(defaultClassGroup || '').trim(),
         numberOfBacklogs: s.numberOfBacklogs || 0,
         backlogSubjects: s.backlogSubjects || [],
       }));
@@ -529,6 +528,15 @@ export const uploadStudents = async (req: AuthRequest, res: Response) => {
     parsedStudents = parsedStudents.filter(student =>
       student.id && student.name && student.id.trim() !== '' && student.name.trim() !== ''
     );
+
+    const missingClassGroup = parsedStudents.filter(student => !student.classGroup?.trim());
+    if (missingClassGroup.length > 0) {
+      await removeUploadedFile(req.file.path);
+      return res.status(400).json({
+        error: 'A section/class group is missing. Add it to the imported student data or provide an explicit Default Section fallback.',
+        studentsMissingClassGroup: missingClassGroup.map(student => student.id),
+      });
+    }
 
     if (parsedStudents.length === 0) {
       return res.status(400).json({

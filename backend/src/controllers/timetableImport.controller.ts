@@ -151,7 +151,14 @@ export const parseTimetable = async (req: AuthRequest, res: Response) => {
  */
 export const importTimetable = async (req: AuthRequest, res: Response) => {
   try {
-    const { entries, courseTypes = {} } = req.body;
+    const {
+      entries,
+      courseTypes = {},
+      semesterId: requestedSemesterId,
+      studentSemesterNumber,
+      program,
+      classGroup: requestedClassGroup,
+    } = req.body;
 
     if (!entries || !Array.isArray(entries)) {
       return res.status(400).json({ error: 'Timetable entries array is required' });
@@ -159,6 +166,9 @@ export const importTimetable = async (req: AuthRequest, res: Response) => {
 
     if (entries.length === 0) {
       return res.status(400).json({ error: 'No timetable entries provided for import' });
+    }
+    if (!requestedSemesterId || !Number.isInteger(Number(studentSemesterNumber)) || !program || !requestedClassGroup) {
+      return res.status(400).json({ error: 'Selected semester, student semester, program, and section are required' });
     }
     if (!courseTypes || typeof courseTypes !== 'object' || Array.isArray(courseTypes)) {
       return res.status(400).json({ error: 'Course type selections must be an object keyed by subject code' });
@@ -201,8 +211,41 @@ export const importTimetable = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Validate the entire timetable before opening the replacement transaction.
-    const validationResults = await Promise.all(entries.map((entry: ParsedTimetableEntry) => validateTimetableEntry(entry, prisma)));
+    const pdfSection = entries[0].section;
+    const pdfSemester = entries[0].semester;
+    const mismatchedPdfScope = entries.some((entry: ParsedTimetableEntry) => entry.section !== pdfSection || entry.semester !== pdfSemester);
+    if (mismatchedPdfScope) return res.status(400).json({ error: 'All entries must belong to the same PDF semester and section' });
+
+    const semester = await resolveTimetableSemester(prisma, pdfSemester, entries[0].effectiveDate);
+    if (!semester) return res.status(422).json({ error: `Semester not found: ${pdfSemester}` });
+    if (semester.id !== String(requestedSemesterId)) {
+      return res.status(422).json({ error: 'The selected academic semester does not match the semester in the PDF' });
+    }
+
+    const selectedEnrollment = await prisma.studentEnrollment.findFirst({
+      where: {
+        semesterId: semester.id,
+        semesterNumber: Number(studentSemesterNumber),
+        program: String(program),
+        classGroup: String(requestedClassGroup),
+      },
+      select: { student: { select: { batchStartYear: true } } },
+    });
+    if (!selectedEnrollment) {
+      return res.status(422).json({ error: 'The selected section is not enrolled in the selected semester and program' });
+    }
+
+    // The selected enrollment section is canonical; the PDF section is retained
+    // separately for diagnostics and is never written to TimetableSlot.
+    const canonicalEntries = entries.map((entry: ParsedTimetableEntry) => ({
+      ...entry,
+      pdfSection: entry.section,
+      section: String(requestedClassGroup),
+    }));
+
+    // Validate the entire timetable against the canonical ERP class group before
+    // opening the replacement transaction.
+    const validationResults = await Promise.all(canonicalEntries.map((entry: ParsedTimetableEntry) => validateTimetableEntry(entry, prisma)));
     const invalidEntries = validationResults.flatMap((result, index) => result.valid ? [] : [{
       entry: entries[index],
       errors: result.errors,
@@ -213,19 +256,8 @@ export const importTimetable = async (req: AuthRequest, res: Response) => {
     }
 
     const validEntries = validationResults.map(result => result.entry as ParsedTimetableEntry);
-    const firstEntry = validEntries[0];
-    const semester = await resolveTimetableSemester(prisma, firstEntry.semester, firstEntry.effectiveDate);
-    if (!semester) return res.status(422).json({ error: `Semester not found: ${firstEntry.semester}` });
-
-    const sectionName = firstEntry.section;
-    const mismatchedScope = validEntries.some(entry => entry.section !== sectionName || entry.semester !== firstEntry.semester);
-    if (mismatchedScope) return res.status(400).json({ error: 'All entries must belong to the same semester and section' });
-
-    const batchYearRecord = await prisma.studentEnrollment.findFirst({
-      where: { semesterId: semester.id, classGroup: sectionName },
-      select: { student: { select: { batchStartYear: true } } },
-    });
-    const batchYear = batchYearRecord?.student?.batchStartYear ?? null;
+    const sectionName = String(requestedClassGroup);
+    const batchYear = selectedEnrollment.student.batchStartYear ?? null;
     const entriesWithSlots = validEntries.map(entry => ({ entry, slotIndices: getSlotIndicesForTimeRange(entry.startTime, entry.endTime) }));
     const invalidSlotRange = entriesWithSlots.find(item => item.slotIndices.length === 0);
     if (invalidSlotRange) {
