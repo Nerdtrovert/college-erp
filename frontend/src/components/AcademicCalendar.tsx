@@ -27,6 +27,7 @@ import {
 } from '../utils/calendarUtils';
 import { parsePDFForEvents } from '../utils/pdfParser';
 import { DropdownSelect } from './ui/DropdownSelect';
+import API from '../services/api';
 import {
   ACADEMIC_CALENDAR_STORAGE_KEY,
   ACADEMIC_CALENDAR_VERSION_KEY,
@@ -53,10 +54,11 @@ interface EventForm {
 
 const emptyForm: EventForm = { date: '', endDate: '', title: '', type: 'academic' };
 
-export const AcademicCalendar: React.FC<AcademicCalendarProps> = ({ 
-  editable = false, 
-  editableTypes = ['cie', 'government', 'general', 'academic'] 
+export const AcademicCalendar: React.FC<AcademicCalendarProps> = ({
+  editable = false,
+  editableTypes = ['cie', 'government', 'general', 'academic']
 }) => {
+  const [activeSemester, setActiveSemester] = useState<any>(null);
   const [today, setToday] = useState(() => new Date());
   const [visibleMonth, setVisibleMonth] = useState(() => {
     const now = new Date();
@@ -70,6 +72,22 @@ export const AcademicCalendar: React.FC<AcademicCalendarProps> = ({
   const [feedback, setFeedback] = useState('');
   const [importing, setImporting] = useState(false);
   const [importFeedback, setImportFeedback] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+  useEffect(() => {
+    const fetchSemester = async () => {
+      try {
+        const response = await API.get('/semesters');
+        if (response.data && Array.isArray(response.data)) {
+          const active = response.data.find((s: any) => s.status === 'ACTIVE');
+          if (active) setActiveSemester(active);
+        }
+      } catch (error) {
+        console.error('Failed to fetch active semester:', error);
+      }
+    };
+    fetchSemester();
+  }, []);
+
   useEffect(() => {
     const now = new Date();
     const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
@@ -175,7 +193,7 @@ export const AcademicCalendar: React.FC<AcademicCalendarProps> = ({
 
     try {
       const parsedEvents = await parsePDFForEvents(file);
-      
+
       if (parsedEvents.length === 0) {
         setImportFeedback({ message: 'No events found in the PDF', type: 'info' });
         return;
@@ -184,21 +202,21 @@ export const AcademicCalendar: React.FC<AcademicCalendarProps> = ({
       // Filter out duplicates and merge with existing events
       const newEvents = parsedEvents.filter(event => !isDuplicateEvent(events, event));
       const mergedEvents = mergeEvents(events, newEvents);
-      
+
       if (newEvents.length === 0) {
         setImportFeedback({ message: 'All events from PDF already exist in the calendar', type: 'info' });
         return;
       }
 
       persistEvents(mergedEvents);
-      setImportFeedback({ 
-        message: `Successfully imported ${newEvents.length} events from PDF`, 
-        type: 'success' 
+      setImportFeedback({
+        message: `Successfully imported ${newEvents.length} events from PDF`,
+        type: 'success'
       });
     } catch (error) {
-      setImportFeedback({ 
-        message: `Failed to import PDF: ${error instanceof Error ? error.message : 'Unknown error'}`, 
-        type: 'error' 
+      setImportFeedback({
+        message: `Failed to import PDF: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        type: 'error'
       });
     } finally {
       setImporting(false);
@@ -216,11 +234,15 @@ export const AcademicCalendar: React.FC<AcademicCalendarProps> = ({
         <div>
           <div className="mb-2 flex items-center gap-2 text-sm font-medium text-blue-600">
             <CalendarDays size={17} />
-            BE V Semester
+            {activeSemester?.name || 'Academic Semester'}
           </div>
           <h1 className="text-xl font-bold tracking-tight text-gray-900 sm:text-2xl">Academic Calendar</h1>
           <p className="mt-1 max-w-2xl text-sm text-gray-500">
-            Session: September 2026 - January 2027. View CIE periods, holidays and academic activities by month.
+            {activeSemester ? (
+              `Session: ${new Date(activeSemester.startDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} - ${new Date(activeSemester.endDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}. View CIE periods, holidays and academic activities by month.`
+            ) : (
+              'Loading semester data...'
+            )}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -230,9 +252,9 @@ export const AcademicCalendar: React.FC<AcademicCalendarProps> = ({
                 <Plus size={15} />
                 Add event
               </button>
-              
+
               <label className="inline-flex items-center gap-2">
-                <button type="button" 
+                <button type="button"
                   onClick={() => document.getElementById('pdf-import-input')?.click()}
                   disabled={importing}
                   className={`inline-flex min-h-10 min-w-32 items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-100 px-5 py-2 text-sm font-semibold text-blue-800 transition-colors hover:border-blue-300 hover:bg-blue-200 ${importing ? 'opacity-70' : ''}`}
@@ -304,7 +326,7 @@ export const AcademicCalendar: React.FC<AcademicCalendarProps> = ({
       )}
 
       {importFeedback && (
-        <div className={`mt-3 p-3 rounded-lg 
+        <div className={`mt-3 p-3 rounded-lg
           ${importFeedback.type === 'success' ? 'bg-green-50 border border-green-200 text-green-800' :
           importFeedback.type === 'error' ? 'bg-rose-50 border border-rose-200 text-rose-800' :
           'bg-blue-50 border border-blue-200 text-blue-800'}`}
@@ -456,7 +478,13 @@ export const AcademicCalendar: React.FC<AcademicCalendarProps> = ({
         {[
           { title: 'CIE periods', value: String(new Set(events.filter((event) => event.type === 'cie').map((event) => event.title)).size), detail: 'Scheduled examination periods', icon: <GraduationCap size={18} />, color: 'text-amber-700 bg-amber-50' },
           { title: 'Government holidays', value: String(events.filter((event) => event.type === 'government').length), detail: 'Declared holidays in this session', icon: <Landmark size={18} />, color: 'text-rose-700 bg-rose-50' },
-          { title: 'Working days', value: '91', detail: 'Per calendar · Last working day: 30 December 2026', icon: <CalendarDays size={18} />, color: 'text-blue-700 bg-blue-50' },
+          {
+            title: 'Working days',
+            value: '91',
+            detail: `Per calendar · Last working day: ${activeSemester ? new Date(activeSemester.endDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Loading...'}`,
+            icon: <CalendarDays size={18} />,
+            color: 'text-blue-700 bg-blue-50'
+          },
         ].map((summary) => (
           <div key={summary.title} className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-5">
             <div className={`mb-3 flex h-9 w-9 items-center justify-center rounded-xl ${summary.color}`}>{summary.icon}</div>

@@ -1372,5 +1372,377 @@ export const currentStudents = [
     "name": "YUVARAJA",
     "program": "ISE",
     "classGroup": "ISE"
+  },
+  {
+    "id": "1HC25EC001",
+    "name": "AADHYA A",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC002",
+    "name": "ADITHYA R",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC003",
+    "name": "ADVIKA NAYANA GOWDA R",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC004",
+    "name": "AKSHAY P",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC005",
+    "name": "AMOGH BHAT M",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC006",
+    "name": "ANU P N",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC007",
+    "name": "ANVITHA PUJAR",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC008",
+    "name": "BHARATH T B",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC009",
+    "name": "BHARGAVI A",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC010",
+    "name": "CHANDRASHEKAR S JAMADHAGNI",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC011",
+    "name": "CHETHAN J J",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC012",
+    "name": "CHINMAY G V",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC013",
+    "name": "D HIMANSHU",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC014",
+    "name": "DWARAKESH M N",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC015",
+    "name": "G SNEHA KULKARNI",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC016",
+    "name": "HARINI P",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC017",
+    "name": "HARTHIK S",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC018",
+    "name": "INCHARA NAGRAJ",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC019",
+    "name": "KANCHANA B S",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC020",
+    "name": "KARTIK GATTI",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC021",
+    "name": "LAASYA B R",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC022",
+    "name": "LIKHITHA B S",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC023",
+    "name": "LIKITH S",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC024",
+    "name": "M NAVYASREE",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC025",
+    "name": "MADHUSUDHAN R",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC026",
+    "name": "MAHENDRA N",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC027",
+    "name": "MAHESH",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC028",
+    "name": "MEHAK DANIYA",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC029",
+    "name": "MITHUN S L",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC030",
+    "name": "NAFHAT UL MEHEK",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC031",
+    "name": "NAMRATHA R",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC032",
+    "name": "NIKHIL SUBRAMANYA J",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC033",
+    "name": "NISCHAL M",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC034",
+    "name": "P C DEEPTHI",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC035",
+    "name": "PRAVEENA DAS S",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC036",
+    "name": "PRIYANKA PARASHURAM BHAJANTHRI",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC037",
+    "name": "PUNEETH KUMAR P",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC038",
+    "name": "R SHARANYA",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC039",
+    "name": "RAGHAVENDRA SINGH K M",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC040",
+    "name": "RAGHUNANDANA K S",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC041",
+    "name": "RUTHU N RIYA",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC042",
+    "name": "S HARSHAD",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC043",
+    "name": "SAMANVITHA T",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC044",
+    "name": "SHARAN B",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC045",
+    "name": "SHASHANK G S",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC046",
+    "name": "SHOBHITHA ANANDARAO PAWAR",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC047",
+    "name": "SHREE PRIYA N",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC048",
+    "name": "SHREYAS N",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC049",
+    "name": "SHREYAS S BHARADWAJ",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC050",
+    "name": "SIRI GOWRI K",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC051",
+    "name": "SOURBH JYOTHIRMAY S",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC052",
+    "name": "SRIVATSA M S",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC053",
+    "name": "SUPRITHA S",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC054",
+    "name": "TANISHK JITESH KUMAR",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC055",
+    "name": "TRISHA",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC056",
+    "name": "UJWAL H BHANDARI",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC057",
+    "name": "V S SNEHA",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC058",
+    "name": "VAMSHI M",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC059",
+    "name": "VIVEK S RATHOD",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC060",
+    "name": "YASHASWINI M",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC061",
+    "name": "YASHWANTH S",
+    "program": "ECE",
+    "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25EC062",
+    "name": "YUVARAJ M",
+    "program": "ECE",
+    "classGroup": "ECE"
   }
 ];

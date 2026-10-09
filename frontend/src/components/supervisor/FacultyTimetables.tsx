@@ -11,7 +11,7 @@ export const FacultyTimetables: React.FC = () => {
   useEffect(() => {
     const fetchFaculty = async () => {
       try {
-        const res = await API.get('/auth/users?role=teacher');
+        const res = await API.get('/auth/users?role=teacher,dean,principal,hod');
         setFaculty(res.data);
       } catch (err) {
         console.error('Failed to load faculty:', err);

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { CalendarDays, Check, Clock3, Pencil, Plus, Save } from 'lucide-react';
 import API from '../../services/api';
 import { DropdownSelect } from '../ui/DropdownSelect';
+import { STUDENT_PROGRAMS } from '../../constants/program';
 
 // Helper function to get ordinal suffix for numbers
 function getOrdinalSuffix(n: number): string {
@@ -70,10 +71,10 @@ export const TimetableManagement: React.FC = () => {
   const [selectedCell, setSelectedCell] = useState<{ day: string; slotIndex: number } | null>(null);
   const [slotForm, setSlotForm] = useState<SlotForm>(emptyForm);
 
-  // Helper function to get faculty name by ID
+  // Helper function to get faculty name by ID, email, or original name string
   const getFacultyName = (teacherId: string): string => {
-    const facultyMember = faculty.find((f) => f.id === teacherId);
-    return facultyMember ? facultyMember.name : teacherId; // fallback to ID if not found
+    const facultyMember = faculty.find((f) => f.id === teacherId || f.email === teacherId || f.name === teacherId);
+    return facultyMember ? facultyMember.name : teacherId; // fallback to original string if not found
   };
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -114,7 +115,7 @@ export const TimetableManagement: React.FC = () => {
           }
           setSemesters(semesterResponse.data || []);
 
-          const facultyResponse = await API.get('/auth/users?role=teacher');
+          const facultyResponse = await API.get('/auth/users?role=teacher,dean,principal,hod');
           setFaculty(facultyResponse.data || []);
         }
       } catch (error) {
@@ -122,7 +123,7 @@ export const TimetableManagement: React.FC = () => {
         // Fallback to loading all semesters
         Promise.all([
           API.get('/semesters'),
-          API.get('/auth/users?role=teacher'),
+          API.get('/auth/users?role=teacher,dean,principal,hod'),
         ]).then(([semesterResponse, facultyResponse]) => {
           setSemesters(semesterResponse.data || []);
           setFaculty(facultyResponse.data || []);
@@ -185,7 +186,9 @@ export const TimetableManagement: React.FC = () => {
     try {
       const response = await API.get(`/semesters/${semesterId}/student-semesters/${studentSemesterId}/programs`);
       const data = response.data || [];
-      setPrograms(data);
+      // Keep every supported program selectable, including programs without
+      // enrollments yet for this semester.
+      setPrograms([...new Set([...STUDENT_PROGRAMS, ...data])]);
     } catch (error) {
       console.error('Failed to load programs for semester and student semester:', error);
       setPrograms([]);

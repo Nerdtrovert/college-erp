@@ -285,7 +285,7 @@ export const importTimetable = async (req: AuthRequest, res: Response) => {
       }
 
       await tx.timetableSlot.deleteMany({
-        where: { semesterId: semester.id, classGroup: sectionName, batchYear },
+        where: { semesterId: semester.id, classGroup: sectionName },
       });
 
       let importedCount = 0;

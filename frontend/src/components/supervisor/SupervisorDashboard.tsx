@@ -39,9 +39,10 @@ const NAV_ITEMS = [
 interface Props {
   user: User;
   onLogout: () => void;
+  onUserUpdated: (updates: Partial<User>) => void;
 }
 
-export const SupervisorDashboard: React.FC<Props> = ({ user, onLogout }) => {
+export const SupervisorDashboard: React.FC<Props> = ({ user, onLogout, onUserUpdated }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const pathSection = location.pathname.split('/')[2];
@@ -67,7 +68,7 @@ export const SupervisorDashboard: React.FC<Props> = ({ user, onLogout }) => {
       case 'academic-calendar': return <AcademicCalendar editable />;
       case 'subjects': return <SubjectManagement />;
       case 'students': return <StudentManagement />;
-      case 'faculty': return <FacultyManagement />;
+      case 'faculty': return <FacultyManagement currentUser={user} onCurrentUserUpdated={onUserUpdated} />;
       case 'timetable': return <TimetableManagement />;
       case 'reports': return <ReportsDashboard user={user} />;
       case 'backlogs': return <BacklogsManagement />;

@@ -856,22 +856,28 @@ function worksheetTo2DArray(worksheet: any): any[][] {
 /**
  * Parse Excel sheet to extract student grade data
  */
-function parseExcelSheet(workbook: any): any {
-  // Simplified Excel parser
+export function parseExcelSheet(workbook: any): any {
+  // Handle two-row header structure for .xlsx files:
+  // Row 0: Subject names (repeated for each mark type)
+  // Row 1: Mark types ("Internal Marks", "External Marks", "Total", "Result")
+  // Data starts at row 2
   const students: any[] = [];
 
   workbook.worksheets.forEach((worksheet: any) => {
     const rows = worksheetTo2DArray(worksheet);
 
-    // Assume first row contains headers
-    if (rows.length < 2) return;
+    // Handle two-row header structure
+    if (rows.length < 3) return;
 
-    const headers = rows[0].map((cell: any) =>
+    const subjectHeaders = rows[0].map((cell: any) =>
+      cell ? String(cell).toLowerCase().trim() : ''
+    );
+    const markTypeHeaders = rows[1].map((cell: any) =>
       cell ? String(cell).toLowerCase().trim() : ''
     );
 
-    // Process each data row
-    for (let rowIdx = 1; rowIdx < rows.length; rowIdx++) {
+    // Process each data row (starting from row 2)
+    for (let rowIdx = 2; rowIdx < rows.length; rowIdx++) {
       const row = rows[rowIdx];
       if (!row || row.length === 0) continue;
 
@@ -887,45 +893,56 @@ function parseExcelSheet(workbook: any): any {
       const subjectMarks: Record<string, Record<string, number | string>> = {};
 
       // Process each column
-      headers.forEach((header: string, colIdx: number) => {
+      subjectHeaders.forEach((subjectHeader: string, colIdx: number) => {
         const value = row[colIdx];
         if (value !== undefined && value !== null) {
           const strValue = String(value).trim();
+          const markType = markTypeHeaders[colIdx] || '';
 
           // Handle student identifying information
-          if (header.includes('name')) {
+          if (subjectHeader.includes('name')) {
             student.name = strValue;
-          } else if (header.includes('usn') || header.includes('roll')) {
+          } else if (subjectHeader.includes('usn') || subjectHeader.includes('roll')) {
             student.usn = strValue;
-          } else if (header.includes('semester')) {
+          } else if (subjectHeader.includes('semester')) {
             student.semester = strValue;
           }
-          // Handle potential mark columns - look for patterns like "SubjectName_Internal", "SubjectName_External", etc.
+          // Handle mark columns based on mark type from second header row
           else {
-            // Check if header matches pattern: something_Internal, something_External, something_Total
-            const internalMatch = header.match(/^(.+?)_(internal|int|internalmarks?)$/i);
-            const externalMatch = header.match(/^(.+?)_(external|ext|externalmarks?)$/i);
-            const totalMatch = header.match(/^(.+?)_(total|tot|totalmarks?)$/i);
-            const gradeMatch = header.match(/^(.+?)_(grade|result|status)$/i);
+            // Determine field type from mark type
+            let field: string | null = null;
+            if (markType.includes('internal') || markType === 'internal marks') {
+              field = 'internal';
+            } else if (markType.includes('external') || markType === 'external marks') {
+              field = 'external';
+            } else if (markType.includes('total') || markType === 'total') {
+              field = 'total';
+            } else if (markType.includes('grade') || markType.includes('result') || markType.includes('status')) {
+              field = 'grade';
+            }
 
-            const numericValue = Number(strValue);
-            if (internalMatch || externalMatch || totalMatch || gradeMatch) {
-              const subjectMatch = internalMatch || externalMatch || totalMatch || gradeMatch;
-              const subjectName = subjectMatch![1].trim();
-              if (!subjectMarks[subjectName]) subjectMarks[subjectName] = {};
+            if (field) {
+              // Extract subject name from the header (remove any extra whitespace/newlines)
+              const subjectName = subjectHeader.trim();
+              if (subjectName) {
+                if (!subjectMarks[subjectName]) subjectMarks[subjectName] = {};
 
-              if (gradeMatch) {
-                const grade = strValue.toUpperCase();
-                if (grade === 'F' || grade === 'P' || grade === 'A') {
-                  subjectMarks[subjectName].grade = grade;
-                }
-              } else if (!isNaN(numericValue)) {
-                if (internalMatch) {
-                  subjectMarks[subjectName].internal = numericValue;
-                } else if (externalMatch) {
-                  subjectMarks[subjectName].external = numericValue;
-                } else if (totalMatch) {
-                  subjectMarks[subjectName].total = numericValue;
+                if (field === 'grade') {
+                  const grade = strValue.toUpperCase();
+                  if (grade === 'F' || grade === 'P' || grade === 'A') {
+                    subjectMarks[subjectName].grade = grade;
+                  }
+                } else {
+                  const numericValue = Number(strValue);
+                  if (!isNaN(numericValue)) {
+                    if (field === 'internal') {
+                      subjectMarks[subjectName].internal = numericValue;
+                    } else if (field === 'external') {
+                      subjectMarks[subjectName].external = numericValue;
+                    } else if (field === 'total') {
+                      subjectMarks[subjectName].total = numericValue;
+                    }
+                  }
                 }
               }
             }
@@ -965,7 +982,7 @@ function parseExcelSheet(workbook: any): any {
   return { students };
 }
 
-function parseExcelRows(rows: any[]): any {
+export function parseExcelRows(rows: any[]): any {
   const students = rows.map(row => {
     const student: any = { name: '', usn: '', semester: '', subjects: [] };
     const subjectMarks: Record<string, Record<string, number | string>> = {};
@@ -988,21 +1005,57 @@ function parseExcelRows(rows: any[]): any {
         continue;
       }
 
-      const match = header.match(/^(.+?)[_\s-](internal|int|internalmarks?|external|ext|externalmarks?|total|tot|totalmarks?|grade|result|status)$/i);
-      if (!match) continue;
-      const subjectName = match[1].trim();
-      const field = match[2].toLowerCase();
-      if (!subjectMarks[subjectName]) subjectMarks[subjectName] = {};
+      // Check for _1/_2/_3 suffix format or no suffix (internal marks)
+      let subjectName: string | null = null;
+      let field: string | null = null;
 
-      if (['grade', 'result', 'status'].includes(field)) {
-        const grade = value.toUpperCase();
-        if (grade === 'F' || grade === 'P' || grade === 'A') subjectMarks[subjectName].grade = grade;
-      } else {
-        const numericValue = Number(value);
-        if (Number.isNaN(numericValue)) continue;
-        if (field.startsWith('internal') || field === 'int') subjectMarks[subjectName].internal = numericValue;
-        else if (field.startsWith('external') || field === 'ext') subjectMarks[subjectName].external = numericValue;
-        else subjectMarks[subjectName].total = numericValue;
+      const underscore1Match = header.match(/^(.+?)_1$/);
+      const underscore2Match = header.match(/^(.+?)_2$/);
+      const underscore3Match = header.match(/^(.+?)_3$/);
+      const noSuffixMatch = header.match(/^(.+?)$/);
+
+      if (underscore1Match) {
+        // _1 suffix corresponds to external marks
+        subjectName = underscore1Match[1].trim();
+        field = 'external';
+      } else if (underscore2Match) {
+        // _2 suffix corresponds to total marks
+        subjectName = underscore2Match[1].trim();
+        field = 'total';
+      } else if (underscore3Match) {
+        // _3 suffix corresponds to grade/result
+        subjectName = underscore3Match[1].trim();
+        field = 'grade';
+      } else if (noSuffixMatch && !header.endsWith('_1') && !header.endsWith('_2') && !header.endsWith('_3')) {
+        // No suffix corresponds to internal marks
+        // We need to be careful not to match USN, Student Name, etc.
+        const lowerHeader = header.toLowerCase().trim();
+        if (lowerHeader !== 'usn' && lowerHeader !== 'student name' && lowerHeader !== '' && !lowerHeader.includes('empty')) {
+          subjectName = noSuffixMatch[1].trim();
+          field = 'internal';
+        }
+      }
+
+      if (subjectName && field) {
+        if (!subjectMarks[subjectName]) subjectMarks[subjectName] = {};
+
+        if (field === 'grade') {
+          const grade = value.toUpperCase();
+          if (grade === 'F' || grade === 'P' || grade === 'A') {
+            subjectMarks[subjectName].grade = grade;
+          }
+        } else {
+          const numericValue = Number(value);
+          if (!isNaN(numericValue)) {
+            if (field === 'internal') {
+              subjectMarks[subjectName].internal = numericValue;
+            } else if (field === 'external') {
+              subjectMarks[subjectName].external = numericValue;
+            } else if (field === 'total') {
+              subjectMarks[subjectName].total = numericValue;
+            }
+          }
+        }
       }
     }
 

@@ -4,6 +4,12 @@ import { UserPlus, Upload, BookOpen, Plus, Search, Building, Briefcase, Graduati
 import API from '../../services/api';
 import { parseExcelFile } from '../../utils/excelParser';
 import { DropdownSelect } from '../ui/DropdownSelect';
+import type { User } from '../../types';
+
+interface FacultyManagementProps {
+  currentUser?: User;
+  onCurrentUserUpdated?: (updates: Partial<User>) => void;
+}
 
 interface ModalLayerProps {
   open: boolean;
@@ -25,7 +31,7 @@ const ModalLayer: React.FC<ModalLayerProps> = ({ open, children }) => {
   );
 };
 
-export const FacultyManagement: React.FC = () => {
+export const FacultyManagement: React.FC<FacultyManagementProps> = ({ currentUser, onCurrentUserUpdated }) => {
   const [faculty, setFaculty] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -153,7 +159,14 @@ export const FacultyManagement: React.FC = () => {
       if (editingFaculty.password) {
         payload.password = editingFaculty.password;
       }
-      await API.patch(`/auth/users/${editingFaculty.id}`, payload);
+      const response = await API.patch(`/auth/users/${editingFaculty.id}`, payload);
+      if (currentUser?.id === editingFaculty.id) {
+        onCurrentUserUpdated?.({
+          name: response.data?.name ?? payload.name,
+          role: response.data?.role ?? payload.role,
+          department: response.data?.department ?? payload.department,
+        });
+      }
       setSuccess('Faculty member updated successfully!');
       setShowEditModal(false);
       await fetchFaculty();

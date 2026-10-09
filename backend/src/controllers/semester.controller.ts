@@ -223,8 +223,10 @@ export const copySemester = async (req: AuthRequest, res: Response) => {
 
       const batchYear = batchYearRecord?.student?.batchStartYear ?? null;
 
-      await prisma.timetableSlot.create({
-        data: {
+      await prisma.timetableSlot.upsert({
+        where: { classGroup_day_slotIndex_semesterId: { classGroup: s.classGroup, day: s.day, slotIndex: s.slotIndex, semesterId: newSem.id } },
+        update: { assignmentId: assignment.id, room: s.room, teacherId: s.teacherId, batchYear: batchYear },
+        create: {
           day: s.day,
           slotIndex: s.slotIndex,
           assignmentId: assignment.id,

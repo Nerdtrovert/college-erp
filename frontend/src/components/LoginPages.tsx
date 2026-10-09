@@ -17,21 +17,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, pageType }) => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Demo accounts
-  const DEMO_ACCOUNTS = {
-    student: {
-      id: '1HC24CS001',
-      password: 'student123',
-    },
-    teacher: {
-      id: 'madhumathi@hnnce.in',
-      password: 'teacher123',
-    },
-    supervisor: {
-      id: 'hodCSE@hnnce.com',
-      password: 'hod123',
-    },
-  };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,12 +47,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, pageType }) => {
     }
   };
 
-  const fillDemo = (demoRole: 'student' | 'teacher' | 'supervisor') => {
-    const demo = DEMO_ACCOUNTS[demoRole];
-    setUserId(demo.id);
-    setPassword(demo.password);
-    setError('');
-  };
+
 
   return (
     <div className="login-shell flex min-h-dvh flex-col lg:flex-row">
@@ -90,7 +71,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, pageType }) => {
         </div>
 
         <div className="text-white/40 text-sm">
-          <p>© 2026 EduPortal · Dr. HN National College of Engineering</p>
+          <p>© {new Date().getFullYear()} EduPortal · Dr. HN National College of Engineering</p>
           <p className="mt-1.5 text-white/40">
             Designed and developed by{' '}
             <a
@@ -195,23 +176,11 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, pageType }) => {
               </button>
             </form>
 
-            <div className="mt-5 rounded-xl border border-gray-200 bg-gray-50 p-3.5 sm:mt-6 sm:border-amber-200 sm:bg-amber-50 sm:p-4">
-              <p className="text-xs font-medium text-gray-600 sm:text-amber-800 mb-2">Demo credentials</p>
-              <div className="flex flex-wrap gap-2">
-                {pageType === 'student' ? (
-                  <button type="button" onClick={() => fillDemo('student')} className="rounded bg-white px-2 py-1 text-xs font-semibold text-gray-700 shadow-sm border border-gray-200 hover:bg-gray-50">Student</button>
-                ) : (
-                  <>
-                    <button type="button" onClick={() => fillDemo('teacher')} className="rounded bg-white px-2 py-1 text-xs font-semibold text-gray-700 shadow-sm border border-gray-200 hover:bg-gray-50">Faculty</button>
-                    <button type="button" onClick={() => fillDemo('supervisor')} className="rounded bg-white px-2 py-1 text-xs font-semibold text-gray-700 shadow-sm border border-gray-200 hover:bg-gray-50">HOD/Dean</button>
-                  </>
-                )}
-              </div>
-            </div>
+
           </div>
           {/* Mobile Footer */}
           <div className="mt-4 text-center text-[10px] leading-relaxed text-white/60 lg:hidden">
-            <p>© 2026 EduPortal · Dr. HN National College of Engineering</p>
+            <p>© {new Date().getFullYear()} EduPortal · Dr. HN National College of Engineering</p>
             <p className="mt-1 text-white/50">
               Designed and developed by{' '}
               <a

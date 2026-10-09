@@ -47,6 +47,15 @@ export const App: React.FC = () => {
     sessionStorage.removeItem('token');
   };
 
+  const updateCurrentUser = (updates: Partial<User>) => {
+    setUser((currentUser) => {
+      if (!currentUser) return currentUser;
+      const updatedUser = { ...currentUser, ...updates };
+      sessionStorage.setItem('user', JSON.stringify(updatedUser));
+      return updatedUser;
+    });
+  };
+
   const StudentOnlyRoute = ({ children }: { children: React.ReactNode }) => {
     if (!user || user.role !== 'student') {
       return <Navigate to="/login" replace />;
@@ -99,7 +108,7 @@ export const App: React.FC = () => {
 
           {/* Supervisor protected routes (Dean, Principal) */}
           <Route element={<SupervisorOnlyRoute><Outlet /></SupervisorOnlyRoute>}>
-            <Route path="/supervisor/*" element={<SupervisorDashboard user={user!} onLogout={logout} />} />
+            <Route path="/supervisor/*" element={<SupervisorDashboard user={user!} onLogout={logout} onUserUpdated={updateCurrentUser} />} />
           </Route>
           <Route element={<AdminOnlyRoute><Outlet /></AdminOnlyRoute>}>
             <Route path="/admin/*" element={<AdminPortal onLogout={logout} />} />

@@ -86,6 +86,19 @@ export const StudentHome: React.FC<Props> = ({ user, onNavigate }) => {
 
   // Helper function to get current and next class based on timetable and current time
   const getCurrentAndNextClass = (timetable: any[]) => {
+    // /timetable/student returns one day object per weekday, with periods nested
+    // under `slots`; normalize that response before comparing period indexes.
+    const periodSlots = timetable.flatMap((day: any) =>
+      Array.isArray(day.slots)
+        ? day.slots.flatMap((slot: any, slotIndex: number) => slot ? [{
+            ...slot,
+            day: day.day,
+            slotIndex,
+            subject: slot.subject ?? slot.subjectCode ?? null,
+          }] : [])
+        : [day],
+    );
+
     // Get current day and time in IST
     const now = new Date();
     const istOptions: Intl.DateTimeFormatOptions = {
@@ -134,7 +147,7 @@ export const StudentHome: React.FC<Props> = ({ user, onNavigate }) => {
     // Get current class
     let currentClass: { subject: string | null; room: string | null; time: string | null } = { subject: null, room: null, time: null };
     if (currentPeriodIndex >= 0) {
-      const daySlots = timetable.filter((slot: any) =>
+      const daySlots = periodSlots.filter((slot: any) =>
         slot.day.toLowerCase() === currentDay.toLowerCase() &&
         slot.slotIndex === currentPeriodIndex
       );
@@ -158,7 +171,7 @@ export const StudentHome: React.FC<Props> = ({ user, onNavigate }) => {
         const [startTime, endTime] = PERIOD_TIMES[i];
         if (!startTime || !endTime) continue; // Skip break/lunch periods
 
-        const daySlots = timetable.filter((slot: any) =>
+        const daySlots = periodSlots.filter((slot: any) =>
           slot.day.toLowerCase() === currentDay.toLowerCase() &&
           slot.slotIndex === i
         );
@@ -192,7 +205,7 @@ export const StudentHome: React.FC<Props> = ({ user, onNavigate }) => {
           const [startTime, endTime] = PERIOD_TIMES[i];
           if (!startTime || !endTime) continue; // Skip break/lunch periods
 
-          const daySlots = timetable.filter((slot: any) =>
+          const daySlots = periodSlots.filter((slot: any) =>
             slot.day.toLowerCase() === nextDay.toLowerCase() &&
             slot.slotIndex === i
           );

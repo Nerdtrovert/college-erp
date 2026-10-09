@@ -7,7 +7,7 @@ const Footer: React.FC = () => {
         Made with ❤️ by <strong>Sudhanva and Prajwal</strong>
       </p>
       <p className="text-xs text-gray-500">
-        College ERP System © 2026
+        College ERP System © {new Date().getFullYear()}
       </p>
     </footer>
   );

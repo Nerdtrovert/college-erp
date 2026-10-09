@@ -19,6 +19,11 @@ export const getStudentTimetable = async (req: AuthRequest, res: Response) => {
     const slots = await prisma.timetableSlot.findMany({
       where: { semesterId: enrollment.semesterId, classGroup: enrollment.classGroup },
       include: { assignment: { select: { subject: { select: { code: true } } } } },
+      orderBy: [
+        { day: 'asc' },
+        { slotIndex: 'asc' },
+        { updatedAt: 'asc' }, { id: 'asc' }
+      ],
     });
 
     // Format schedule for Monday through Friday with 8 periods per day
@@ -33,7 +38,7 @@ export const getStudentTimetable = async (req: AuthRequest, res: Response) => {
             slotsArray[slot.slotIndex] = {
               subjectCode,
               activityType: slot.activityType,
-              room: slot.room || 'LH-N/A',
+              room: slot.room,
               semesterId: slot.semesterId,
               classGroup: slot.classGroup,
             };
@@ -75,6 +80,11 @@ export const getTeacherTimetable = async (req: AuthRequest, res: Response) => {
         },
       },
       include: { assignment: { select: { subject: { select: { code: true } } } } },
+      orderBy: [
+        { day: 'asc' },
+        { slotIndex: 'asc' },
+        { updatedAt: 'asc' }, { id: 'asc' }
+      ],
     });
 
     // Format schedule for Monday through Friday with 8 periods per day
@@ -89,7 +99,7 @@ export const getTeacherTimetable = async (req: AuthRequest, res: Response) => {
             slotsArray[slot.slotIndex] = {
               subjectCode,
               activityType: slot.activityType,
-              room: slot.room || 'LH-N/A',
+              room: slot.room,
               class: slot.classGroup,
               classGroup: slot.classGroup,
               semesterId: slot.semesterId,
@@ -149,6 +159,7 @@ export const getTimetableBySemester = async (req: AuthRequest, res: Response) =>
       orderBy: [
         { day: 'asc' },
         { slotIndex: 'asc' },
+        { updatedAt: 'asc' }, { id: 'asc' }
       ],
     });
 
@@ -164,7 +175,7 @@ export const getTimetableBySemester = async (req: AuthRequest, res: Response) =>
             slotsArray[slot.slotIndex] = {
               id: slot.id,
               subjectCode,
-              room: slot.room || 'LH-N/A',
+              room: slot.room,
               class: slot.classGroup, // e.g. "CSE-B" for timetable
               teacherId: slot.teacherId,
               coTeacherId: slot.coTeacherId,
@@ -261,7 +272,6 @@ export const saveTimetableSlot = async (req: AuthRequest, res: Response) => {
   }
 
   try {
-    // Determine the batch year for this semester and class group
     const batchYearRecord = await prisma.studentEnrollment.findFirst({
       where: {
         semesterId,
@@ -276,10 +286,15 @@ export const saveTimetableSlot = async (req: AuthRequest, res: Response) => {
       }
     });
 
-    const batchYear = batchYearRecord?.student?.batchStartYear ?? 0;
+    const existingSlot = await prisma.timetableSlot.findFirst({
+      where: { classGroup, day, slotIndex, semesterId },
+      orderBy: [ { updatedAt: 'desc' }, { id: 'desc' } ]
+    });
+
+    const batchYear = existingSlot?.batchYear ?? batchYearRecord?.student?.batchStartYear ?? null;
 
     const slot = await prisma.timetableSlot.upsert({
-      where: { classGroup_day_slotIndex_semesterId_batchYear: { classGroup, day, slotIndex, semesterId, batchYear } },
+      where: { classGroup_day_slotIndex_semesterId: { classGroup, day, slotIndex, semesterId } },
       update: { subjectCode, room: room || null, teacherId, coTeacherId: coTeacherId || null, activityType, batchYear },
       create: { semesterId, day, slotIndex, classGroup, subjectCode, room: room || null, teacherId, coTeacherId: coTeacherId || null, activityType, batchYear },
     });
@@ -339,6 +354,7 @@ export const getAnyFacultyTimetable = async (req: AuthRequest, res: Response) =>
       orderBy: [
         { day: 'asc' },
         { slotIndex: 'asc' },
+        { updatedAt: 'asc' }, { id: 'asc' }
       ],
     });
 
@@ -355,9 +371,9 @@ export const getAnyFacultyTimetable = async (req: AuthRequest, res: Response) =>
               id: slot.id,
               subjectCode,
               subject: subjectCode,
-              room: slot.room || 'LH-N/A',
+              room: slot.room,
               class: slot.classGroup,
-              teacherId: facultyEmail,
+              teacherId: slot.teacherId,
               coTeacherId: slot.coTeacherId,
               activityType: slot.activityType,
               semester: slot.semester ? {
@@ -433,14 +449,11 @@ export const getCurrentFacultyStatus = async (req: AuthRequest, res: Response) =
       }
     }
 
-    // Get active semester
+    // Keep the active semester for display only. HODs need the live status of
+    // their class groups even when those timetables belong to another semester.
     const activeSemester = await prisma.semester.findFirst({
       where: { status: 'ACTIVE' },
     });
-
-    if (!activeSemester) {
-      return res.status(400).json({ error: 'No active semester found' });
-    }
 
     const currentPeriodLabel = currentPeriodIndex >= 0
       ? `${PERIOD_TIMES[currentPeriodIndex][0]}–${PERIOD_TIMES[currentPeriodIndex][1]}`
@@ -470,8 +483,16 @@ export const getCurrentFacultyStatus = async (req: AuthRequest, res: Response) =
     }[] = [];
 
     if (currentPeriodIndex >= 0) {
+      const hodDepartment = req.user?.department?.trim().toUpperCase() ?? '';
+      const hodClassGroups = hodDepartment === 'EC' || hodDepartment === 'ECE'
+        ? ['EC', 'ECE']
+        : hodDepartment.includes('CSE')
+          ? ['CSE-A', 'CSE-B', 'AIDS-A', 'AI&DS-A', 'ISE']
+          : null;
       const facultyMembers = await prisma.user.findMany({
-        where: { role: 'teacher' },
+        // Supervisors can also be assigned to teach a class (for example, the
+        // principal is assigned to ECE's Friday 11:00 period in the seed data).
+        where: { role: { in: ['teacher', 'hod', 'dean', 'principal'] } },
         select: {
           id: true,
           email: true,
@@ -492,7 +513,7 @@ export const getCurrentFacultyStatus = async (req: AuthRequest, res: Response) =
               ],
               day: currentDay,
               slotIndex: currentPeriodIndex,
-              semesterId: activeSemester.id,
+              ...(req.user?.role === 'hod' ? { classGroup: { in: hodClassGroups ?? [] } } : {}),
             },
             include: { assignment: { select: { subject: { select: { code: true, name: true } } } } },
           });
@@ -541,11 +562,11 @@ export const getCurrentFacultyStatus = async (req: AuthRequest, res: Response) =
       }).format(now),
       currentPeriodIndex,
       currentPeriodLabel,
-      semester: {
+      semester: activeSemester ? {
         id: activeSemester.id,
         name: activeSemester.name,
         status: activeSemester.status,
-      },
+      } : null,
       facultyStatus,
     });
   } catch (error) {

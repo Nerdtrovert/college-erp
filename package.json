@@ -16,7 +16,5 @@
     "db:setup:dev": "npm run db:setup",
     "dev:backend": "npm --prefix backend run dev",
     "dev:frontend": "npm --prefix frontend run dev"
-  },
-  "dependencies": {
   }
 }

@@ -244,10 +244,20 @@ export const updateUser = async (req: Request, res: Response) => {
   const { name, password, role, department, program, classGroup, semesterId } = req.body;
 
   try {
-    const existing = await prisma.user.findUnique({ where: { id: userId } });
+    const existing = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { id: userId },
+          { email: userId.toLowerCase() }
+        ]
+      }
+    });
     if (!existing) {
       return res.status(404).json({ error: 'User not found' });
     }
+
+    const actualUserId = existing.id;
+    const studentUsn = existing.email || userId;
 
     const nextRole = role ?? existing.role;
     const nextProgram = program ?? existing.program;
@@ -264,8 +274,8 @@ export const updateUser = async (req: Request, res: Response) => {
     const data: any = {
       department: isStudent ? null : (department ?? existing.department),
       isActive: isStudent ? (existing.isActive ?? true) : true,
-      batchStartYear: isStudent ? batchYearsFromUsn(userId)?.startYear : null,
-      batchEndYear: isStudent ? batchYearsFromUsn(userId)?.endYear : null,
+      batchStartYear: isStudent ? batchYearsFromUsn(studentUsn)?.startYear : null,
+      batchEndYear: isStudent ? batchYearsFromUsn(studentUsn)?.endYear : null,
       program: isStudent ? nextProgram : null,
       classGroup: isStudent ? nextClassGroup : null,
     };
@@ -280,14 +290,14 @@ export const updateUser = async (req: Request, res: Response) => {
       ? await prisma.semester.findUnique({ where: { id: semesterId } })
       : null;
     const derivedSemesterNumber = enrollmentSemester
-      ? semesterNumberFromUsn(userId, enrollmentSemester.startDate || '')
+      ? semesterNumberFromUsn(studentUsn, enrollmentSemester.startDate || '')
       : null;
     if (isStudent && semesterId && !derivedSemesterNumber) {
       return res.status(400).json({ error: 'Unable to derive semester number from the student USN and semester dates' });
     }
 
     const user = await prisma.$transaction(async (tx) => {
-      const updatedUser = await tx.user.update({ where: { id: userId }, data });
+      const updatedUser = await tx.user.update({ where: { id: actualUserId }, data });
       if (isStudent && semesterId && derivedSemesterNumber) {
         await tx.studentEnrollment.upsert({
           where: { studentId_semesterId: { studentId: updatedUser.id, semesterId } },
