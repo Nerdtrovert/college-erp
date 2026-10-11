@@ -456,6 +456,8 @@ export const getStudentMarks = async (req: AuthRequest, res: Response) => {
       };
 
       const cieScore = getCieScore();
+      const cie1Score = assign.marks.find((m) => m.type === 'cie1')?.score ?? null;
+      const cie2Score = assign.marks.find((m) => m.type === 'cie2')?.score ?? null;
       const assignmentScore = getAssignmentScore();
       const labScore = getLabScore();
 
@@ -470,6 +472,8 @@ export const getStudentMarks = async (req: AuthRequest, res: Response) => {
         faculty: facultyName,
         type: assign.subject.type,
         assessments: [
+          { name: 'CIE1', marks: cie1Score, max: 50 },
+          { name: 'CIE2', marks: cie2Score, max: 50 },
           { name: 'CIE', marks: cieScore, max: isStandalone ? 25 : 15 },
           { name: 'Assignment', marks: assignmentScore, max: isStandalone ? 25 : 10 },
           { name: 'Lab', marks: labScore, max: isStandalone ? 0 : 25 }

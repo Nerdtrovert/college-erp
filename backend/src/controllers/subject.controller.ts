@@ -1,10 +1,32 @@
 import { Response } from 'express';
 import prisma from '../prisma/client';
 import { AuthRequest } from '../types';
+import { programFromLegacyDepartment } from '../constants/program';
+
+const isElectronicsHod = (req: AuthRequest) =>
+  req.user?.role === 'hod' && programFromLegacyDepartment(req.user.department) === 'ECE';
+
+const isElectronicsClassGroup = (classGroup: string) => {
+  const normalized = classGroup.trim().toUpperCase();
+  return normalized === 'EC' || normalized === 'ECE' || normalized.startsWith('EC-') || normalized.startsWith('ECE-');
+};
 
 export const getSubjects = async (req: AuthRequest, res: Response) => {
   try {
     const subjects = await prisma.subject.findMany({
+      where: isElectronicsHod(req)
+        ? {
+            assignments: {
+              some: {
+                OR: [
+                  { classGroup: { in: ['EC', 'ECE'], mode: 'insensitive' } },
+                  { classGroup: { startsWith: 'EC-', mode: 'insensitive' } },
+                  { classGroup: { startsWith: 'ECE-', mode: 'insensitive' } },
+                ],
+              },
+            },
+          }
+        : undefined,
       select: {
         id: true,
         code: true,
@@ -34,6 +56,10 @@ export const createSubject = async (req: AuthRequest, res: Response) => {
     return res.status(400).json({ error: 'Code, name, class group, theory faculty, and type are required' });
   }
 
+  if (isElectronicsHod(req) && !isElectronicsClassGroup(String(classGroup))) {
+    return res.status(403).json({ error: 'EC HODs can only create subjects for EC/ECE sections' });
+  }
+
   try {
     // Check if subject code already exists
     const existing = await prisma.subject.findUnique({
@@ -50,6 +76,12 @@ export const createSubject = async (req: AuthRequest, res: Response) => {
     if (!theoryFaculty || theoryFaculty.role !== 'teacher') {
       return res.status(400).json({ error: 'Selected theory faculty member must be a teacher' });
     }
+    if (
+      isElectronicsHod(req) &&
+      programFromLegacyDepartment(theoryFaculty.department) !== 'ECE'
+    ) {
+      return res.status(403).json({ error: 'EC HODs can only assign EC/ECE faculty to subjects' });
+    }
 
     // Verify lab faculty if provided
     if (labFacultyId) {
@@ -58,6 +90,9 @@ export const createSubject = async (req: AuthRequest, res: Response) => {
       });
       if (!labFaculty || labFaculty.role !== 'teacher') {
         return res.status(400).json({ error: 'Selected lab faculty member must be a teacher' });
+      }
+      if (isElectronicsHod(req) && programFromLegacyDepartment(labFaculty.department) !== 'ECE') {
+        return res.status(403).json({ error: 'EC HODs can only assign EC/ECE faculty to subjects' });
       }
     }
 
@@ -102,6 +137,37 @@ export const updateSubject = async (req: AuthRequest, res: Response) => {
   const { name, type, classGroup, theoryFacultyId, labFacultyId } = req.body;
 
   try {
+    if (isElectronicsHod(req)) {
+      if (classGroup !== undefined && !isElectronicsClassGroup(String(classGroup))) {
+        return res.status(403).json({ error: 'EC HODs can only update subjects for EC/ECE sections' });
+      }
+
+      const existingSubject = await prisma.subject.findUnique({
+        where: { code },
+        select: { assignments: { select: { classGroup: true } } },
+      });
+      if (
+        !existingSubject ||
+        existingSubject.assignments.length === 0 ||
+        existingSubject.assignments.some((assignment) => !isElectronicsClassGroup(assignment.classGroup))
+      ) {
+        return res.status(403).json({ error: 'EC HODs can only edit EC/ECE subjects' });
+      }
+
+      const facultyIds = [...new Set([theoryFacultyId, labFacultyId].filter(
+        (facultyId): facultyId is string => typeof facultyId === 'string' && facultyId.length > 0,
+      ))];
+      if (facultyIds.length > 0) {
+        const faculty = await prisma.user.findMany({
+          where: { id: { in: facultyIds } },
+          select: { department: true },
+        });
+        if (faculty.length !== facultyIds.length || faculty.some((member) => programFromLegacyDepartment(member.department) !== 'ECE')) {
+          return res.status(403).json({ error: 'EC HODs can only assign EC/ECE faculty to subjects' });
+        }
+      }
+    }
+
     // Start a transaction
     const result = await prisma.$transaction(async (tx) => {
       // Update the subject's name and type
@@ -180,6 +246,20 @@ export const deleteSubject = async (req: AuthRequest, res: Response) => {
   const code = req.params.code as string;
 
   try {
+    if (isElectronicsHod(req)) {
+      const subject = await prisma.subject.findUnique({
+        where: { code },
+        select: { assignments: { select: { classGroup: true } } },
+      });
+      if (
+        !subject ||
+        subject.assignments.length === 0 ||
+        subject.assignments.some((assignment) => !isElectronicsClassGroup(assignment.classGroup))
+      ) {
+        return res.status(403).json({ error: 'EC HODs can only delete EC/ECE subjects' });
+      }
+    }
+
     // Start a transaction to check history and delete
     const result = await prisma.$transaction(async (tx) => {
       // Find the subject

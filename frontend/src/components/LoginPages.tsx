@@ -132,7 +132,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, pageType }) => {
                 <input
                   type="text"
                   value={userId}
-                  onChange={(e) => setUserId(e.target.value)}
+                  onChange={(e) => setUserId(pageType === 'student' ? e.target.value.toUpperCase() : e.target.value)}
                   placeholder={pageType === 'student' ? "e.g. 1HC24CS001" : "e.g. faculty@hnnce.in"}
                   className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm text-gray-900 outline-none transition-shadow focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                   required

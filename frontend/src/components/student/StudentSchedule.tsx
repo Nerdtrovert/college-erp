@@ -1,9 +1,24 @@
 import { useMemo, useState, useEffect } from 'react';
 import { Info } from 'lucide-react';
 import API from '../../services/api';
+import { CALENDAR_EVENTS } from '../../data/academicCalendar';
 
-// Unified color palette for subjects - each subject gets a consistent visual style
-const subjectColors: Record<string, { bg: string; text: string; border: string; borderLeft: string; timeColor: string }> = {};
+// Restore the original pastel timetable styling with a consistent color per subject.
+const subjectPalette = [
+  { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200', borderLeft: 'border-l-blue-400', timeColor: 'text-blue-600' },
+  { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', borderLeft: 'border-l-amber-400', timeColor: 'text-amber-600' },
+  { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', borderLeft: 'border-l-emerald-400', timeColor: 'text-emerald-600' },
+  { bg: 'bg-violet-50', text: 'text-violet-700', border: 'border-violet-200', borderLeft: 'border-l-violet-400', timeColor: 'text-violet-600' },
+  { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200', borderLeft: 'border-l-rose-400', timeColor: 'text-rose-600' },
+  { bg: 'bg-cyan-50', text: 'text-cyan-700', border: 'border-cyan-200', borderLeft: 'border-l-cyan-400', timeColor: 'text-cyan-600' },
+];
+
+const getSubjectColor = (subjectCode: string | null | undefined) => {
+  if (!subjectCode) return { bg: 'bg-gray-50', text: 'text-gray-600', border: 'border-gray-100', borderLeft: 'border-l-gray-300', timeColor: 'text-gray-500' };
+
+  const paletteIndex = Array.from(subjectCode).reduce((sum, char) => sum + char.charCodeAt(0), 0) % subjectPalette.length;
+  return subjectPalette[paletteIndex];
+};
 
 const defaultColor = { bg: 'bg-gray-50', text: 'text-gray-600', border: 'border-gray-100', borderLeft: 'border-l-gray-300', timeColor: 'text-gray-500' };
 
@@ -71,6 +86,21 @@ export const StudentSchedule: React.FC<StudentScheduleProps> = ({ classGroup }) 
 
   const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
+  const isTodayHoliday = useMemo(() => {
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const dateKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+    if (dayOfWeek === 0 || dayOfWeek === 6) return true;
+
+    return CALENDAR_EVENTS.some((event) => {
+      if (!event.date || !event.type || event.type === 'academic') return false;
+      if (dateKey === event.date) return true;
+      if (!event.endDate) return false;
+      return dateKey >= event.date && dateKey <= event.endDate;
+    });
+  }, []);
+
   if (loading) {
     return <div className="p-6 text-center text-gray-500 font-medium">Loading timetable...</div>;
   }
@@ -102,8 +132,10 @@ export const StudentSchedule: React.FC<StudentScheduleProps> = ({ classGroup }) 
     );
   }
 
-  const todaySchedule = todayIndex >= 0 ? schedule[todayIndex] : schedule[0];
-  const todayName = todayIndex >= 0 ? dayNames[todayIndex] : dayNames[0];
+  const todaySchedule = todayIndex >= 0 ? schedule[todayIndex] : undefined;
+  const todayName = todayIndex >= 0 ? dayNames[todayIndex] : '';
+  const hasClassesToday = !!todaySchedule?.slots.some((slot) => slot && slot.subjectCode);
+  const shouldShowTodaySection = todayIndex >= 0 && !isTodayHoliday && hasClassesToday;
 
   return (
     <div className="space-y-6">
@@ -114,94 +146,91 @@ export const StudentSchedule: React.FC<StudentScheduleProps> = ({ classGroup }) 
       </div>
 
       {/* ── Today's Schedule Section ── */}
-      <div className="hidden md:block bg-white rounded-2xl border border-dashed border-blue-200 shadow-sm p-5 pb-4">
-        <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">
-          Today — {todayName}
-        </p>
+      {shouldShowTodaySection && todaySchedule && (
+        <div className="hidden md:block bg-white rounded-2xl border border-dashed border-blue-200 shadow-sm p-5 pb-4">
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">
+            Today — {todayName}
+          </p>
 
-        <div className="flex gap-3 overflow-x-auto pb-3">
-          {todaySchedule.slots.map((slot, idx) => {
-            const headerType = timeHeaders[idx]?.type;
+          <div className="flex gap-3 overflow-x-auto pb-3">
+            {todaySchedule.slots.map((slot, idx) => {
+              const headerType = timeHeaders[idx]?.type;
 
-            // Break card
-            if (headerType === 'break') {
+              if (headerType === 'break') {
+                return (
+                  <div
+                    key={idx}
+                    className="min-w-[80px] flex-[0.5] rounded-xl bg-gray-50 border border-gray-100 px-3 py-4 flex flex-col items-center justify-center text-center"
+                  >
+                    <span className="text-sm font-semibold text-gray-400">Break</span>
+                    <span className="text-[11px] text-gray-400 mt-0.5">{timeRanges[idx]}</span>
+                  </div>
+                );
+              }
+
+              if (headerType === 'lunch') {
+                return (
+                  <div
+                    key={idx}
+                    className="min-w-[80px] flex-[0.5] rounded-xl bg-gray-50 border border-gray-100 px-3 py-4 flex flex-col items-center justify-center text-center"
+                  >
+                    <span className="text-sm font-semibold text-gray-400">Lunch</span>
+                    <span className="text-[11px] text-gray-400 mt-0.5">{timeRanges[idx]}</span>
+                  </div>
+                );
+              }
+
+              if (slot) {
+                const color = getSubjectColor(slot.subjectCode);
+                const borderLeft = color.borderLeft;
+                const timeColor = color.timeColor;
+                const todayBg = color.bg;
+
+                return (
+                  <div
+                    key={idx}
+                    className={`min-w-[130px] flex-1 rounded-xl ${todayBg} border border-gray-100 border-l-4 ${borderLeft} px-4 py-4 flex flex-col justify-center`}
+                  >
+                    <span className={`text-[11px] font-semibold ${timeColor}`}>{timeRanges[idx]}</span>
+                    <span className="text-sm font-bold text-gray-800 mt-1.5 leading-tight">{slot.subjectCode ?? '-'}</span>
+                    <span className="block text-[11px] text-gray-500 mt-1">{slot.activityType ?? '-'}</span>
+                    <span className="text-xs text-gray-400 mt-1.5">Room {slot.room ?? '-'}</span>
+                  </div>
+                );
+              }
+
               return (
                 <div
                   key={idx}
                   className="min-w-[80px] flex-[0.5] rounded-xl bg-gray-50 border border-gray-100 px-3 py-4 flex flex-col items-center justify-center text-center"
                 >
-                  <span className="text-sm font-semibold text-gray-400">Break</span>
-                  <span className="text-[11px] text-gray-400 mt-0.5">{timeRanges[idx]}</span>
+                  <span className="text-gray-300 text-lg">—</span>
                 </div>
               );
-            }
+            })}
+          </div>
 
-            // Lunch card
-            if (headerType === 'lunch') {
-              return (
-                <div
-                  key={idx}
-                  className="min-w-[80px] flex-[0.5] rounded-xl bg-gray-50 border border-gray-100 px-3 py-4 flex flex-col items-center justify-center text-center"
-                >
-                  <span className="text-sm font-semibold text-gray-400">Lunch</span>
-                  <span className="text-[11px] text-gray-400 mt-0.5">{timeRanges[idx]}</span>
-                </div>
-              );
-            }
-
-            // Class card
-            if (slot) {
-              const color = subjectColors[slot.subjectCode ?? 'default'] || defaultColor;
-              const borderLeft = color.borderLeft;
-              const timeColor = color.timeColor;
-              const todayBg = color.bg;
-
-              return (
-                <div
-                  key={idx}
-                  className={`min-w-[130px] flex-1 rounded-xl ${todayBg} border border-gray-100 border-l-4 ${borderLeft} px-4 py-4 flex flex-col justify-center`}
-                >
-                  <span className={`text-[11px] font-semibold ${timeColor}`}>{timeRanges[idx]}</span>
-                  <span className="text-sm font-bold text-gray-800 mt-1.5 leading-tight">{slot.subjectCode ?? '-'}</span>
-                  <span className="block text-[11px] text-gray-500 mt-1">{slot.activityType ?? '-'}</span>
-                  <span className="text-xs text-gray-400 mt-1.5">Room {slot.room ?? '-'}</span>
-                </div>
-              );
-            }
-
-            // Empty slot
-            return (
-              <div
-                key={idx}
-                className="min-w-[80px] flex-[0.5] rounded-xl bg-gray-50 border border-gray-100 px-3 py-4 flex flex-col items-center justify-center text-center"
-              >
-                <span className="text-gray-300 text-lg">—</span>
-              </div>
-            );
-          })}
+          <div className="mt-2 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+            <div
+              className="h-full rounded-full"
+              style={{
+                width: (() => {
+                  const now = new Date();
+                  const h = now.getHours();
+                  const m = now.getMinutes();
+                  const mins = h * 60 + m;
+                  const start = 8 * 60 + 30;
+                  const end = 15 * 60 + 45;
+                  if (mins <= start) return '0%';
+                  if (mins >= end) return '100%';
+                  return `${Math.round(((mins - start) / (end - start)) * 100)}%`;
+                })(),
+                background: 'linear-gradient(90deg, #3b82f6 0%, #6366f1 100%)',
+              }}
+            />
+          </div>
         </div>
-
-        {/* Progress bar */}
-        <div className="mt-2 h-1.5 rounded-full bg-gray-100 overflow-hidden">
-          <div
-            className="h-full rounded-full"
-            style={{
-              width: (() => {
-                const now = new Date();
-                const h = now.getHours();
-                const m = now.getMinutes();
-                const mins = h * 60 + m;
-                const start = 8 * 60 + 30; // 8:30 AM
-                const end = 15 * 60 + 45;  // 3:45 PM
-                if (mins <= start) return '0%';
-                if (mins >= end) return '100%';
-                return `${Math.round(((mins - start) / (end - start)) * 100)}%`;
-              })(),
-              background: 'linear-gradient(90deg, #3b82f6 0%, #6366f1 100%)',
-            }}
-          />
-        </div>
-      </div>
+      )}
 
       {/* Compact mobile agenda: one readable card per class instead of a wide table. */}
       <div className="md:hidden space-y-3">
@@ -226,7 +255,7 @@ export const StudentSchedule: React.FC<StudentScheduleProps> = ({ classGroup }) 
               </div>
               <div className="divide-y divide-gray-100">
                 {classes.length > 0 ? classes.map(({ slot, slotIdx }) => {
-                  const color = subjectColors[slot!.subjectCode ?? 'default'] || defaultColor;
+                  const color = getSubjectColor(slot!.subjectCode);
                   return (
                     <div key={slotIdx} className="flex items-start gap-3 px-4 py-3.5">
                       <span className="w-[4.25rem] shrink-0 pt-0.5 text-[11px] font-semibold text-gray-400">
@@ -328,8 +357,7 @@ export const StudentSchedule: React.FC<StudentScheduleProps> = ({ classGroup }) 
 
                       // Class slot
                       if (slot) {
-                        const color =
-                          subjectColors[slot.subjectCode ?? 'default'] || defaultColor;
+                        const color = getSubjectColor(slot.subjectCode);
                         return (
                           <td key={slotIdx} className="px-2 py-3 align-middle">
                             <div
@@ -341,10 +369,10 @@ export const StudentSchedule: React.FC<StudentScheduleProps> = ({ classGroup }) 
                                 {slot.subjectCode ?? '-'}
                               </div>
                               <div className="text-xs text-gray-400 mt-1">
-                                {slot.activityType ?? '-'}
+                                {slot.activityType ?? '-' }
                               </div>
                               <div className="text-xs text-gray-400 mt-1">
-                                Room {slot.room ?? '-'}
+                                Room {slot.room ?? '-' }
                               </div>
                             </div>
                           </td>

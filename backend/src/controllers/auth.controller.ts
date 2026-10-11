@@ -60,10 +60,12 @@ export const login = async (req: Request, res: Response) => {
     }
 
     // Sign JWT token
+    const normalizedEmail = user.role === 'student' ? user.email.toUpperCase() : user.email;
+
     const token = jwt.sign(
       {
         id: user.id,
-        email: user.email,
+        email: normalizedEmail,
         role: user.role,
         name: user.name,
         department: user.department,
@@ -78,7 +80,7 @@ export const login = async (req: Request, res: Response) => {
       token,
       user: {
         id: user.id,
-        email: user.email,
+        email: normalizedEmail,
         role: user.role,
         name: user.name,
         department: user.department,

@@ -19,6 +19,9 @@ interface Props {
 
 export const Sidebar: React.FC<Props> = ({ user, items, active, onNavigate, onLogout, className = "hidden md:flex flex-col w-64 h-screen sticky top-0" }) => {
   const initials = user.name.split(' ').map(n => n[0]).join('').slice(0, 2);
+  const displayEmail = user.role === 'student'
+    ? (user.email || '—').toUpperCase()
+    : (user.email || '—');
 
   return (
     <aside
@@ -75,7 +78,7 @@ export const Sidebar: React.FC<Props> = ({ user, items, active, onNavigate, onLo
           </div>
           <div className="min-w-0">
             <div className="text-white text-sm font-medium truncate">{user.name}</div>
-            <div className="text-white/40 text-xs truncate">{user.email || '—'}</div>
+            <div className="text-white/40 text-xs truncate">{displayEmail}</div>
           </div>
         </div>
         <button

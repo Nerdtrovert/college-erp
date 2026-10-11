@@ -34,6 +34,13 @@ interface StudentMarkItem {
   score: number | null;
 }
 
+const getStudentInitials = (name: string) => {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+};
+
 export const TeacherMarks: React.FC = () => {
   const [subjects, setSubjects] = useState<SubjectItem[]>([]);
   const [selectedClass, setSelectedClass] = useState('');
@@ -71,10 +78,14 @@ export const TeacherMarks: React.FC = () => {
         const selectedSubject = subjects.find((subject) => `${subject.code}|${subject.classGroup}` === selectedClass);
         if (!selectedSubject) return;
         const res = await API.get(`/marks/teacher/${encodeURIComponent(selectedSubject.code)}/${selectedAssessment}?classGroup=${encodeURIComponent(selectedSubject.classGroup)}`);
-        setStudents(res.data.students);
+        const roster = [...res.data.students].sort((a: StudentMarkItem, b: StudentMarkItem) =>
+          a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }) ||
+          a.roll.localeCompare(b.roll, undefined, { sensitivity: 'base' })
+        );
+        setStudents(roster);
         setMarks(
           Object.fromEntries(
-            res.data.students.map((s: any) => [s.roll, s.score !== null ? String(s.score) : ''])
+            roster.map((s) => [s.roll, s.score !== null ? String(s.score) : ''])
           )
         );
       } catch (err) {
@@ -274,6 +285,46 @@ export const TeacherMarks: React.FC = () => {
         </div>
       </div>
 
+      {/* Keep the mark actions above the roster so they stay easy to reach. */}
+      <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:flex-row sm:flex-wrap sm:items-center">
+        <button
+          onClick={handleSave}
+          disabled={saving || saved}
+          className={`flex w-full items-center justify-center gap-2 rounded-xl border px-5 py-2.5 text-sm font-semibold transition-colors sm:w-auto ${
+            saved
+              ? 'border-emerald-200 bg-emerald-100 text-emerald-800'
+              : 'border-blue-200 bg-blue-100 text-blue-800 hover:bg-blue-200 disabled:opacity-60'
+          }`}
+        >
+          <Save size={16} />
+          {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Marks'}
+        </button>
+        <label className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-5 py-2.5 text-sm font-semibold text-amber-800 transition-colors hover:bg-amber-100 sm:w-auto">
+          <Upload size={16} />
+          Upload Marks Excel
+          <input
+            type="file"
+            accept=".xlsx,.xls"
+            onChange={handleExcelUpload}
+            className="hidden"
+          />
+        </label>
+        <button
+          onClick={handleExport}
+          disabled={exporting || !selectedClass}
+          className="glossy-action flex w-full items-center justify-center gap-2 rounded-xl border border-blue-300 bg-blue-100 px-5 py-2.5 text-sm font-semibold text-blue-800 transition-colors hover:bg-blue-200 disabled:opacity-60 sm:w-auto"
+        >
+          <Download size={16} />
+          {exporting ? 'Exporting...' : 'Export Marks PDF'}
+        </button>
+        {saved && (
+          <span role="status" className="flex items-center gap-1.5 text-sm font-medium text-green-700 sm:ml-auto">
+            <CheckCircle2 size={14} />
+            Marks updated successfully
+          </span>
+        )}
+      </div>
+
       {/* Marks table */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="px-4 sm:px-6 py-4 border-b border-gray-100 flex items-center justify-between">
@@ -290,8 +341,8 @@ export const TeacherMarks: React.FC = () => {
             return (
               <div key={s.roll} className="flex flex-nowrap items-center gap-2 sm:gap-4 px-4 sm:px-6 py-4 hover:bg-gray-50">
                 <span className="text-xs text-gray-400 w-5 flex-shrink-0 font-mono">{String(i + 1).padStart(2, '0')}</span>
-                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-xs font-bold text-blue-700 flex-shrink-0">
-                  {s.name.split(' ').map(n => n[0]).join('')}
+                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center overflow-hidden whitespace-nowrap text-xs font-bold text-blue-700 flex-shrink-0">
+                  {getStudentInitials(s.name)}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-semibold text-gray-900 truncate">{s.name}</div>
@@ -324,44 +375,6 @@ export const TeacherMarks: React.FC = () => {
             )
           })}
         </div>
-      </div>
-
-      {/* Save */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-        <button
-          onClick={handleSave}
-          disabled={saving || saved}
-          className={`flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm shadow-sm ${
-            saved ? 'border border-emerald-200 bg-emerald-100 text-emerald-800' : 'border border-blue-200 bg-blue-100 text-blue-800 hover:bg-blue-200 disabled:opacity-60'
-          }`}
-        >
-          <Save size={16} />
-          {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Marks'}
-        </button>
-        <label className="flex items-center justify-center gap-2 px-6 py-3 rounded-2xl border border-amber-200 bg-amber-50 text-amber-800 text-sm font-semibold hover:bg-amber-100 cursor-pointer transition-colors duration-150">
-          <Upload size={16} />
-          Upload Marks Excel
-          <input
-            type="file"
-            accept=".xlsx,.xls"
-            onChange={handleExcelUpload}
-            className="hidden"
-          />
-        </label>
-        <button
-          onClick={handleExport}
-          disabled={exporting || !selectedClass}
-          className="glossy-action flex items-center justify-center gap-2 px-6 py-3 rounded-2xl border border-blue-300 bg-blue-100 text-blue-800 text-sm font-semibold hover:bg-blue-200 disabled:opacity-60"
-        >
-          <Download size={16} />
-          {exporting ? 'Exporting...' : 'Export Marks PDF'}
-        </button>
-        {saved && (
-          <span className="text-sm text-green-700 font-medium flex items-start sm:items-center gap-1.5">
-            <CheckCircle2 size={14} />
-            Marks updated successfully
-          </span>
-        )}
       </div>
     </div>
   );

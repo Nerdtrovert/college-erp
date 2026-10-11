@@ -39,48 +39,37 @@ export const StudentMarks: React.FC = () => {
     return <div className="p-6 text-center text-red-500 font-medium">{error}</div>;
   }
 
-  // Calculate dynamic metrics
-  let highestPct = 0;
-  let highestSubjectName = 'N/A';
-  let totalScored = 0;
-  let totalMax = 0;
-  let subjectsClearedCount = 0;
-  let hasPendingMarks = false;
+  const getAssessmentMarks = (assessmentName: string) => {
+    const values = subjects
+      .flatMap((sub) => sub.assessments ?? [])
+      .filter((ass: any) => ass && typeof ass.name === 'string' && ass.name.toLowerCase() === assessmentName.toLowerCase())
+      .map((ass: any) => ass.marks)
+      .filter((marks: unknown) => marks !== null && marks !== undefined)
+      .map((marks: unknown) => Number(marks))
+      .filter((value) => Number.isFinite(value));
 
-  subjects.forEach((sub) => {
-    let subScored = 0;
-    let subMax = 0;
-    let subPending = false;
+    if (values.length === 0) return null;
+    return values.reduce((sum, value) => sum + value, 0) / values.length;
+  };
 
-    sub.assessments.forEach((ass: any) => {
-      if (ass.max > 0) {
-        if (ass.marks !== null) {
-          subScored += ass.marks;
-          subMax += ass.max;
-        } else {
-          subPending = true;
-          hasPendingMarks = true;
-        }
-      }
-    });
+  const cie1Marks = getAssessmentMarks('CIE1');
+  const cie2Marks = getAssessmentMarks('CIE2');
+  const cieAverage = cie1Marks !== null && cie2Marks !== null
+    ? ((cie1Marks + cie2Marks) / 2).toFixed(1)
+    : null;
+  const getAssessment = (subject: any, name: string) =>
+    subject.assessments?.find((assessment: any) => assessment.name.toLowerCase() === name.toLowerCase());
+  const getSubjectTotal = (subject: any) => {
+    const cie1 = getAssessment(subject, 'CIE1');
+    const cie2 = getAssessment(subject, 'CIE2');
+    if (cie1?.marks == null || cie2?.marks == null) return null;
 
-    if (subMax > 0) {
-      const pct = (subScored / subMax) * 100;
-      if (pct > highestPct) {
-        highestPct = pct;
-        highestSubjectName = sub.name;
-      }
-      totalScored += subScored;
-      totalMax += subMax;
+    return ['CIE', 'Assignment', 'Lab'].reduce((total, name) => {
+      const marks = getAssessment(subject, name)?.marks;
+      return total + (marks == null ? 0 : Number(marks));
+    }, 0);
+  };
 
-      if (pct >= 50 && !subPending) {
-        subjectsClearedCount++;
-      }
-    }
-  });
-
-  const averagePct = totalMax > 0 ? Math.round((totalScored / totalMax) * 100) : 0;
-  const projectedSGPA = averagePct > 0 ? (averagePct / 10 + 0.8).toFixed(1) : '0.0';
   return (
     <div className="space-y-6">
       <div>
@@ -88,21 +77,41 @@ export const StudentMarks: React.FC = () => {
         <p className="text-gray-500 text-sm mt-1">Current academic period</p>
       </div>
 
-      {/* Summary row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'Highest Mark', value: `${Math.round(highestPct)}%`, sub: highestSubjectName, icon: <Award size={18} />, color: 'text-purple-600 bg-purple-50' },
-          { label: 'Average', value: `${averagePct}%`, sub: 'Across all subjects', icon: <TrendingUp size={18} />, color: 'text-blue-600 bg-blue-50' },
-          { label: 'Subjects Cleared', value: `${subjectsClearedCount}/${subjects.length}`, sub: hasPendingMarks ? 'Assessments pending' : 'All marks posted', icon: <TrendingUp size={18} />, color: 'text-green-600 bg-green-50' },
-          { label: 'SGPA (projected)', value: projectedSGPA, sub: 'Based on internals', icon: <TrendingUp size={18} />, color: 'text-amber-600 bg-amber-50' },
-        ].map((s) => (
-          <div key={s.label} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-5">
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center mb-3 ${s.color}`}>{s.icon}</div>
-            <div className="text-2xl font-bold text-gray-900">{s.value}</div>
-            <div className="text-xs text-gray-500 mt-0.5">{s.label}</div>
-            <div className="text-xs text-gray-400 mt-0.5">{s.sub}</div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-5">
+          <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
+            <TrendingUp size={18} />
           </div>
-        ))}
+          <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">CIE overview</div>
+          <div className="mt-3 flex items-end justify-between gap-3">
+            <div>
+              <div className="text-xs text-gray-500">CIE1</div>
+              <div className="text-2xl font-bold text-gray-900">
+                {cie1Marks !== null ? `${cie1Marks.toFixed(1)}/50` : '—'}
+              </div>
+            </div>
+            <div className="h-10 w-px bg-gray-200" />
+            <div>
+              <div className="text-xs text-gray-500">CIE2</div>
+              <div className="text-2xl font-bold text-gray-900">
+                {cie2Marks !== null ? `${cie2Marks.toFixed(1)}/50` : '—'}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-5">
+          <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mb-3">
+            <Award size={18} />
+          </div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">Average CIE</div>
+          <div className="mt-2 text-3xl font-bold text-gray-900">
+            {cieAverage !== null ? `${cieAverage}/50` : '—'}
+          </div>
+          <div className="text-sm text-gray-500">
+            {cieAverage !== null ? 'Average of CIE1 and CIE2' : 'Waiting for both CIE marks'}
+          </div>
+        </div>
       </div>
 
       {/* Marks table */}
@@ -112,11 +121,8 @@ export const StudentMarks: React.FC = () => {
         </div>
         <div className="grid gap-3 p-3 md:hidden">
           {subjects.map((s) => {
-            const scored = s.assessments.reduce((acc: number, a: any) => acc + (a.max > 0 ? (a.marks ?? 0) : 0), 0);
-            const maxScored = s.assessments.reduce((acc: number, a: any) => acc + (a.max > 0 && a.marks !== null ? a.max : 0), 0);
-            const fullMax = s.assessments.reduce((acc: number, a: any) => acc + a.max, 0);
-            const pct = maxScored > 0 ? Math.round((scored / maxScored) * 100) : 0;
-            const g = grade(pct);
+            const total = getSubjectTotal(s);
+            const g = total !== null ? grade((total / 50) * 100) : null;
 
             return (
               <article key={s.code} className="rounded-xl border border-gray-100 bg-gray-50/60 p-3.5">
@@ -125,28 +131,38 @@ export const StudentMarks: React.FC = () => {
                     <h3 className="font-semibold leading-snug text-gray-900">{s.name}</h3>
                     <p className="mt-1 text-xs text-gray-500">{s.code} · {s.faculty}</p>
                   </div>
-                  <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${g.color}`}>{g.label}</span>
+                  {g ? (
+                    <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${g.color}`}>{g.label}</span>
+                  ) : (
+                    <span className="shrink-0 text-xs text-gray-400">—</span>
+                  )}
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-2">
-                  {s.assessments.map((a: any) => (
-                    <div key={a.name} className="rounded-lg border border-gray-100 bg-white px-3 py-2">
-                      <p className="text-[11px] uppercase tracking-wide text-gray-400">{a.name}</p>
-                      <p className={`mt-1 text-sm font-semibold ${
-                        a.max === 0 || a.marks === null
-                          ? 'text-gray-400'
-                          : a.marks / a.max >= 0.8
-                            ? 'text-green-700'
-                            : a.marks / a.max >= 0.6
-                              ? 'text-amber-700'
-                              : 'text-red-700'
-                      }`}>
-                        {a.max === 0 ? '—' : a.marks !== null ? `${a.marks}/${a.max}` : 'Pending'}
-                      </p>
-                    </div>
-                  ))}
+                  {['CIE1', 'CIE2', 'Assignment', 'Lab'].map((name) => {
+                    const a = getAssessment(s, name);
+                    if (!a) return null;
+                    return (
+                      <div key={a.name} className="rounded-lg border border-gray-100 bg-white px-3 py-2">
+                        <p className="text-[11px] uppercase tracking-wide text-gray-400">
+                          {name === 'CIE1' ? 'CIE-1' : name === 'CIE2' ? 'CIE-2' : name}
+                        </p>
+                        <p className={`mt-1 text-sm font-semibold ${
+                          a.max === 0 || a.marks === null
+                            ? 'text-gray-400'
+                            : a.marks / a.max >= 0.8
+                              ? 'text-green-700'
+                              : a.marks / a.max >= 0.6
+                                ? 'text-amber-700'
+                                : 'text-red-700'
+                        }`}>
+                          {a.max === 0 ? '—' : a.marks !== null ? `${a.marks}/${a.max}` : 'Pending'}
+                        </p>
+                      </div>
+                    );
+                  })}
                   <div className="rounded-lg border border-blue-100 bg-blue-50/70 px-3 py-2">
                     <p className="text-[11px] uppercase tracking-wide text-blue-600">Total</p>
-                    <p className="mt-1 text-sm font-bold text-gray-900">{scored}/{fullMax}</p>
+                    <p className="mt-1 text-sm font-bold text-gray-900">{total !== null ? `${total}/50` : '—'}</p>
                   </div>
                 </div>
               </article>
@@ -158,18 +174,15 @@ export const StudentMarks: React.FC = () => {
             <thead className="sticky top-0 z-10 shadow-[0_1px_0_0_#e5e7eb]">
               <tr className="bg-gray-50">
                 <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Subject</th>
-                {['CIE', 'Assignment', 'Lab', 'Total (50)', 'Grade'].map(h => (
+                {['CIE-1', 'CIE-2', 'Assignment', 'Lab', 'Total (50)', 'Grade'].map(h => (
                   <th key={h} className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {subjects.map((s) => {
-                const scored = s.assessments.reduce((acc: number, a: any) => acc + (a.max > 0 ? (a.marks ?? 0) : 0), 0);
-                const maxScored = s.assessments.reduce((acc: number, a: any) => acc + (a.max > 0 && a.marks !== null ? a.max : 0), 0);
-                const fullMax = s.assessments.reduce((acc: number, a: any) => acc + a.max, 0);
-                const pct = maxScored > 0 ? Math.round((scored / maxScored) * 100) : 0;
-                const g = grade(pct);
+                const total = getSubjectTotal(s);
+                const g = total !== null ? grade((total / 50) * 100) : null;
 
                 return (
                   <tr key={s.code} className="hover:bg-gray-50">
@@ -177,24 +190,32 @@ export const StudentMarks: React.FC = () => {
                       <div className="font-medium text-gray-900 text-sm">{s.name}</div>
                       <div className="text-xs text-gray-400">{s.code} &middot; {s.faculty}</div>
                     </td>
-                    {s.assessments.map((a: any) => (
-                      <td key={a.name} className="px-4 py-4 text-center">
-                        {a.max === 0 ? (
-                          <span className="text-gray-400">—</span>
-                        ) : a.marks !== null ? (
-                          <span className={`font-semibold ${a.marks / a.max >= 0.8 ? 'text-green-700' : a.marks / a.max >= 0.6 ? 'text-amber-700' : 'text-red-700'}`}>
-                            {a.marks}
-                          </span>
-                        ) : (
-                          <span className="text-gray-300 text-xs">Pending</span>
-                        )}
-                      </td>
-                    ))}
+                    {['CIE1', 'CIE2', 'Assignment', 'Lab'].map((name) => {
+                      const a = getAssessment(s, name);
+                      if (!a) return <td key={name} className="px-4 py-4 text-center text-gray-400">—</td>;
+                      return (
+                        <td key={a.name} className="px-4 py-4 text-center">
+                          {a.max === 0 ? (
+                            <span className="text-gray-400">—</span>
+                          ) : a.marks !== null ? (
+                            <span className={`font-semibold ${a.marks / a.max >= 0.8 ? 'text-green-700' : a.marks / a.max >= 0.6 ? 'text-amber-700' : 'text-red-700'}`}>
+                              {a.marks}
+                            </span>
+                          ) : (
+                            <span className="text-gray-300 text-xs">Pending</span>
+                          )}
+                        </td>
+                      );
+                    })}
                     <td className="px-4 py-4 text-center font-semibold text-gray-900">
-                      {scored}/{fullMax}
+                      {total !== null ? `${total}/50` : '—'}
                     </td>
                     <td className="px-4 py-4 text-center">
-                      <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${g.color}`}>{g.label}</span>
+                      {g ? (
+                        <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${g.color}`}>{g.label}</span>
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
                     </td>
                   </tr>
                 );
