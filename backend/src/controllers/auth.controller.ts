@@ -60,7 +60,7 @@ export const login = async (req: Request, res: Response) => {
     }
 
     // Sign JWT token
-    const normalizedEmail = user.role === 'student' ? user.email.toUpperCase() : user.email;
+    const normalizedEmail = user.role === 'student' ? (user.email ? user.email.toUpperCase() : null) : user.email;
 
     const token = jwt.sign(
       {
@@ -95,32 +95,45 @@ export const login = async (req: Request, res: Response) => {
 };
 
 export const register = async (req: Request, res: Response) => {
-  const { name, password, role, department, program, classGroup, semesterId, numberOfBacklogs, backlogSubjects, email } = req.body;
+  const {
+    name, password, role, department, program, classGroup, semesterId,
+    semesterNumber, numberOfBacklogs, backlogSubjects, email,
+    batchStartYear, batchEndYear
+  } = req.body;
   const identifier = role === 'student'
     ? String(email).toUpperCase()
     : String(email).trim();
 
   try {
-    // Check if user with this email is already registered
-    // Use generic error message to prevent user enumeration
-    const existingUser = await prisma.user.findUnique({
-      where: { email: identifier.toLowerCase() },
+    // Check if user with this email or USN is already registered
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: identifier.toLowerCase() },
+          { email: identifier.toUpperCase() },
+        ],
+      },
     });
     if (existingUser) {
-      return res.status(400).json({ error: 'Registration failed' });
+      return res.status(409).json({ error: `A user with identifier ${identifier} is already registered` });
     }
 
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const batch = role === 'student' ? batchYearsFromUsn(identifier) : null;
+    const startYear = batchStartYear ?? batch?.startYear ?? null;
+    const endYear = batchEndYear ?? batch?.endYear ?? (startYear ? startYear + 4 : null);
+
     const enrollmentSemester = role === 'student' && semesterId
       ? await prisma.semester.findUnique({ where: { id: semesterId } })
       : null;
-    const semesterNumber = role === 'student' && enrollmentSemester
-      ? semesterNumberFromUsn(identifier, enrollmentSemester.startDate || '')
+    const derivedSemesterNumber = role === 'student' && enrollmentSemester
+      ? ((semesterNumber && Number(semesterNumber) >= 1 && Number(semesterNumber) <= 8)
+          ? Number(semesterNumber)
+          : semesterNumberFromUsn(identifier, enrollmentSemester.startDate || ''))
       : null;
-    if (role === 'student' && semesterId && (!enrollmentSemester || !semesterNumber)) {
+    if (role === 'student' && semesterId && (!enrollmentSemester || !derivedSemesterNumber)) {
       return res.status(400).json({ error: 'Unable to derive semester number from the student USN and semester dates' });
     }
 
@@ -132,20 +145,22 @@ export const register = async (req: Request, res: Response) => {
           password: hashedPassword,
           role,
           isActive: true,
-          batchStartYear: batch?.startYear ?? null,
-          batchEndYear: batch?.endYear ?? null,
+          batchStartYear: startYear,
+          batchEndYear: endYear,
+          numberOfBacklogs: numberOfBacklogs ?? 0,
+          backlogSubjects: Array.isArray(backlogSubjects) ? backlogSubjects : [],
           department: role === 'student' ? null : department,
           program: role === 'student' ? program : null,
           classGroup: role === 'student' ? classGroup : null,
           semesterId: role === 'student' ? (semesterId ?? null) : null,
         },
       });
-      if (role === 'student' && semesterId && semesterNumber) {
+      if (role === 'student' && semesterId && derivedSemesterNumber) {
         await tx.studentEnrollment.create({
           data: {
             studentId: createdUser.id,
             semesterId,
-            semesterNumber,
+            semesterNumber: derivedSemesterNumber,
             program: program!,
             classGroup: classGroup!,
           },
@@ -158,11 +173,18 @@ export const register = async (req: Request, res: Response) => {
       message: 'User registered successfully',
       user: {
         id: user.id,
+        email: user.email,
         role: user.role,
         name: user.name,
         department: user.department,
         program: user.program,
         classGroup: user.classGroup,
+        semesterId: user.semesterId,
+        isActive: user.isActive,
+        batchStartYear: user.batchStartYear,
+        batchEndYear: user.batchEndYear,
+        numberOfBacklogs: user.numberOfBacklogs,
+        backlogSubjects: user.backlogSubjects,
       },
     });
   } catch (error) {
@@ -215,6 +237,8 @@ export const getUsersByRole = async (req: AuthRequest, res: Response) => {
         isActive: true,
         batchStartYear: true,
         batchEndYear: true,
+        numberOfBacklogs: true,
+        backlogSubjects: true,
         semester: { select: { id: true, name: true } },
         enrollments: {
           select: {
@@ -243,7 +267,21 @@ export const getUsersByRole = async (req: AuthRequest, res: Response) => {
 export const updateUser = async (req: Request, res: Response) => {
   const { id } = req.params;
   const userId = Array.isArray(id) ? id[0] : id;
-  const { name, password, role, department, program, classGroup, semesterId } = req.body;
+  const {
+    name,
+    password,
+    role,
+    department,
+    program,
+    classGroup,
+    semesterId,
+    isActive,
+    batchStartYear,
+    batchEndYear,
+    numberOfBacklogs,
+    backlogSubjects,
+    semesterNumber,
+  } = req.body;
 
   try {
     const existing = await prisma.user.findFirst({
@@ -273,14 +311,35 @@ export const updateUser = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Department is required for faculty and supervisors' });
     }
 
+    const targetSemesterId = semesterId !== undefined ? semesterId : existing.semesterId;
+
     const data: any = {
       department: isStudent ? null : (department ?? existing.department),
-      isActive: isStudent ? (existing.isActive ?? true) : true,
-      batchStartYear: isStudent ? batchYearsFromUsn(studentUsn)?.startYear : null,
-      batchEndYear: isStudent ? batchYearsFromUsn(studentUsn)?.endYear : null,
+      isActive: isActive !== undefined ? isActive : (existing.isActive ?? true),
       program: isStudent ? nextProgram : null,
       classGroup: isStudent ? nextClassGroup : null,
     };
+
+    if (isStudent) {
+      data.batchStartYear = batchStartYear !== undefined
+        ? batchStartYear
+        : (existing.batchStartYear ?? batchYearsFromUsn(studentUsn)?.startYear ?? null);
+      data.batchEndYear = batchEndYear !== undefined
+        ? batchEndYear
+        : (existing.batchEndYear ?? batchYearsFromUsn(studentUsn)?.endYear ?? null);
+      if (numberOfBacklogs !== undefined) {
+        data.numberOfBacklogs = numberOfBacklogs;
+      }
+      if (backlogSubjects !== undefined) {
+        data.backlogSubjects = Array.isArray(backlogSubjects) ? backlogSubjects : [];
+      }
+    } else {
+      data.batchStartYear = null;
+      data.batchEndYear = null;
+      data.numberOfBacklogs = 0;
+      data.backlogSubjects = [];
+    }
+
     if (name) data.name = name;
     if (role) data.role = role;
     if (semesterId !== undefined) data.semesterId = semesterId;
@@ -288,21 +347,22 @@ export const updateUser = async (req: Request, res: Response) => {
       data.password = await bcrypt.hash(password, 10);
     }
 
-    const enrollmentSemester = isStudent && semesterId
-      ? await prisma.semester.findUnique({ where: { id: semesterId } })
+    const enrollmentSemester = isStudent && targetSemesterId
+      ? await prisma.semester.findUnique({ where: { id: targetSemesterId } })
       : null;
-    const derivedSemesterNumber = enrollmentSemester
-      ? semesterNumberFromUsn(studentUsn, enrollmentSemester.startDate || '')
-      : null;
-    if (isStudent && semesterId && !derivedSemesterNumber) {
+    let derivedSemesterNumber: number | null = semesterNumber !== undefined ? semesterNumber : null;
+    if (isStudent && targetSemesterId && !derivedSemesterNumber && enrollmentSemester) {
+      derivedSemesterNumber = semesterNumberFromUsn(studentUsn, enrollmentSemester.startDate || '');
+    }
+    if (isStudent && targetSemesterId && !derivedSemesterNumber) {
       return res.status(400).json({ error: 'Unable to derive semester number from the student USN and semester dates' });
     }
 
     const user = await prisma.$transaction(async (tx) => {
       const updatedUser = await tx.user.update({ where: { id: actualUserId }, data });
-      if (isStudent && semesterId && derivedSemesterNumber) {
+      if (isStudent && targetSemesterId && derivedSemesterNumber) {
         await tx.studentEnrollment.upsert({
-          where: { studentId_semesterId: { studentId: updatedUser.id, semesterId } },
+          where: { studentId_semesterId: { studentId: updatedUser.id, semesterId: targetSemesterId } },
           update: {
             semesterNumber: derivedSemesterNumber,
             program: updatedUser.program!,
@@ -310,7 +370,7 @@ export const updateUser = async (req: Request, res: Response) => {
           },
           create: {
             studentId: updatedUser.id,
-            semesterId,
+            semesterId: targetSemesterId,
             semesterNumber: derivedSemesterNumber,
             program: updatedUser.program!,
             classGroup: updatedUser.classGroup!,
@@ -324,12 +384,18 @@ export const updateUser = async (req: Request, res: Response) => {
       message: 'User updated successfully',
       user: {
         id: user.id,
+        email: user.email,
         role: user.role,
         name: user.name,
         department: user.department,
         program: user.program,
         classGroup: user.classGroup,
         semesterId: user.semesterId,
+        isActive: user.isActive,
+        batchStartYear: user.batchStartYear,
+        batchEndYear: user.batchEndYear,
+        numberOfBacklogs: user.numberOfBacklogs,
+        backlogSubjects: user.backlogSubjects,
         enrollments: await prisma.studentEnrollment.findMany({
           where: { studentId: user.id },
           include: { semester: { select: { id: true, name: true } } },
@@ -347,7 +413,21 @@ export const deleteUser = async (req: Request, res: Response) => {
   const { id } = req.params;
 
   try {
-    const facultyIdStr = id as string;
+    const rawId = Array.isArray(id) ? id[0] : (id as string);
+    const existing = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { id: rawId },
+          { email: rawId.toLowerCase() }
+        ]
+      }
+    });
+
+    if (!existing) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const facultyIdStr = existing.id;
 
     // Check if assigned to any subject (as theory or lab faculty)
     const assignedAssignment = await prisma.subjectSectionAssignment.findFirst({

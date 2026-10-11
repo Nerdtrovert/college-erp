@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CalendarDays, Check, Clock3, Pencil, Plus, Save } from 'lucide-react';
+import { AlertCircle, CalendarDays, Check, CheckCircle2, ChevronRight, Clock3, Pencil, Plus, Save, Search, UserPlus, X } from 'lucide-react';
 import API from '../../services/api';
 import { DropdownSelect } from '../ui/DropdownSelect';
 import { STUDENT_PROGRAMS } from '../../constants/program';
@@ -44,6 +44,7 @@ interface SlotForm {
   room: string;
   teacherId: string;
   coTeacherId: string;
+  studentSemesterNumber: string;
 }
 
 const emptyForm: SlotForm = {
@@ -55,6 +56,7 @@ const emptyForm: SlotForm = {
   room: '',
   teacherId: '',
   coTeacherId: '',
+  studentSemesterNumber: '',
 };
 
 export const TimetableManagement: React.FC = () => {
@@ -90,6 +92,26 @@ export const TimetableManagement: React.FC = () => {
   const [importError, setImportError] = useState<string | null>(null);
   const [importSuccess, setImportSuccess] = useState<boolean | null>(null);
 
+  // Faculty resolution state for import
+  const [facultyResolutions, setFacultyResolutions] = useState<Record<string, { id: string | null; name: string; email?: string }>>({});
+  const [unresolvedFacultyList, setUnresolvedFacultyList] = useState<Array<{
+    name: string;
+    suggestions: Array<{ id: string; name: string; department?: string; classGroup?: string }>;
+  }>>([]);
+  const [resolvingFacultyName, setResolvingFacultyName] = useState<string | null>(null);
+  const [facultySearchQuery, setFacultySearchQuery] = useState('');
+  const [facultySearchResults, setFacultySearchResults] = useState<Array<{ id: string; name: string; department?: string; email?: string }>>([]);
+  const [searchingFaculty, setSearchingFaculty] = useState(false);
+
+  // Create new faculty modal state
+  const [showCreateFacultyModal, setShowCreateFacultyModal] = useState(false);
+  const [createFacultyName, setCreateFacultyName] = useState('');
+  const [createFacultyEmail, setCreateFacultyEmail] = useState('');
+  const [createFacultyPassword, setCreateFacultyPassword] = useState('');
+  const [createFacultyDepartment, setCreateFacultyDepartment] = useState('');
+  const [createFacultyLoading, setCreateFacultyLoading] = useState(false);
+  const [createFacultyError, setCreateFacultyError] = useState<string | null>(null);
+
   // Get active semester on component load
   useEffect(() => {
     const loadActiveSemester = async () => {
@@ -102,7 +124,7 @@ export const TimetableManagement: React.FC = () => {
           // Also load semesters and faculty for dropdowns
           const [semesterResponse, facultyResponse] = await Promise.all([
             API.get('/semesters'),
-            API.get('/auth/users?role=teacher'),
+            API.get('/auth/users?role=teacher,dean,principal,hod'),
           ]);
           setSemesters(semesterResponse.data || []);
           setFaculty(facultyResponse.data || []);
@@ -239,7 +261,11 @@ export const TimetableManagement: React.FC = () => {
     try {
       setLoading(true);
       // The backend expects classGroup as query parameter, which corresponds to our section
-      const response = await API.get(`/timetable/semester/${effectiveSemesterId}?classGroup=${encodeURIComponent(section || '')}`);
+      let queryParams = `classGroup=${encodeURIComponent(section || '')}`;
+      if (selectedStudentSemester) {
+        queryParams += `&studentSemesterNumber=${selectedStudentSemester}`;
+      }
+      const response = await API.get(`/timetable/semester/${effectiveSemesterId}?${queryParams}`);
       setTimetable(response.data || []);
     } catch (error) {
       console.error('Failed to fetch timetable:', error);
@@ -297,6 +323,7 @@ export const TimetableManagement: React.FC = () => {
       room: slot?.room === 'LH-N/A' ? '' : slot?.room || '',
       teacherId: slot?.teacherId || '',
       coTeacherId: slot?.coTeacherId || '',
+      studentSemesterNumber: slot?.studentSemesterNumber ? String(slot?.studentSemesterNumber) : (selectedStudentSemester || ''),
     });
     setMessage(null);
   };
@@ -312,6 +339,7 @@ export const TimetableManagement: React.FC = () => {
         classGroup: selectedSection, // Use section for classGroup in the form
         semesterId: activeSemesterId,
         slotIndex: Number(slotForm.slotIndex),
+        studentSemesterNumber: slotForm.studentSemesterNumber || selectedStudentSemester,
       });
       await fetchTimetable(activeSemesterId, selectedSection);
       setMessage({ text: 'Timetable updated successfully.', type: 'success' });
@@ -347,6 +375,10 @@ export const TimetableManagement: React.FC = () => {
     setSubjectsNeedingConfiguration([]);
     setCourseTypeSelections({});
     setImportInvalidEntries([]);
+    setFacultyResolutions({});
+    setUnresolvedFacultyList([]);
+    setResolvingFacultyName(null);
+    setShowCreateFacultyModal(false);
   };
 
   const handleParseImport = async () => {
@@ -362,22 +394,149 @@ export const TimetableManagement: React.FC = () => {
 
       const response = await API.post('/timetable/parse', formData);
       const data = response.data || {};
-      setImportPreview(data.entries || []);
+      const entries: any[] = data.entries || [];
+      setImportPreview(entries);
       setSubjectsNeedingConfiguration(data.subjectsNeedingConfiguration || []);
       setCourseTypeSelections(Object.fromEntries(
         (data.subjectsNeedingConfiguration || []).map((subject: { code: string }) => [subject.code, '']),
       ));
       setImportInvalidEntries(data.invalidEntries || []);
       setImportSuccess(null);
+
+      // Initialize faculty resolutions
+      const unresolved: Array<{
+        name: string;
+        suggestions: Array<{ id: string; name: string; department?: string; classGroup?: string }>;
+      }> = data.unresolvedFaculty || [];
+      setUnresolvedFacultyList(unresolved);
+
+      const initialResolutions: Record<string, { id: string | null; name: string; email?: string }> = {};
+
+      // Seed resolved faculty from preview entries that already matched a facultyUserIds
+      for (const entry of entries) {
+        if (entry.facultyNames && Array.isArray(entry.facultyNames)) {
+          entry.facultyNames.forEach((name: string, idx: number) => {
+            const matchedUserId = entry.facultyUserIds?.[idx];
+            if (matchedUserId && !initialResolutions[name]) {
+              const matchedFaculty = faculty.find(f => f.id === matchedUserId);
+              initialResolutions[name] = {
+                id: matchedUserId,
+                name: matchedFaculty?.name || name,
+                email: matchedFaculty?.email,
+              };
+            }
+          });
+        }
+      }
+      setFacultyResolutions(initialResolutions);
     } catch (error: any) {
       setImportError(error.response?.data?.error || 'Failed to parse timetable');
       setImportPreview([]);
       setSubjectsNeedingConfiguration([]);
       setCourseTypeSelections({});
       setImportInvalidEntries([]);
+      setFacultyResolutions({});
+      setUnresolvedFacultyList([]);
     } finally {
       setImportLoading(false);
     }
+  };
+
+  // Autocomplete faculty search handler
+  const handleSearchFaculty = async (query: string) => {
+    setFacultySearchQuery(query);
+    if (!query.trim()) {
+      setFacultySearchResults([]);
+      return;
+    }
+    setSearchingFaculty(true);
+    try {
+      const response = await API.post('/timetable/faculty/search', { name: query.trim() });
+      const similar = response.data?.similar || [];
+      // Also filter local faculty list for matching names/emails to give instant comprehensive suggestions
+      const q = query.toLowerCase();
+      const localMatches = faculty
+        .filter(f => (f.name?.toLowerCase().includes(q) || f.email?.toLowerCase().includes(q)))
+        .map(f => ({ id: f.id, name: f.name, department: f.department, email: f.email }));
+
+      const combined = [...similar];
+      for (const m of localMatches) {
+        if (!combined.some(c => c.id === m.id)) {
+          combined.push(m);
+        }
+      }
+      setFacultySearchResults(combined);
+    } catch (err) {
+      // Fallback to local faculty filter
+      const q = query.toLowerCase();
+      const localMatches = faculty
+        .filter(f => (f.name?.toLowerCase().includes(q) || f.email?.toLowerCase().includes(q)))
+        .map(f => ({ id: f.id, name: f.name, department: f.department, email: f.email }));
+      setFacultySearchResults(localMatches);
+    } finally {
+      setSearchingFaculty(false);
+    }
+  };
+
+  // Assign resolved faculty to a PDF name
+  const handleAssignFaculty = (pdfName: string, selected: { id: string | null; name: string; email?: string }) => {
+    setFacultyResolutions(prev => ({
+      ...prev,
+      [pdfName]: selected,
+    }));
+    setResolvingFacultyName(null);
+    setFacultySearchQuery('');
+    setFacultySearchResults([]);
+  };
+
+  // Create new faculty account and automatically assign it
+  const handleCreateFaculty = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!createFacultyName.trim() || !createFacultyEmail.trim() || !createFacultyPassword.trim()) {
+      setCreateFacultyError('Name, email, and password are required.');
+      return;
+    }
+
+    setCreateFacultyLoading(true);
+    setCreateFacultyError(null);
+    try {
+      const response = await API.post('/timetable/faculty/create', {
+        name: createFacultyName.trim(),
+        email: createFacultyEmail.trim(),
+        password: createFacultyPassword.trim(),
+        department: createFacultyDepartment.trim() || undefined,
+      });
+
+      const newUser = response.data?.user;
+      if (newUser) {
+        // Add to faculty list
+        setFaculty(prev => [...prev, newUser]);
+        // If resolving for a specific PDF name, link it
+        if (resolvingFacultyName) {
+          handleAssignFaculty(resolvingFacultyName, {
+            id: newUser.id,
+            name: newUser.name,
+            email: newUser.email,
+          });
+        }
+        setShowCreateFacultyModal(false);
+        setCreateFacultyName('');
+        setCreateFacultyEmail('');
+        setCreateFacultyPassword('');
+        setCreateFacultyDepartment('');
+      }
+    } catch (err: any) {
+      setCreateFacultyError(err.response?.data?.error || 'Failed to create faculty member');
+    } finally {
+      setCreateFacultyLoading(false);
+    }
+  };
+
+  // Open the resolution modal for a specific faculty name
+  const openResolveModal = (pdfName: string) => {
+    setResolvingFacultyName(pdfName);
+    setFacultySearchQuery(pdfName);
+    handleSearchFaculty(pdfName);
   };
 
   const handleConfirmImport = async () => {
@@ -395,12 +554,34 @@ export const TimetableManagement: React.FC = () => {
       return;
     }
 
+    // Check if any extracted faculty name remains unresolved
+    const allExtractedFacultyNames = Array.from(
+      new Set(
+        importPreview.flatMap(entry => (entry.facultyNames && Array.isArray(entry.facultyNames)) ? entry.facultyNames : [])
+      )
+    );
+    const unresolvedNames = allExtractedFacultyNames.filter(name => !facultyResolutions[name]);
+    if (unresolvedNames.length > 0) {
+      setImportError(`Please resolve all faculty names before importing (${unresolvedNames.join(', ')}). You may assign an existing faculty, create a new one, or set as Unassigned.`);
+      return;
+    }
+
     setImportLoading(true);
     setImportError(null);
 
     try {
+      // Map resolutions into entry.facultyUserIds
+      const entriesToImport = importPreview.map(entry => {
+        const names: string[] = Array.isArray(entry.facultyNames) ? entry.facultyNames : [];
+        const userIds = names.map(n => facultyResolutions[n]?.id || null);
+        return {
+          ...entry,
+          facultyUserIds: userIds,
+        };
+      });
+
       await API.post('/timetable/import', {
-        entries: importPreview,
+        entries: entriesToImport,
         courseTypes: courseTypeSelections,
         semesterId: activeSemesterId,
         studentSemesterNumber: Number(selectedStudentSemester),
@@ -428,6 +609,10 @@ export const TimetableManagement: React.FC = () => {
     setSubjectsNeedingConfiguration([]);
     setCourseTypeSelections({});
     setImportInvalidEntries([]);
+    setFacultyResolutions({});
+    setUnresolvedFacultyList([]);
+    setResolvingFacultyName(null);
+    setShowCreateFacultyModal(false);
     setImportError(null);
     setImportSuccess(null);
     // Reset file input
@@ -793,6 +978,96 @@ export const TimetableManagement: React.FC = () => {
             </div>
           )}
 
+          {/* Unresolved Faculty Banner / Action Section */}
+          {importPreview.length > 0 && !importLoading && (
+            <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-4 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-semibold text-indigo-950 flex items-center gap-1.5">
+                    <UserPlus size={16} className="text-indigo-600" />
+                    Faculty Account Resolution
+                  </h3>
+                  <p className="text-xs text-indigo-800/80 mt-0.5">
+                    Match faculty extracted from the PDF with system accounts or create new accounts.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setResolvingFacultyName(null);
+                    setCreateFacultyName('');
+                    setCreateFacultyEmail('');
+                    setCreateFacultyPassword('Welcome@123');
+                    setCreateFacultyDepartment('');
+                    setCreateFacultyError(null);
+                    setShowCreateFacultyModal(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 self-start sm:self-auto rounded-lg border border-indigo-200 bg-white px-3 py-1.5 text-xs font-semibold text-indigo-700 shadow-sm hover:bg-indigo-50"
+                >
+                  <Plus size={14} />
+                  Create Faculty Account
+                </button>
+              </div>
+
+              {/* Status List for Distinct Faculty Names */}
+              {(() => {
+                const uniqueNames = Array.from(
+                  new Set(
+                    importPreview.flatMap(entry => (entry.facultyNames && Array.isArray(entry.facultyNames)) ? entry.facultyNames : [])
+                  )
+                );
+                if (uniqueNames.length === 0) return null;
+
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-1">
+                    {uniqueNames.map(name => {
+                      const res = facultyResolutions[name];
+                      const isResolved = Boolean(res);
+                      const isUnassigned = res && res.id === null;
+
+                      return (
+                        <div
+                          key={name}
+                          className={`flex items-center justify-between p-2.5 rounded-lg border bg-white text-xs ${
+                            isResolved
+                              ? isUnassigned
+                                ? 'border-gray-200 text-gray-700'
+                                : 'border-emerald-200 text-emerald-900 bg-emerald-50/20'
+                              : 'border-amber-200 text-amber-900 bg-amber-50/40'
+                          }`}
+                        >
+                          <div className="min-w-0 pr-2">
+                            <div className="font-semibold truncate">{name}</div>
+                            <div className="text-[11px] text-gray-500 truncate">
+                              {isResolved
+                                ? isUnassigned
+                                  ? 'Marked as Unassigned'
+                                  : `→ ${res.name}${res.email ? ` (${res.email})` : ''}`
+                                : 'Needs matching or account creation'}
+                            </div>
+                          </div>
+                          <div className="flex-shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => openResolveModal(name)}
+                              className={`px-2.5 py-1 rounded font-medium transition-colors ${
+                                isResolved
+                                  ? 'border border-gray-200 text-gray-600 hover:bg-gray-100'
+                                  : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                              }`}
+                            >
+                              {isResolved ? 'Change' : 'Resolve'}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
           {/* Preview Section */}
           {importPreview.length > 0 && !importLoading && (
             <>
@@ -840,30 +1115,105 @@ export const TimetableManagement: React.FC = () => {
                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">
                         Faculty from PDF
                       </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">
+                        Resolved Faculty
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {importPreview.map((entry, index) => (
-                      <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                        <td className="px-4 py-2 text-sm text-gray-600">{entry.semester || '-'}</td>
-                        <td className="px-4 py-2 text-sm text-gray-600">{entry.section || '-'}</td>
-                        <td className="px-4 py-2 text-sm text-gray-600">{entry.effectiveDate || '-'}</td>
-                        <td className="px-4 py-2 text-sm text-gray-600">{entry.day || '-'}</td>
-                        <td className="px-4 py-2 text-sm text-gray-600">{entry.startTime || '-'}</td>
-                        <td className="px-4 py-2 text-sm text-gray-600">{entry.endTime || '-'}</td>
-                        <td className="px-4 py-2 text-sm text-gray-600">{entry.subjectCode || '-'}</td>
-                        <td className="px-4 py-2 text-sm text-gray-600">{entry.activityType || '-'}</td>
-                        <td className="px-4 py-2 text-sm text-gray-600">{entry.room || '-'}</td>
-                        <td className="px-4 py-2 text-sm text-gray-600">{entry.facultyNames?.join(' / ') || '-'}</td>
-                      </tr>
-                    ))}
+                    {importPreview.map((entry, index) => {
+                      const facultyNames: string[] = entry.facultyNames || [];
+
+                      return (
+                        <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                          <td className="px-4 py-2 text-sm text-gray-600">{entry.semester || '-'}</td>
+                          <td className="px-4 py-2 text-sm text-gray-600">{entry.section || '-'}</td>
+                          <td className="px-4 py-2 text-sm text-gray-600">{entry.effectiveDate || '-'}</td>
+                          <td className="px-4 py-2 text-sm text-gray-600">{entry.day || '-'}</td>
+                          <td className="px-4 py-2 text-sm text-gray-600">{entry.startTime || '-'}</td>
+                          <td className="px-4 py-2 text-sm text-gray-600">{entry.endTime || '-'}</td>
+                          <td className="px-4 py-2 text-sm text-gray-600">{entry.subjectCode || '-'}</td>
+                          <td className="px-4 py-2 text-sm text-gray-600">{entry.activityType || '-'}</td>
+                          <td className="px-4 py-2 text-sm text-gray-600">{entry.room || '-'}</td>
+                          <td className="px-4 py-2 text-sm text-gray-600">{facultyNames.join(' / ') || '-'}</td>
+                          <td className="px-4 py-2 text-sm">
+                            {facultyNames.length === 0 ? (
+                              <span className="text-gray-400">-</span>
+                            ) : (
+                              <div className="space-y-1">
+                                {facultyNames.map((name, i) => {
+                                  const res = facultyResolutions[name];
+                                  if (!res) {
+                                    return (
+                                      <div key={i} className="inline-flex items-center gap-1.5">
+                                        <span className="inline-flex items-center gap-1 rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                                          <AlertCircle size={12} />
+                                          Unresolved
+                                        </span>
+                                        <button
+                                          type="button"
+                                          onClick={() => openResolveModal(name)}
+                                          className="text-xs text-indigo-600 hover:text-indigo-800 underline font-medium"
+                                        >
+                                          Resolve
+                                        </button>
+                                      </div>
+                                    );
+                                  }
+                                  if (res.id === null) {
+                                    return (
+                                      <div key={i} className="inline-flex items-center gap-1.5">
+                                        <span className="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
+                                          Unassigned
+                                        </span>
+                                        <button
+                                          type="button"
+                                          onClick={() => openResolveModal(name)}
+                                          className="text-[11px] text-gray-500 hover:text-gray-800 underline"
+                                        >
+                                          Edit
+                                        </button>
+                                      </div>
+                                    );
+                                  }
+                                  return (
+                                    <div key={i} className="inline-flex items-center gap-1.5">
+                                      <span className="inline-flex items-center gap-1 rounded bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">
+                                        <CheckCircle2 size={12} />
+                                        {res.name}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => openResolveModal(name)}
+                                        className="text-[11px] text-gray-500 hover:text-gray-800 underline"
+                                      >
+                                        Change
+                                      </button>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
 
               <div className="mt-4">
                 <button
-                  disabled={importLoading || !activeSemesterId || !selectedStudentSemester || !selectedProgram || !selectedSection || importInvalidEntries.length > 0 || subjectsNeedingConfiguration.some(subject => !courseTypeSelections[subject.code])}
+                  disabled={
+                    importLoading ||
+                    !activeSemesterId ||
+                    !selectedStudentSemester ||
+                    !selectedProgram ||
+                    !selectedSection ||
+                    importInvalidEntries.length > 0 ||
+                    subjectsNeedingConfiguration.some(subject => !courseTypeSelections[subject.code]) ||
+                    importPreview.some(entry => (entry.facultyNames || []).some((n: string) => !facultyResolutions[n]))
+                  }
                   onClick={handleConfirmImport}
                   className="w-flex items-center justify-center gap-2 rounded-2xl border border-green-200 bg-green-100 px-4 py-2.5 text-sm font-semibold text-green-800 hover:bg-green-200 disabled:opacity-60"
                 >
@@ -872,6 +1222,231 @@ export const TimetableManagement: React.FC = () => {
                 </button>
               </div>
             </>
+          )}
+
+          {/* Resolve Faculty Modal */}
+          {resolvingFacultyName && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+              <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+                <div className="flex items-center justify-between border-b pb-3">
+                  <div>
+                    <h3 className="text-base font-bold text-gray-900">Resolve Faculty Member</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Name extracted from PDF: <span className="font-semibold text-gray-800">{resolvingFacultyName}</span>
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setResolvingFacultyName(null)}
+                    className="text-gray-400 hover:text-gray-600 rounded-lg p-1"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                {/* Advisory Fuzzy Suggestions */}
+                {(() => {
+                  const item = unresolvedFacultyList.find(u => u.name === resolvingFacultyName);
+                  const suggestions = item?.suggestions || [];
+                  if (suggestions.length === 0) return null;
+
+                  return (
+                    <div className="space-y-1.5">
+                      <div className="text-xs font-semibold text-gray-700">Recommended Matches (Advisory):</div>
+                      <div className="space-y-1.5">
+                        {suggestions.map(s => (
+                          <div
+                            key={s.id}
+                            className="flex items-center justify-between p-2.5 rounded-xl border border-blue-100 bg-blue-50/50 hover:bg-blue-100/60 transition-colors"
+                          >
+                            <div>
+                              <div className="text-xs font-semibold text-gray-900">{s.name}</div>
+                              <div className="text-[11px] text-gray-500">
+                                {s.department ? `Dept: ${s.department}` : 'Faculty Member'}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleAssignFaculty(resolvingFacultyName, { id: s.id, name: s.name })}
+                              className="px-3 py-1 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700"
+                            >
+                              Select
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Faculty Search & Autocomplete */}
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-gray-700">Search System Faculty:</label>
+                  <div className="relative">
+                    <Search size={16} className="absolute left-3 top-2.5 text-gray-400" />
+                    <input
+                      type="text"
+                      value={facultySearchQuery}
+                      onChange={e => handleSearchFaculty(e.target.value)}
+                      placeholder="Search by faculty name or email..."
+                      className="w-full pl-9 pr-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+
+                  {searchingFaculty && (
+                    <div className="text-xs text-gray-500 flex items-center gap-1.5 py-1">
+                      <Clock3 size={12} className="animate-spin" /> Searching...
+                    </div>
+                  )}
+
+                  {facultySearchResults.length > 0 && (
+                    <div className="max-h-48 overflow-y-auto border rounded-xl divide-y text-xs">
+                      {facultySearchResults.map(f => (
+                        <div
+                          key={f.id}
+                          className="flex items-center justify-between p-2.5 hover:bg-gray-50 transition-colors"
+                        >
+                          <div>
+                            <div className="font-semibold text-gray-800">{f.name}</div>
+                            {f.email && <div className="text-[11px] text-gray-500">{f.email}</div>}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleAssignFaculty(resolvingFacultyName, { id: f.id, name: f.name, email: f.email })}
+                            className="px-2.5 py-1 rounded-lg border border-indigo-200 text-indigo-700 font-semibold hover:bg-indigo-50"
+                          >
+                            Assign
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Options: Unassigned or Create New */}
+                <div className="pt-2 border-t flex flex-col sm:flex-row items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleAssignFaculty(resolvingFacultyName, { id: null, name: 'Unassigned' })}
+                    className="w-full sm:w-auto px-3 py-2 rounded-xl border border-gray-300 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                  >
+                    Mark as Unassigned
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCreateFacultyName(resolvingFacultyName);
+                      setCreateFacultyEmail('');
+                      setCreateFacultyPassword('Welcome@123');
+                      setCreateFacultyDepartment('');
+                      setCreateFacultyError(null);
+                      setShowCreateFacultyModal(true);
+                    }}
+                    className="w-full sm:w-auto px-3 py-2 rounded-xl bg-indigo-600 text-xs font-semibold text-white hover:bg-indigo-700 flex items-center justify-center gap-1.5"
+                  >
+                    <Plus size={14} />
+                    Create New Account
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Create New Faculty Modal */}
+          {showCreateFacultyModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+              <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
+                <div className="flex items-center justify-between border-b pb-3">
+                  <div>
+                    <h3 className="text-base font-bold text-gray-900">Create Faculty Account</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Register a new faculty member account in the system
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateFacultyModal(false)}
+                    className="text-gray-400 hover:text-gray-600 rounded-lg p-1"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                {createFacultyError && (
+                  <div className="p-2.5 rounded-xl bg-red-50 text-red-700 text-xs border border-red-200">
+                    {createFacultyError}
+                  </div>
+                )}
+
+                <form onSubmit={handleCreateFaculty} className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">Full Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={createFacultyName}
+                      onChange={e => setCreateFacultyName(e.target.value)}
+                      placeholder="e.g. Dr. Jane Doe"
+                      className="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">Email Address *</label>
+                    <input
+                      type="email"
+                      required
+                      value={createFacultyEmail}
+                      onChange={e => setCreateFacultyEmail(e.target.value)}
+                      placeholder="faculty@hnnce.in"
+                      className="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">Initial Password *</label>
+                    <input
+                      type="text"
+                      required
+                      value={createFacultyPassword}
+                      onChange={e => setCreateFacultyPassword(e.target.value)}
+                      placeholder="Password"
+                      className="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">Department (Optional)</label>
+                    <input
+                      type="text"
+                      value={createFacultyDepartment}
+                      onChange={e => setCreateFacultyDepartment(e.target.value)}
+                      placeholder="e.g. CSE"
+                      className="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+
+                  <div className="pt-2 flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowCreateFacultyModal(false)}
+                      className="px-3 py-2 rounded-xl border border-gray-300 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={createFacultyLoading}
+                      className="px-4 py-2 rounded-xl bg-indigo-600 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-60 flex items-center gap-1.5"
+                    >
+                      {createFacultyLoading && <Clock3 size={14} className="animate-spin" />}
+                      Create & Assign
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
           )}
 
           {/* Help Text */}

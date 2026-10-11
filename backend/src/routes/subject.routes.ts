@@ -9,6 +9,7 @@ const supervisorRoles = [Role.dean, Role.principal, Role.hod] as const;
 router.get('/', authenticate, authorize(supervisorRoles), getSubjects);
 router.post('/', authenticate, authorize(supervisorRoles), createSubject);
 router.put('/:code', authenticate, authorize(supervisorRoles), updateSubject);
+router.patch('/:code', authenticate, authorize(supervisorRoles), updateSubject);
 router.delete('/:code', authenticate, authorize(supervisorRoles), deleteSubject);
 
 export default router;

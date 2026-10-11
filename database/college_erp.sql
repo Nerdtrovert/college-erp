@@ -1011,7 +1011,7 @@ sunil@hnnce.in	Prof. Sunil Kumar S	$2b$10$uUX7oTe3hEKfPecl9yWvoeVFQjZ9lzvhYijSi7
 madhimatha@hnnce.in	Prof. Madhimatha	$2b$10$uUX7oTe3hEKfPecl9yWvoeVFQjZ9lzvhYijSi7lsgb1PrqUdexYiG	teacher	Dept of CSE	\N	2026-10-01 15:53:46.384	2026-10-01 17:22:35.167	\N	{}	0	\N	\N	\N	t
 lashmi@hnnce.in	Prof. Lashmi A M	$2b$10$uUX7oTe3hEKfPecl9yWvoeVFQjZ9lzvhYijSi7lsgb1PrqUdexYiG	teacher	Dept of CSE	\N	2026-10-01 15:53:46.386	2026-10-01 17:22:35.168	\N	{}	0	\N	\N	\N	t
 deanCSE@hnnce.in	Dr. Dean Administrator	$2b$10$/V/VoK8CEjqnA6F6ynDBR.3voeO2NFlo8Xwbnp3ntDCW8/ltndNJK	dean	Administration	\N	2026-10-01 15:53:46.387	2026-10-01 17:22:35.168	\N	{}	0	\N	\N	\N	t
-hodCSE@hnnce.com	Dr Anirudh Sharma	$2b$10$grcpBmbFfgykzD.OK.f14u36upKGKDl5bOPoIm1FW/Ychq6nUFUKK	hod	Dept of CSE	\N	2026-10-01 15:53:46.389	2026-10-01 17:22:35.17	\N	{}	0	\N	\N	\N	t
+ashokkumar@hnnce.in	Dr Ashok Kumar A R	$2b$10$qKjxmxlBKOYdyYUUAtCDGe587FRnI.7TxD2Ps0GWg6Vobb22KLhve	hod	Dept of CSE	\N	2026-10-01 15:53:46.389	2026-10-01 17:22:35.17	\N	{}	0	\N	\N	\N	t
 vijaya@hnnce.in	Prof. Vijaya Singh	$2b$10$uUX7oTe3hEKfPecl9yWvoeVFQjZ9lzvhYijSi7lsgb1PrqUdexYiG	teacher	Dept of CSE	\N	2026-10-01 15:53:46.375	2026-10-01 17:22:35.157	\N	{}	0	\N	\N	\N	t
 madhumathi@hnnce.in	Prof. Madhumathi	$2b$10$uUX7oTe3hEKfPecl9yWvoeVFQjZ9lzvhYijSi7lsgb1PrqUdexYiG	teacher	Dept of CSE	\N	2026-10-01 15:53:46.372	2026-10-01 17:22:35.153	\N	{}	0	\N	\N	\N	t
 \.

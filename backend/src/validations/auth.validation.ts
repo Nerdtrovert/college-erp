@@ -32,6 +32,9 @@ export const registerSchema = z.object({
     program: z.enum(STUDENT_PROGRAMS).optional(),
     classGroup: z.string().optional(),
     semesterId: z.string().nullable().optional(),
+    semesterNumber: z.number().int().min(1).max(8).optional(),
+    batchStartYear: z.number().int().min(2000).max(2100).optional(),
+    batchEndYear: z.number().int().min(2000).max(2100).optional(),
     numberOfBacklogs: z.number().int().min(0).optional(),
     backlogSubjects: z.array(z.string()).optional(),
   }).superRefine((value, ctx) => {
@@ -112,5 +115,11 @@ export const updateUserSchema = z.object({
     program: z.enum(STUDENT_PROGRAMS).optional(),
     classGroup: z.string().trim().min(1).optional(),
     semesterId: z.string().nullable().optional(),
+    semesterNumber: z.number().int().min(1).max(8).optional(),
+    isActive: z.boolean().optional(),
+    batchStartYear: z.number().int().min(2000).max(2100).optional(),
+    batchEndYear: z.number().int().min(2000).max(2100).optional(),
+    numberOfBacklogs: z.number().int().min(0).optional(),
+    backlogSubjects: z.array(z.string()).optional(),
   }),
 });

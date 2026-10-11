@@ -20,10 +20,11 @@ export async function seedSubjects(
     { code: 'BEC515D', name: 'Satellite and Optical Communication', type: SubjectType.STANDALONE },
     { code: 'BECL504', name: 'Digital Communication Lab', type: SubjectType.STANDALONE },
     { code: 'BESK508', name: 'Environmental Studies', type: SubjectType.STANDALONE },
-    { code: 'BAIL504', name: 'Unspecified course (ISE timetable)', type: SubjectType.STANDALONE },
+    { code: 'BAIL504', name: 'Data Visualisation LAB', type: SubjectType.STANDALONE },
     { code: 'BNSK559', name: 'Course name not specified in source (BNSK559)', type: SubjectType.STANDALONE },
-    { code: 'BPEK559', name: 'Course name not specified in source (BPEK559)', type: SubjectType.STANDALONE },
-    { code: 'BYOK559', name: 'Course name not specified in source (BYOK559)', type: SubjectType.STANDALONE },
+    { code: 'BPEK559', name: 'Physical Education', type: SubjectType.STANDALONE },
+    { code: 'BYOK559', name: 'YOGA', type: SubjectType.STANDALONE },
+    { code: 'BAD515C', name: 'Cloud Computing', type: SubjectType.STANDALONE },
     { code: 'BCS502', name: 'Computer Networks', type: SubjectType.INTEGRATED },
   ];
 
@@ -92,6 +93,9 @@ export async function seedSubjects(
     BPEK559: { ECE: { theoryFacultyIdName: null, labFacultyIdName: null } },
     BYOK559: { ECE: { theoryFacultyIdName: null, labFacultyIdName: null } },
     BAIL504: { ISE: { theoryFacultyIdName: null, labFacultyIdName: null } },
+    BAD515C: {
+      'AI&DS-A': { theoryFacultyIdName: 'Prof. Vijaya Singh', labFacultyIdName: null },
+    },
   };
 
   const assignmentRecords = [];

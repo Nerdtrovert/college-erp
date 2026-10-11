@@ -1744,5 +1744,893 @@ export const currentStudents = [
     "name": "YUVARAJ M",
     "program": "ECE",
     "classGroup": "ECE"
+  },
+  {
+    "id": "1HC25CS001",
+    "name": "ABHAY M RAGHAVENDRA",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS002",
+    "name": "ADHOKSHAJA P S",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS003",
+    "name": "ADITYA S",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS004",
+    "name": "AISHWARYA D",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS005",
+    "name": "AMOGH JAICHANDRA",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS006",
+    "name": "AMRUTH H M",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS007",
+    "name": "ANJANAKSHI A",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS008",
+    "name": "ANSHU RAJ",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS009",
+    "name": "ANUSHA RAGHAVESH",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS010",
+    "name": "ARPAN VISHEN",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS011",
+    "name": "BHARATH N",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS012",
+    "name": "BHARGAVEE ANAND NADGOUDA",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS013",
+    "name": "CHETHAN K",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS014",
+    "name": "DEVANSH V UNKI",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS015",
+    "name": "DHEERAJ M A",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS016",
+    "name": "DHRITHI V",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS017",
+    "name": "DHRUTHI N",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS018",
+    "name": "DISHA D RAJA",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS019",
+    "name": "DIVYA S",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS020",
+    "name": "G JEEVAN OBUL REDDY",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS021",
+    "name": "GANAVI SRINIVASA",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS022",
+    "name": "HAARIKA S",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS023",
+    "name": "HARSHA L",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS024",
+    "name": "HARSHITH GOWDA M",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS025",
+    "name": "HARSHITH S",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS026",
+    "name": "HARSHITHA B",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS027",
+    "name": "HARSHITHA N",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS028",
+    "name": "HEMA S",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS029",
+    "name": "JAYANTH B S",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS030",
+    "name": "JOSHNA E S",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS031",
+    "name": "K R SAI SIRI",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS032",
+    "name": "KAVYA K",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS033",
+    "name": "KEERTHANA S",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS034",
+    "name": "KIRAN",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS035",
+    "name": "KISHAN PATEL S",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS036",
+    "name": "KOUSHAL B",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS037",
+    "name": "KUSHAL R",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS038",
+    "name": "KUSHI HANI BHARATH",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS039",
+    "name": "LAKSHYA SRIVASTAVA",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS040",
+    "name": "LEKHAN G",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS041",
+    "name": "LIKHITHA B",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS042",
+    "name": "LIKHITHA C M",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS043",
+    "name": "M PHAVANA SREE",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS044",
+    "name": "MAHATI MEDINI",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS045",
+    "name": "MEGHANA V",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS046",
+    "name": "MOHAMMED ABDUL KHADEER",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS047",
+    "name": "MOHITH GOWDA D",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS048",
+    "name": "NAGSHEN BELDAR",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS049",
+    "name": "NAYANATARA S",
+    "program": "CSE",
+    "classGroup": "CSE-A"
+  },
+  {
+    "id": "1HC25CS050",
+    "name": "NAYONIKA SRINIVASA",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS051",
+    "name": "NISHANTH MANJUNATH RAIKAR",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS052",
+    "name": "NISHITA KODANDARAM",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS053",
+    "name": "NUMER AHMAD",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS054",
+    "name": "PAVITHRA H V",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS055",
+    "name": "POORVI MAHESH",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS056",
+    "name": "PRAKASH LAMANI",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS057",
+    "name": "PREETHI C M",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS058",
+    "name": "PURAV D ACHAR",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS059",
+    "name": "R RAKSHITHA",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS060",
+    "name": "RABIYA M",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS062",
+    "name": "RAKSHA Y",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS063",
+    "name": "RISHITHA PRASADINI E",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS064",
+    "name": "RUTHVIK K",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS065",
+    "name": "S KRUPA SHANKARI",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS066",
+    "name": "SAMARTH K M",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS067",
+    "name": "SHAMITH A",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS068",
+    "name": "SHAURYA ASHOK",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS069",
+    "name": "SHREEVALLI KRISHITHA SHREEDHARA",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS070",
+    "name": "SHREYA IYER M P",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS071",
+    "name": "SHRIKANT BHIMASHI MUGATI",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS072",
+    "name": "SHRISHA S SHETTY",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS073",
+    "name": "SHUBHASHREE B S",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS074",
+    "name": "SHWETHA A",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS075",
+    "name": "SIDDARTH SHETTY",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS076",
+    "name": "SINCHANA B G",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS077",
+    "name": "SINCHANA H",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS078",
+    "name": "SINDHU SUNDAR RAJAN",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS079",
+    "name": "SOHAN S",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS080",
+    "name": "SONU S",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS081",
+    "name": "SPOORTHI V PATIL",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS082",
+    "name": "SPOORTI NAYAKAL",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS083",
+    "name": "SUHANA SIDDIQUA",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS084",
+    "name": "SURYA S M",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS085",
+    "name": "SYED USMAN",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS086",
+    "name": "SYEDA NABEELA",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS087",
+    "name": "TEJAS B",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS088",
+    "name": "TEJASHWINI S",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS089",
+    "name": "THEERTHANA V",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS090",
+    "name": "THRISHA S",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS091",
+    "name": "UJWAL K",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS092",
+    "name": "VANITHA M",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS093",
+    "name": "VEDAVATHY B",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS094",
+    "name": "VISHNU BHASKAR G R",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS095",
+    "name": "VISHNU S KULKARNI",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS096",
+    "name": "VISHWAJEET HEGDE",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS097",
+    "name": "Y SANJANA",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS098",
+    "name": "YASHASWINI B K",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25CS099",
+    "name": "YUKTASHREE K I",
+    "program": "CSE",
+    "classGroup": "CSE-B"
+  },
+  {
+    "id": "1HC25IS002",
+    "name": "ABHISHEK B N",
+    "program": "ISE",
+    "classGroup": "ISE-A"
+  },
+  {
+    "id": "1HC25IS018",
+    "name": "DAIWIK H",
+    "program": "ISE",
+    "classGroup": "ISE-A"
+  },
+  {
+    "id": "1HC25IS029",
+    "name": "HEMANTH",
+    "program": "ISE",
+    "classGroup": "ISE-A"
+  },
+  {
+    "id": "1HC25IS032",
+    "name": "JAGRUTH SHETTY",
+    "program": "ISE",
+    "classGroup": "ISE-A"
+  },
+  {
+    "id": "1HC25IS040",
+    "name": "LAYA J",
+    "program": "ISE",
+    "classGroup": "ISE-A"
+  },
+  {
+    "id": "1HC25IS043",
+    "name": "MAHATHI Y R",
+    "program": "ISE",
+    "classGroup": "ISE-A"
+  },
+  {
+    "id": "1HC25IS048",
+    "name": "NIKHITHA B S",
+    "program": "ISE",
+    "classGroup": "ISE-A"
+  },
+  {
+    "id": "1HC25IS062",
+    "name": "RISHI KUMAR R",
+    "program": "ISE",
+    "classGroup": "ISE-B"
+  },
+  {
+    "id": "1HC25IS080",
+    "name": "SPOORTHI N",
+    "program": "ISE",
+    "classGroup": "ISE-B"
+  },
+  {
+    "id": "1HC25IS084",
+    "name": "SUDHIPTH M",
+    "program": "ISE",
+    "classGroup": "ISE-B"
+  },
+  {
+    "id": "1HC25IS086",
+    "name": "SUSHMITHA R",
+    "program": "ISE",
+    "classGroup": "ISE-B"
+  },
+  {
+    "id": "1HC25IS090",
+    "name": "UDAY K",
+    "program": "ISE",
+    "classGroup": "ISE-B"
+  },
+  {
+    "id": "1HC25IS091",
+    "name": "V BHARATH",
+    "program": "ISE",
+    "classGroup": "ISE-B"
+  },
+  {
+    "id": "1HC25IS094",
+    "name": "YASHAWANTHA RAJU M",
+    "program": "ISE",
+    "classGroup": "ISE-B"
+  },
+  {
+    "id": "1HC25AD016",
+    "name": "MANISH GOWDA N",
+    "program": "AI&DS",
+    "classGroup": "AI&DS-A"
+  },
+  {
+    "id": "1HC25AD017",
+    "name": "MANOJ S",
+    "program": "AI&DS",
+    "classGroup": "AI&DS-A"
+  },
+  {
+    "id": "1HC25AD018",
+    "name": "NAGARAJ K H",
+    "program": "AI&DS",
+    "classGroup": "AI&DS-A"
+  },
+  {
+    "id": "1HC25AD019",
+    "name": "NANDINI S",
+    "program": "AI&DS",
+    "classGroup": "AI&DS-A"
+  },
+  {
+    "id": "1HC25AD020",
+    "name": "NAVYA SHREE",
+    "program": "AI&DS",
+    "classGroup": "AI&DS-A"
+  },
+  {
+    "id": "1HC25AD021",
+    "name": "NEIL J SHAH",
+    "program": "AI&DS",
+    "classGroup": "AI&DS-A"
+  },
+  {
+    "id": "1HC25AD022",
+    "name": "NIHARIKA GUPTA",
+    "program": "AI&DS",
+    "classGroup": "AI&DS-A"
+  },
+  {
+    "id": "1HC25AD023",
+    "name": "NISHANTH K",
+    "program": "AI&DS",
+    "classGroup": "AI&DS-A"
+  },
+  {
+    "id": "1HC25AD024",
+    "name": "NITHIK S P",
+    "program": "AI&DS",
+    "classGroup": "AI&DS-A"
+  },
+  {
+    "id": "1HC25AD025",
+    "name": "OMAIR AHMED WAHAB",
+    "program": "AI&DS",
+    "classGroup": "AI&DS-A"
+  },
+  {
+    "id": "1HC25AD026",
+    "name": "P PAVANI",
+    "program": "AI&DS",
+    "classGroup": "AI&DS-A"
+  },
+  {
+    "id": "1HC25AD027",
+    "name": "PALLAVI KIRAN",
+    "program": "AI&DS",
+    "classGroup": "AI&DS-A"
+  },
+  {
+    "id": "1HC25AD028",
+    "name": "POORVI N BELLARY",
+    "program": "AI&DS",
+    "classGroup": "AI&DS-A"
+  },
+  {
+    "id": "1HC25AD029",
+    "name": "PRARTHANA M G",
+    "program": "AI&DS",
+    "classGroup": "AI&DS-A"
+  },
+  {
+    "id": "1HC25AD030",
+    "name": "PRIYA S",
+    "program": "AI&DS",
+    "classGroup": "AI&DS-A"
+  },
+  {
+    "id": "1HC25AD031",
+    "name": "RAHUL G S",
+    "program": "AI&DS",
+    "classGroup": "AI&DS-A"
+  },
+  {
+    "id": "1HC25AD032",
+    "name": "S ARVIND SAGAR",
+    "program": "AI&DS",
+    "classGroup": "AI&DS-A"
+  },
+  {
+    "id": "1HC25AD033",
+    "name": "SAI CHANDRA BALAJI",
+    "program": "AI&DS",
+    "classGroup": "AI&DS-A"
+  },
+  {
+    "id": "1HC25AD034",
+    "name": "SANGANAGOWDA",
+    "program": "AI&DS",
+    "classGroup": "AI&DS-A"
+  },
+  {
+    "id": "1HC25AD035",
+    "name": "SANGEETHA K",
+    "program": "AI&DS",
+    "classGroup": "AI&DS-A"
+  },
+  {
+    "id": "1HC25AD036",
+    "name": "SAYEED ZAINAB NIDA",
+    "program": "AI&DS",
+    "classGroup": "AI&DS-A"
+  },
+  {
+    "id": "1HC25AD037",
+    "name": "SHAINAJA",
+    "program": "AI&DS",
+    "classGroup": "AI&DS-A"
+  },
+  {
+    "id": "1HC25AD038",
+    "name": "SHARANAMMA",
+    "program": "AI&DS",
+    "classGroup": "AI&DS-A"
+  },
+  {
+    "id": "1HC25AD039",
+    "name": "SHARVANI G AITHAL",
+    "program": "AI&DS",
+    "classGroup": "AI&DS-A"
+  },
+  {
+    "id": "1HC25AD040",
+    "name": "SHEHNAAZ FATHIMA G",
+    "program": "AI&DS",
+    "classGroup": "AI&DS-A"
+  },
+  {
+    "id": "1HC25AD041",
+    "name": "SHREE VARUNI N",
+    "program": "AI&DS",
+    "classGroup": "AI&DS-A"
+  },
+  {
+    "id": "1HC25AD042",
+    "name": "SOUNDARYA K R",
+    "program": "AI&DS",
+    "classGroup": "AI&DS-A"
+  },
+  {
+    "id": "1HC25AD043",
+    "name": "SUPRIYA M",
+    "program": "AI&DS",
+    "classGroup": "AI&DS-A"
+  },
+  {
+    "id": "1HC25AD044",
+    "name": "SURYA G",
+    "program": "AI&DS",
+    "classGroup": "AI&DS-A"
+  },
+  {
+    "id": "1HC25AD045",
+    "name": "SURYA SUDARSHAN S",
+    "program": "AI&DS",
+    "classGroup": "AI&DS-A"
+  },
+  {
+    "id": "1HC25AD046",
+    "name": "TAKHIYA ZAINAB",
+    "program": "AI&DS",
+    "classGroup": "AI&DS-A"
+  },
+  {
+    "id": "1HC25AD047",
+    "name": "TAMIL ARASI S",
+    "program": "AI&DS",
+    "classGroup": "AI&DS-A"
+  },
+  {
+    "id": "1HC25AD048",
+    "name": "TANAAZ MUYEEN",
+    "program": "AI&DS",
+    "classGroup": "AI&DS-A"
+  },
+  {
+    "id": "1HC25AD049",
+    "name": "VARSHA S",
+    "program": "AI&DS",
+    "classGroup": "AI&DS-A"
+  },
+  {
+    "id": "1HC25AD050",
+    "name": "YASHWANTH S",
+    "program": "AI&DS",
+    "classGroup": "AI&DS-A"
+  },
+  {
+    "id": "1HC24AD044",
+    "name": "SUSHMASHRI",
+    "program": "AI&DS",
+    "classGroup": "AI&DS-A"
   }
 ];

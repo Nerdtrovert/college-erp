@@ -102,19 +102,45 @@ export async function seedTimetable(
     }))
   );
 
-  for (const t of timetable) {
-    const whereCondition = {
-      classGroup_day_slotIndex_semesterId: {
-        classGroup: t.classGroup,
-        day: t.day,
-        slotIndex: t.slotIndex,
-        semesterId: defaultSemester.id,
-      }
-    };
+  // Helper to determine the student semester number from the subject code or default to 5
+  const inferStudentSemesterNumber = (subjectCode: string): number => {
+    const match = subjectCode.match(/\b\d*[A-Z]{2,}(\d)\d[A-Z0-9]*\b/i);
+    if (match) {
+      const num = Number(match[1]);
+      if (num >= 1 && num <= 8) return num;
+    }
+    return 5;
+  };
 
-    const existing = await prisma.timetableSlot.findUnique({
-      where: whereCondition
-    });
+  for (const t of timetable) {
+    const studentSemesterNumber: number | null = (t as any).studentSemesterNumber !== undefined
+      ? (t as any).studentSemesterNumber
+      : inferStudentSemesterNumber(t.subjectCode);
+
+    let existing;
+    if (studentSemesterNumber !== null) {
+      existing = await prisma.timetableSlot.findUnique({
+        where: {
+          classGroup_day_slotIndex_semesterId_studentSemesterNumber: {
+            classGroup: t.classGroup,
+            day: t.day,
+            slotIndex: t.slotIndex,
+            semesterId: defaultSemester.id,
+            studentSemesterNumber,
+          }
+        }
+      });
+    } else {
+      existing = await prisma.timetableSlot.findFirst({
+        where: {
+          classGroup: t.classGroup,
+          day: t.day,
+          slotIndex: t.slotIndex,
+          semesterId: defaultSemester.id,
+          studentSemesterNumber: null,
+        }
+      });
+    }
 
     if (t.subjectCode === '__NCMC__' || t.subjectCode === '__UNASSIGNED__') {
       if (!existing) {
@@ -129,6 +155,8 @@ export async function seedTimetable(
             teacherId: t.teacherId,
             coTeacherId: t.coTeacherId,
             semesterId: defaultSemester.id,
+            studentSemesterNumber,
+            batchYear: classGroupBatchYearMap.get(t.classGroup),
           }
         });
       }
@@ -154,6 +182,8 @@ export async function seedTimetable(
           teacherId: t.teacherId,
           coTeacherId: t.coTeacherId,
           semesterId: defaultSemester.id,
+          studentSemesterNumber,
+          batchYear: classGroupBatchYearMap.get(t.classGroup),
         }
       });
     } else if (assignmentId && existing) {
@@ -161,7 +191,7 @@ export async function seedTimetable(
       // but we do NOT overwrite room, teacherId, or activityType which could have been edited by admin!
       if (!existing.assignmentId) {
         await prisma.timetableSlot.update({
-          where: whereCondition,
+          where: { id: existing.id },
           data: { assignmentId }
         });
       }

@@ -13,6 +13,7 @@ export async function seedFaculty(prisma: PrismaClient) {
 
   const teacherPasswordHash = await bcrypt.hash(defaultPasswordStr!, 10);
   const adminPasswordHash = await bcrypt.hash(defaultAdminPasswordStr!, 10);
+  const hodPasswordHash = await bcrypt.hash(process.env.DEFAULT_HOD_PASSWORD || (isProd ? null : 'hod123') || defaultAdminPasswordStr!, 10);
 
   const facultyData = [
     { email: 'madhumathi@hnnce.in', name: 'Prof. Madhumathi', password: teacherPasswordHash, role: Role.teacher, department: 'Dept of CSE' },
@@ -34,23 +35,51 @@ export async function seedFaculty(prisma: PrismaClient) {
 
     // Admins
     { email: 'deanCSE@hnnce.in', name: 'Dr. Dean Administrator', password: adminPasswordHash, role: Role.dean, department: 'Administration' },
-    { email: 'hodCSE@hnnce.com', name: 'Dr Anirudh Sharma', password: adminPasswordHash, role: Role.hod, department: 'Dept of CSE' },
+    { email: 'ashokkumar@hnnce.in', name: 'Dr. Ashok Kumar A R', password: hodPasswordHash, role: Role.hod, department: 'Dept of CSE' },
     { email: 'shwetha@hnnce.in', name: 'Dr. Shwetha V', password: adminPasswordHash, role: Role.hod, department: 'EC' },
     { email: 'jayadevappa@hnnce.in', name: 'Dr. D Jayadevappa', password: adminPasswordHash, role: Role.principal, department: 'Administration' },
   ];
 
+  // Note: Seeds should not destructively delete legacy user records as it can violate
+  // foreign key constraints (e.g. Announcements, SubjectSectionAssignments) or orphan timetable slots.
+
+  // Build a map of lowercase email to user for quick lookup, detecting case-only duplicates
+  const allUsers = await prisma.user.findMany({
+    select: { id: true, email: true },
+  });
+  const emailToUserMap = new Map<string, Array<any>>();
+  for (const user of allUsers) {
+    if (user.email) {
+      const key = user.email.toLowerCase();
+      if (!emailToUserMap.has(key)) {
+        emailToUserMap.set(key, []);
+      }
+      emailToUserMap.get(key).push(user);
+    }
+  }
+
   const facultyEmailToIdMap = new Map<string, string>();
   for (const f of facultyData) {
     const email = f.email.toLowerCase();
-    const existingUser = await prisma.user.findUnique({
-      where: { email },
-    });
-
+    const userList = emailToUserMap.get(email);
     let user;
-    if (existingUser) {
+    if (userList) {
+      if (userList.length > 1) {
+        throw new Error(`Ambiguous users found for email ${email}: ${userList.map(u => u.id).join(', ')}. Cannot proceed with seed due to case-only duplicates.`);
+      }
+      user = userList[0];
+      // If the stored email does not match the lowercase version, update it to lowercase
+      if (user.email && user.email.toLowerCase() !== email) {
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: { email }
+        });
+        // Note: the email has been updated, but the lowercase key remains the same.
+        // No need to update the map because the key (lowercase email) is unchanged.
+      }
       // Do NOT overwrite name or password
       user = await prisma.user.update({
-        where: { id: existingUser.id },
+        where: { id: user.id },
         data: {
           role: f.role,
           department: f.department
@@ -66,6 +95,8 @@ export async function seedFaculty(prisma: PrismaClient) {
           department: f.department
         }
       });
+      // Add to map: create a new array for this key
+      emailToUserMap.set(email, [user]);
     }
     facultyEmailToIdMap.set(email, user.id);
   }

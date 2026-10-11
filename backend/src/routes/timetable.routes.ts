@@ -11,7 +11,9 @@ import {
 } from '../controllers/timetable.controller';
 import {
   parseTimetable,
-  importTimetable
+  importTimetable,
+  searchFaculty,
+  createFaculty
 } from '../controllers/timetableImport.controller';
 import { authenticate, authorize } from '../middleware/auth';
 import { requireTeacher } from '../middleware/role';
@@ -31,5 +33,9 @@ router.get('/faculty-status', authenticate, authorize(['dean', 'principal', 'hod
 // New timetable import/parse routes
 router.post('/parse', authenticate, authorize(['dean', 'principal', 'hod']), parseTimetable);
 router.post('/import', authenticate, authorize(['dean', 'principal', 'hod']), importTimetable);
+
+// Faculty resolution routes
+router.post('/faculty/search', authenticate, authorize(['dean', 'principal', 'hod']), searchFaculty);
+router.post('/faculty/create', authenticate, authorize(['dean', 'principal', 'hod']), createFaculty);
 
 export default router;

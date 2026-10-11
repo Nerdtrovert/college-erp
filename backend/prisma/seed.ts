@@ -9,23 +9,18 @@ const prisma = new PrismaClient();
 
 async function main() {
   console.log('Seeding started...');
-  try {
-    const defaultSemester = await seedSemester(prisma);
-    const { facultyEmailToIdMap, facultyData } = await seedFaculty(prisma);
-    await seedStudents(prisma, defaultSemester);
-    const assignmentRecords = await seedSubjects(prisma, facultyEmailToIdMap, facultyData);
-    await seedTimetable(prisma, defaultSemester, assignmentRecords);
+  const defaultSemester = await seedSemester(prisma);
+  const { facultyEmailToIdMap, facultyData } = await seedFaculty(prisma);
+  await seedStudents(prisma, defaultSemester);
+  const assignmentRecords = await seedSubjects(prisma, facultyEmailToIdMap, facultyData);
+  await seedTimetable(prisma, defaultSemester, assignmentRecords);
 
-    console.log('Seeding completed successfully!');
-  } catch (error) {
-    console.error('Seeding failed:', error);
-    process.exit(1);
-  }
+  console.log('Seeding completed successfully!');
 }
 
 main()
   .catch((e) => {
-    console.error(e);
+    console.error('Seeding failed:', e);
     process.exit(1);
   })
   .finally(async () => {

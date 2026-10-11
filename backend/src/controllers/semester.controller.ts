@@ -223,20 +223,75 @@ export const copySemester = async (req: AuthRequest, res: Response) => {
 
       const batchYear = batchYearRecord?.student?.batchStartYear ?? null;
 
-      await prisma.timetableSlot.upsert({
-        where: { classGroup_day_slotIndex_semesterId: { classGroup: s.classGroup, day: s.day, slotIndex: s.slotIndex, semesterId: newSem.id } },
-        update: { assignmentId: assignment.id, room: s.room, teacherId: s.teacherId, batchYear: batchYear },
-        create: {
-          day: s.day,
-          slotIndex: s.slotIndex,
-          assignmentId: assignment.id,
-          room: s.room,
-          classGroup: s.classGroup,
-          teacherId: s.teacherId,
-          semesterId: newSem.id,
-          batchYear: batchYear
-        },
-      });
+      if (s.studentSemesterNumber !== null) {
+        await prisma.timetableSlot.upsert({
+          where: { 
+            classGroup_day_slotIndex_semesterId_studentSemesterNumber: { 
+              classGroup: s.classGroup, 
+              day: s.day, 
+              slotIndex: s.slotIndex, 
+              semesterId: newSem.id, 
+              studentSemesterNumber: s.studentSemesterNumber 
+            } 
+          },
+          update: { 
+            assignmentId: s.assignmentId, 
+            room: s.room, 
+            teacherId: s.teacherId, 
+            subjectCode: s.subjectCode,
+            batchYear: s.batchYear ?? batchYear, 
+          },
+          create: {
+            day: s.day,
+            slotIndex: s.slotIndex,
+            assignmentId: s.assignmentId,
+            room: s.room,
+            classGroup: s.classGroup,
+            teacherId: s.teacherId,
+            semesterId: newSem.id,
+            subjectCode: s.subjectCode,
+            batchYear: s.batchYear ?? batchYear,
+            studentSemesterNumber: s.studentSemesterNumber
+          },
+        });
+      } else {
+        const existingSlot = await prisma.timetableSlot.findFirst({
+          where: {
+            classGroup: s.classGroup,
+            day: s.day,
+            slotIndex: s.slotIndex,
+            semesterId: newSem.id,
+            studentSemesterNumber: null,
+          },
+        });
+        if (existingSlot) {
+          await prisma.timetableSlot.update({
+            where: { id: existingSlot.id },
+            data: {
+              assignmentId: s.assignmentId,
+              room: s.room,
+              teacherId: s.teacherId,
+              subjectCode: s.subjectCode,
+              batchYear: s.batchYear ?? batchYear,
+            },
+          });
+        } else {
+          await prisma.timetableSlot.create({
+            data: {
+              day: s.day,
+              slotIndex: s.slotIndex,
+              assignmentId: s.assignmentId,
+              room: s.room,
+              classGroup: s.classGroup,
+              teacherId: s.teacherId,
+              semesterId: newSem.id,
+              subjectCode: s.subjectCode,
+              batchYear: s.batchYear ?? batchYear,
+              studentSemesterNumber: null,
+            },
+          });
+        }
+      }
     }
     return newSem;
   });

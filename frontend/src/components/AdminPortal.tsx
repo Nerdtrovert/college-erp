@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Activity, AlertTriangle, CheckCircle2, Download, LogOut, Upload, FileText } from 'lucide-react';
+import { Activity, AlertTriangle, CheckCircle2, Download, LogOut, Upload, FileText, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import API from '../services/api';
 import { StudentManagement } from './supervisor/StudentManagement';
@@ -12,6 +12,7 @@ export const AdminLoginPage: React.FC<{ onLogin: (user: any) => void }> = ({ onL
   const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPwd, setShowPwd] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -34,24 +35,57 @@ export const AdminLoginPage: React.FC<{ onLogin: (user: any) => void }> = ({ onL
   return (
     <div className="login-shell flex min-h-dvh items-center justify-center px-4 py-8">
       <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl">
-        <div className="mb-8 flex items-center gap-3">
-          <div className="rounded-xl bg-blue-700 p-3 text-white"><Activity size={22} /></div>
-          <div>
-            <p className="text-xl font-bold text-gray-900">Admin Portal</p>
-            <p className="text-sm text-gray-500">HNNCE system administration</p>
+        <div className="mb-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="rounded-xl bg-blue-700 p-3 text-white"><Activity size={22} /></div>
+            <div>
+              <p className="text-xl font-bold text-gray-900">Admin Portal</p>
+              <p className="text-sm text-gray-500">HNNCE system administration</p>
+            </div>
           </div>
+          <button
+            type="button"
+            onClick={() => navigate('/login')}
+            className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-blue-600 transition-colors"
+          >
+            <ArrowLeft size={14} /> Back
+          </button>
         </div>
         <form onSubmit={submit} className="space-y-5">
           <label className="block text-sm font-medium text-gray-700">
             Username
-            <input value={username} onChange={e => setUsername(e.target.value)} className="mt-2 h-12 w-full rounded-xl border border-gray-200 px-4 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" required />
+            <input
+              type="text"
+              value={username}
+              onChange={e => setUsername(e.target.value)}
+              placeholder="e.g. adminHNNCE"
+              className="mt-2 h-12 w-full rounded-xl border border-gray-200 px-4 text-sm outline-none transition-shadow focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              required
+            />
           </label>
           <label className="block text-sm font-medium text-gray-700">
             Password
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="mt-2 h-12 w-full rounded-xl border border-gray-200 px-4 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" required />
+            <div className="relative mt-2">
+              <input
+                type={showPwd ? 'text' : 'password'}
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                placeholder="Enter admin password"
+                className="h-12 w-full rounded-xl border border-gray-200 px-4 pr-12 text-sm outline-none transition-shadow focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPwd(!showPwd)}
+                aria-label={showPwd ? 'Hide password' : 'Show password'}
+                className="absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              >
+                {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
           </label>
           {error && <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
-          <button disabled={loading} className="h-12 w-full rounded-xl bg-blue-700 font-semibold text-white hover:bg-blue-800 disabled:opacity-60">
+          <button disabled={loading} className="h-12 w-full rounded-xl bg-blue-700 font-semibold text-white hover:bg-blue-800 disabled:opacity-60 transition-colors">
             {loading ? 'Signing in...' : 'Sign in to admin portal'}
           </button>
         </form>

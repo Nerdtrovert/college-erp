@@ -52,35 +52,39 @@ export const getSubjects = async (req: AuthRequest, res: Response) => {
 export const createSubject = async (req: AuthRequest, res: Response) => {
   const { code, name, classGroup, theoryFacultyId, labFacultyId, type } = req.body;
 
-  if (!code || !name || !classGroup || !theoryFacultyId || !type) {
-    return res.status(400).json({ error: 'Code, name, class group, theory faculty, and type are required' });
+  if (!code || !name || !type) {
+    return res.status(400).json({ error: 'Code, name, and type are required' });
   }
 
-  if (isElectronicsHod(req) && !isElectronicsClassGroup(String(classGroup))) {
+  const normalizedCode = String(code).trim().toUpperCase();
+
+  if (classGroup && isElectronicsHod(req) && !isElectronicsClassGroup(String(classGroup))) {
     return res.status(403).json({ error: 'EC HODs can only create subjects for EC/ECE sections' });
   }
 
   try {
     // Check if subject code already exists
     const existing = await prisma.subject.findUnique({
-      where: { code },
+      where: { code: normalizedCode },
     });
     if (existing) {
-      return res.status(400).json({ error: 'Subject with this code already exists' });
+      return res.status(409).json({ error: `Subject with code ${normalizedCode} already exists` });
     }
 
-    // Verify theory faculty exists and is a teacher
-    const theoryFaculty = await prisma.user.findUnique({
-      where: { id: theoryFacultyId },
-    });
-    if (!theoryFaculty || theoryFaculty.role !== 'teacher') {
-      return res.status(400).json({ error: 'Selected theory faculty member must be a teacher' });
-    }
-    if (
-      isElectronicsHod(req) &&
-      programFromLegacyDepartment(theoryFaculty.department) !== 'ECE'
-    ) {
-      return res.status(403).json({ error: 'EC HODs can only assign EC/ECE faculty to subjects' });
+    // Verify theory faculty exists and is a teacher if provided
+    if (theoryFacultyId) {
+      const theoryFaculty = await prisma.user.findUnique({
+        where: { id: theoryFacultyId },
+      });
+      if (!theoryFaculty || theoryFaculty.role !== 'teacher') {
+        return res.status(400).json({ error: 'Selected theory faculty member must be a teacher' });
+      }
+      if (
+        isElectronicsHod(req) &&
+        programFromLegacyDepartment(theoryFaculty.department) !== 'ECE'
+      ) {
+        return res.status(403).json({ error: 'EC HODs can only assign EC/ECE faculty to subjects' });
+      }
     }
 
     // Verify lab faculty if provided
@@ -96,32 +100,36 @@ export const createSubject = async (req: AuthRequest, res: Response) => {
       }
     }
 
-    // Start a transaction to create subject and assignment
+    // Start a transaction to create subject and optional assignment
     const result = await prisma.$transaction(async (tx) => {
       // Create the subject
       const subject = await tx.subject.create({
         data: {
-          code,
-          name,
+          code: normalizedCode,
+          name: String(name).trim(),
           type,
           description: undefined, // optional
         },
       });
 
-      // Create the section assignment
-      const assignment = await tx.subjectSectionAssignment.create({
-        data: {
-          subjectId: subject.id,
-          classGroup,
-          theoryFacultyId,
-          labFacultyId: labFacultyId || null,
-        },
-      });
+      let assignment = null;
+      // Create section assignment if classGroup and faculty provided
+      if (classGroup && theoryFacultyId) {
+        assignment = await tx.subjectSectionAssignment.create({
+          data: {
+            subjectId: subject.id,
+            classGroup,
+            theoryFacultyId,
+            labFacultyId: labFacultyId || null,
+          },
+        });
+      }
 
       return { subject, assignment };
     });
 
     return res.status(201).json({
+      message: 'Subject created successfully',
       subject: result.subject,
       assignment: result.assignment,
     });
@@ -133,21 +141,52 @@ export const createSubject = async (req: AuthRequest, res: Response) => {
 };
 
 export const updateSubject = async (req: AuthRequest, res: Response) => {
-  const code = req.params.code as string;
-  const { name, type, classGroup, theoryFacultyId, labFacultyId } = req.body;
+  const targetParam = req.params.code as string;
+  const { code: newCode, name, type, classGroup, theoryFacultyId, labFacultyId } = req.body;
 
   try {
+    const existingSubject = await prisma.subject.findFirst({
+      where: {
+        OR: [
+          { code: targetParam },
+          ...(targetParam.length === 36 ? [{ id: targetParam }] : [])
+        ]
+      },
+      include: { assignments: true },
+    });
+
+    if (!existingSubject) {
+      return res.status(404).json({ error: 'Subject not found' });
+    }
+
+    const oldCode = existingSubject.code;
+    const finalCode = (newCode && typeof newCode === 'string') ? newCode.trim().toUpperCase() : oldCode;
+
+    if (!finalCode) {
+      return res.status(400).json({ error: 'Subject code cannot be empty' });
+    }
+
+    // Check code uniqueness if changing code
+    if (finalCode !== oldCode) {
+      const duplicate = await prisma.subject.findUnique({
+        where: { code: finalCode },
+      });
+      if (duplicate && duplicate.id !== existingSubject.id) {
+        return res.status(409).json({ error: `Subject with code ${finalCode} already exists` });
+      }
+    }
+
+    // Validate type if provided
+    if (type && !['STANDALONE', 'INTEGRATED'].includes(type)) {
+      return res.status(400).json({ error: 'Evaluation schema type must be STANDALONE or INTEGRATED' });
+    }
+
     if (isElectronicsHod(req)) {
       if (classGroup !== undefined && !isElectronicsClassGroup(String(classGroup))) {
         return res.status(403).json({ error: 'EC HODs can only update subjects for EC/ECE sections' });
       }
 
-      const existingSubject = await prisma.subject.findUnique({
-        where: { code },
-        select: { assignments: { select: { classGroup: true } } },
-      });
       if (
-        !existingSubject ||
         existingSubject.assignments.length === 0 ||
         existingSubject.assignments.some((assignment) => !isElectronicsClassGroup(assignment.classGroup))
       ) {
@@ -170,14 +209,45 @@ export const updateSubject = async (req: AuthRequest, res: Response) => {
 
     // Start a transaction
     const result = await prisma.$transaction(async (tx) => {
-      // Update the subject's name and type
+      const updateData: any = {};
+      if (finalCode) updateData.code = finalCode;
+      if (name !== undefined) updateData.name = String(name).trim();
+      if (type !== undefined) updateData.type = type;
+
       const subject = await tx.subject.update({
-        where: { code },
-        data: {
-          name,
-          type,
-        },
+        where: { id: existingSubject.id },
+        data: updateData,
       });
+
+      // If subject code changed, synchronize denormalized references
+      if (finalCode !== oldCode) {
+        // Synchronize TimetableSlot subjectCode
+        await tx.timetableSlot.updateMany({
+          where: {
+            OR: [
+              { subjectCode: oldCode },
+              { assignment: { subjectId: existingSubject.id } }
+            ]
+          },
+          data: { subjectCode: finalCode }
+        });
+
+        // Synchronize student backlogSubjects
+        const studentsWithBacklog = await tx.user.findMany({
+          where: {
+            role: 'student',
+            backlogSubjects: { has: oldCode }
+          },
+          select: { id: true, backlogSubjects: true }
+        });
+        for (const student of studentsWithBacklog) {
+          const updatedBacklogs = student.backlogSubjects.map(c => c === oldCode ? finalCode : c);
+          await tx.user.update({
+            where: { id: student.id },
+            data: { backlogSubjects: updatedBacklogs }
+          });
+        }
+      }
 
       // If classGroup is provided, update or create the section assignment
       if (classGroup !== undefined) {
@@ -228,17 +298,20 @@ export const updateSubject = async (req: AuthRequest, res: Response) => {
     });
 
     return res.status(200).json({
+      message: 'Subject updated successfully',
       subject: result.subject,
       assignment: result.assignment,
     });
-  } catch (error: unknown) {
-    const err = error as Error;
-    console.error('Error updating subject:', err);
-    if (err.message === 'Selected theory faculty member must be a teacher' ||
-        err.message === 'Selected lab faculty member must be a teacher') {
-      return res.status(400).json({ error: err.message });
+  } catch (error: any) {
+    console.error('Error updating subject:', error);
+    if (error.code === 'P2002') {
+      return res.status(409).json({ error: 'Subject with this code already exists' });
     }
-    return res.status(500).json({ error: 'Internal server error' });
+    if (error.message === 'Selected theory faculty member must be a teacher' ||
+        error.message === 'Selected lab faculty member must be a teacher') {
+      return res.status(400).json({ error: error.message });
+    }
+    return res.status(500).json({ error: error.message || 'Internal server error' });
   }
 };
 

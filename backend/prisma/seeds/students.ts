@@ -12,20 +12,45 @@ export async function seedStudents(prisma: PrismaClient, defaultSemester: Semest
   }
 
   const studentPasswordHash = await bcrypt.hash(defaultPasswordStr!, 10);
+  // Build a map of lowercase email to user for quick lookup, detecting case-only duplicates
+  const allUsers = await prisma.user.findMany({
+    select: { id: true, email: true },
+  });
+  const emailToUserMap = new Map<string, Array<any>>();
+  for (const user of allUsers) {
+    if (user.email) {
+      const key = user.email.toLowerCase();
+      if (!emailToUserMap.has(key)) {
+        emailToUserMap.set(key, []);
+      }
+      emailToUserMap.get(key).push(user);
+    }
+  }
+
   const studentUsers = [];
 
   for (const student of currentStudents) {
     const email = student.id.toLowerCase();
-    const existingStudent = await prisma.user.findUnique({
-      where: { email },
-    });
-
+    const userList = emailToUserMap.get(email);
     const batchYearInfo = batchYearsFromUsn(student.id);
-
     let studentUser;
-    if (existingStudent) {
+
+    if (userList) {
+      if (userList.length > 1) {
+        throw new Error(`Ambiguous users found for email ${email}: ${userList.map(u => u.id).join(', ')}. Cannot proceed with seed due to case-only duplicates.`);
+      }
+      let user = userList[0];
+      // If the stored email does not match the lowercase version, update it to lowercase
+      if (user.email && user.email.toLowerCase() !== email) {
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: { email }
+        });
+        // Note: the email has been updated, but the lowercase key remains the same.
+        // No need to update the map because the key (lowercase email) is unchanged.
+      }
       studentUser = await prisma.user.update({
-        where: { email },
+        where: { id: user.id },
         data: {
           isActive: true,
           batchStartYear: batchYearInfo?.startYear,
@@ -52,6 +77,8 @@ export async function seedStudents(prisma: PrismaClient, defaultSemester: Semest
           semesterId: defaultSemester.id,
         },
       });
+      // Add to map: create a new array for this key
+      emailToUserMap.set(email, [studentUser]);
     }
     studentUsers.push(studentUser);
   }
@@ -73,7 +100,11 @@ export async function seedStudents(prisma: PrismaClient, defaultSemester: Semest
           semesterId: defaultSemester.id,
         },
       },
-      update: {},
+      update: {
+        semesterNumber: semesterNumberFromUsn(student.id, defaultSemester.startDate!) || 1,
+        program: student.program,
+        classGroup: student.classGroup,
+      },
       create: {
         studentId,
         semesterId: defaultSemester.id,
