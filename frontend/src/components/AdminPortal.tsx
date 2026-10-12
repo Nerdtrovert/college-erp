@@ -179,7 +179,7 @@ export const AdminPortal: React.FC<{ onLogout: () => void }> = ({ onLogout }) =>
           <button onClick={logout} className="inline-flex items-center gap-2 text-sm font-semibold text-gray-600 hover:text-red-600"><LogOut size={16} /> Sign out</button>
         </div>
       </header>
-      <div className="mx-auto flex max-w-7xl flex-col gap-5 px-3 py-4 sm:px-6 sm:py-6 md:flex-row md:gap-8 lg:px-8">
+      <div className="mx-auto flex max-w-7xl flex-col gap-5 px-3 py-3 sm:px-6 sm:py-6 md:flex-row md:gap-8 md:px-10 md:pt-8">
       <aside className="w-full shrink-0 md:w-48">
         <nav className="flex gap-2 overflow-x-auto pb-1 md:flex-col md:overflow-visible md:pb-0">
           <button onClick={() => navigate('/admin/uploads')} className={`flex min-h-11 shrink-0 items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-semibold sm:gap-3 sm:px-4 md:w-full ${section === 'uploads' ? 'bg-blue-700 text-white' : 'text-gray-600 hover:bg-white'}`}><Upload size={17} /> Uploads</button>

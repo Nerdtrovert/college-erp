@@ -57,6 +57,10 @@ const timeRanges = [
   '2:45–3:45',
 ];
 
+const classEndMinutes = [9 * 60 + 30, 10 * 60 + 30, 11 * 60, 12 * 60, 13 * 60, 13 * 60 + 45, 14 * 60 + 45, 15 * 60 + 45];
+const isClassPeriodComplete = (slotIndex: number, now: Date) =>
+  timeHeaders[slotIndex]?.type === 'class' && now.getHours() * 60 + now.getMinutes() >= classEndMinutes[slotIndex];
+
 const formatDateKey = (date: Date) => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -78,6 +82,12 @@ export const TeacherTimetable: React.FC<TeacherTimetableProps> = ({ teacherId })
   const [schedule, setSchedule] = useState<DaySchedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => setNow(new Date()), 30_000);
+    return () => window.clearInterval(intervalId);
+  }, []);
 
   useEffect(() => {
     const fetchTimetable = async () => {
@@ -97,14 +107,13 @@ export const TeacherTimetable: React.FC<TeacherTimetableProps> = ({ teacherId })
   }, [teacherId]);
 
   const todayIndex = useMemo(() => {
-    const dayOfWeek = new Date().getDay();
+    const dayOfWeek = now.getDay();
     return dayOfWeek >= 1 && dayOfWeek <= 5 ? dayOfWeek - 1 : -1;
-  }, []);
+  }, [now]);
 
   const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
   const isTodayHoliday = useMemo(() => {
-    const now = new Date();
     const dayOfWeek = now.getDay();
     const dateKey = formatDateKey(now);
 
@@ -114,7 +123,7 @@ export const TeacherTimetable: React.FC<TeacherTimetableProps> = ({ teacherId })
       if (!event.date || !event.type || event.type === 'academic') return false;
       return isDateWithinAcademicWindow(dateKey, event);
     });
-  }, []);
+  }, [now]);
 
   if (loading) {
     return <div className="p-6 text-center text-gray-500 font-medium">Loading timetable...</div>;
@@ -131,6 +140,12 @@ export const TeacherTimetable: React.FC<TeacherTimetableProps> = ({ teacherId })
   const todaySchedule = todayIndex >= 0 ? schedule[todayIndex] : undefined;
   const todayName = todayIndex >= 0 ? dayNames[todayIndex] : '';
   const hasClassesToday = !!todaySchedule?.slots.some((slot) => slot && slot.subjectCode);
+  const scheduledTodaySlotIndexes = todaySchedule?.slots
+    .map((slot, index) => ({ slot, index }))
+    .filter(({ slot }) => slot?.subjectCode)
+    .map(({ index }) => index) ?? [];
+  const allClassesTodayComplete = scheduledTodaySlotIndexes.length > 0
+    && scheduledTodaySlotIndexes.every((index) => isClassPeriodComplete(index, now));
   const shouldShowTodaySection = todayIndex >= 0 && !isTodayHoliday && hasClassesToday;
 
   return (
@@ -151,12 +166,13 @@ export const TeacherTimetable: React.FC<TeacherTimetableProps> = ({ teacherId })
           <div className="flex gap-3 overflow-x-auto pb-3">
             {todaySchedule.slots.map((slot, idx) => {
               const headerType = timeHeaders[idx]?.type;
+              const isMuted = allClassesTodayComplete || isClassPeriodComplete(idx, now);
 
               if (headerType === 'break') {
                 return (
                   <div
                     key={idx}
-                    className="min-w-[80px] flex-[0.5] rounded-xl bg-gray-50 border border-gray-100 px-3 py-4 flex flex-col items-center justify-center text-center"
+                    className={`min-w-[80px] flex-[0.5] rounded-xl border px-3 py-4 flex flex-col items-center justify-center text-center ${allClassesTodayComplete ? 'bg-gray-100 border-gray-200' : 'bg-gray-50 border-gray-100'}`}
                   >
                     <span className="text-sm font-semibold text-gray-400">Break</span>
                     <span className="text-[11px] text-gray-400 mt-0.5">{timeRanges[idx]}</span>
@@ -168,7 +184,7 @@ export const TeacherTimetable: React.FC<TeacherTimetableProps> = ({ teacherId })
                 return (
                   <div
                     key={idx}
-                    className="min-w-[80px] flex-[0.5] rounded-xl bg-gray-50 border border-gray-100 px-3 py-4 flex flex-col items-center justify-center text-center"
+                    className={`min-w-[80px] flex-[0.5] rounded-xl border px-3 py-4 flex flex-col items-center justify-center text-center ${allClassesTodayComplete ? 'bg-gray-100 border-gray-200' : 'bg-gray-50 border-gray-100'}`}
                   >
                     <span className="text-sm font-semibold text-gray-400">Lunch</span>
                     <span className="text-[11px] text-gray-400 mt-0.5">{timeRanges[idx]}</span>
@@ -185,12 +201,12 @@ export const TeacherTimetable: React.FC<TeacherTimetableProps> = ({ teacherId })
                 return (
                   <div
                     key={idx}
-                    className={`min-w-[130px] flex-1 rounded-xl ${todayBg} border border-gray-100 border-l-4 ${borderLeft} px-4 py-4 flex flex-col justify-center`}
+                    className={`min-w-[130px] flex-1 rounded-xl border border-l-4 px-4 py-4 flex flex-col justify-center ${isMuted ? 'bg-gray-100 border-gray-200 border-l-gray-300' : `${todayBg} border-gray-100 ${borderLeft}`}`}
                   >
-                    <span className={`text-[11px] font-semibold ${timeColor}`}>{timeRanges[idx]}</span>
-                    <span className="text-sm font-bold text-gray-800 mt-1.5 leading-tight">{slot.subjectCode ?? '-'}</span>
-                    <span className="block text-[11px] text-gray-500 mt-1">{slot.activityType ?? '-'}</span>
-                    <span className="text-xs text-gray-400 mt-1.5">Room {slot.room ?? '-'} · {slot.class}</span>
+                    <span className={`text-[11px] font-semibold ${isMuted ? 'text-gray-500' : timeColor}`}>{timeRanges[idx]}</span>
+                    <span className={`mt-1.5 text-sm font-bold leading-tight ${isMuted ? 'text-gray-500' : 'text-gray-800'}`}>{slot.subjectCode ?? '-'}</span>
+                    <span className={`mt-1 block text-[11px] ${isMuted ? 'text-gray-400' : 'text-gray-500'}`}>{slot.activityType ?? '-'}</span>
+                    <span className={`mt-1.5 text-xs ${isMuted ? 'text-gray-400' : 'text-gray-500'}`}>Room {slot.room ?? '-'} · {slot.class}</span>
                   </div>
                 );
               }
@@ -198,7 +214,7 @@ export const TeacherTimetable: React.FC<TeacherTimetableProps> = ({ teacherId })
               return (
                 <div
                   key={idx}
-                  className="min-w-[80px] flex-[0.5] rounded-xl bg-gray-50 border border-gray-100 px-3 py-4 flex flex-col items-center justify-center text-center"
+                  className={`min-w-[80px] flex-[0.5] rounded-xl border px-3 py-4 flex flex-col items-center justify-center text-center ${allClassesTodayComplete ? 'bg-gray-100 border-gray-200' : 'bg-gray-50 border-gray-100'}`}
                 >
                   <span className="text-gray-300 text-lg">—</span>
                 </div>
@@ -211,7 +227,6 @@ export const TeacherTimetable: React.FC<TeacherTimetableProps> = ({ teacherId })
               className="h-full rounded-full"
               style={{
                 width: (() => {
-                  const now = new Date();
                   const h = now.getHours();
                   const m = now.getMinutes();
                   const mins = h * 60 + m;
@@ -221,7 +236,7 @@ export const TeacherTimetable: React.FC<TeacherTimetableProps> = ({ teacherId })
                   if (mins >= end) return '100%';
                   return `${Math.round(((mins - start) / (end - start)) * 100)}%`;
                 })(),
-                background: 'linear-gradient(90deg, #3b82f6 0%, #6366f1 100%)',
+                background: allClassesTodayComplete ? '#9ca3af' : 'linear-gradient(90deg, #3b82f6 0%, #6366f1 100%)',
               }}
             />
           </div>
@@ -235,16 +250,22 @@ export const TeacherTimetable: React.FC<TeacherTimetableProps> = ({ teacherId })
             .map((slot, slotIdx) => ({ slot, slotIdx }))
             .filter(({ slot }) => slot);
           const isToday = dayIdx === todayIndex;
+          const dayClassIndexes = row.slots
+            .map((slot, index) => ({ slot, index }))
+            .filter(({ slot }) => slot?.subjectCode)
+            .map(({ index }) => index);
+          const isDayComplete = isToday && dayClassIndexes.length > 0
+            && dayClassIndexes.every((index) => isClassPeriodComplete(index, now));
 
           return (
             <section
               key={row.day}
-              className={`overflow-hidden rounded-2xl border bg-white shadow-sm ${
-                isToday ? 'border-blue-200 ring-1 ring-blue-100' : 'border-gray-100'
+              className={`overflow-hidden rounded-2xl border shadow-sm ${
+                isDayComplete ? 'border-gray-200 bg-gray-100' : `bg-white ${isToday ? 'border-blue-200 ring-1 ring-blue-100' : 'border-gray-100'}`
               }`}
             >
               <div className={`flex items-center justify-between px-4 py-3 ${
-                isToday ? 'bg-blue-50/70' : 'bg-gray-50/70'
+                isDayComplete ? 'bg-gray-200/70' : isToday ? 'bg-blue-50/70' : 'bg-gray-50/70'
               }`}>
                 <h2 className="text-sm font-bold text-gray-900">{row.day}</h2>
                 {isToday && <span className="text-[11px] font-semibold text-blue-600">Today</span>}
@@ -252,15 +273,16 @@ export const TeacherTimetable: React.FC<TeacherTimetableProps> = ({ teacherId })
               <div className="divide-y divide-gray-100">
                 {classes.length > 0 ? classes.map(({ slot, slotIdx }) => {
                   const color = getSubjectColor(slot!.subjectCode);
+                  const isMuted = isToday && (isDayComplete || isClassPeriodComplete(slotIdx, now));
                   return (
                     <div key={slotIdx} className="flex items-start gap-3 px-4 py-3.5">
                       <span className="w-[4.25rem] shrink-0 pt-0.5 text-[11px] font-semibold text-gray-400">
                         {timeRanges[slotIdx]}
                       </span>
-                      <div className={`${color.bg} border ${color.border} min-w-0 flex-1 rounded-xl px-3 py-2.5`}>
-                        <p className={`text-sm font-semibold leading-snug ${color.text}`}>{slot!.subjectCode ?? '-'}</p>
-                        <p className="mt-1 text-xs text-gray-500">{slot!.activityType ?? '-'}</p>
-                        <p className="mt-1 text-xs text-gray-500">Room {slot!.room ?? '-'} · {slot!.class}</p>
+                      <div className={`${isMuted ? 'border-gray-200 bg-gray-100' : `${color.bg} ${color.border}`} min-w-0 flex-1 rounded-xl border px-3 py-2.5`}>
+                        <p className={`text-sm font-semibold leading-snug ${isMuted ? 'text-gray-500' : color.text}`}>{slot!.subjectCode ?? '-'}</p>
+                        <p className={`mt-1 text-xs ${isMuted ? 'text-gray-400' : 'text-gray-500'}`}>{slot!.activityType ?? '-'}</p>
+                        <p className={`mt-1 text-xs ${isMuted ? 'text-gray-400' : 'text-gray-500'}`}>Room {slot!.room ?? '-'} · {slot!.class}</p>
                       </div>
                     </div>
                   );
@@ -302,10 +324,16 @@ export const TeacherTimetable: React.FC<TeacherTimetableProps> = ({ teacherId })
             <tbody>
               {schedule.map((row, dayIdx) => {
                 const isToday = dayIdx === todayIndex;
+                const dayClassIndexes = row.slots
+                  .map((slot, index) => ({ slot, index }))
+                  .filter(({ slot }) => slot?.subjectCode)
+                  .map(({ index }) => index);
+                const isDayComplete = isToday && dayClassIndexes.length > 0
+                  && dayClassIndexes.every((index) => isClassPeriodComplete(index, now));
                 return (
                   <tr
                     key={row.day}
-                    className={`border-t border-gray-100 ${isToday ? 'bg-blue-50/30' : ''}`}
+                    className={`border-t border-gray-100 ${isDayComplete ? 'bg-gray-100' : isToday ? 'bg-blue-50/30' : ''}`}
                   >
                     {/* Day Label */}
                     <td className="px-5 py-5 text-left align-middle">
@@ -325,7 +353,7 @@ export const TeacherTimetable: React.FC<TeacherTimetableProps> = ({ teacherId })
 
                       if (headerType === 'break') {
                         return (
-                          <td key={slotIdx} className="px-2 py-5 text-center align-middle">
+                          <td key={slotIdx} className={`px-2 py-5 text-center align-middle ${isDayComplete ? 'bg-gray-100' : ''}`}>
                             <span className="text-xs text-gray-400 font-medium">Break</span>
                           </td>
                         );
@@ -333,7 +361,7 @@ export const TeacherTimetable: React.FC<TeacherTimetableProps> = ({ teacherId })
 
                       if (headerType === 'lunch') {
                         return (
-                          <td key={slotIdx} className="px-2 py-5 text-center align-middle">
+                          <td key={slotIdx} className={`px-2 py-5 text-center align-middle ${isDayComplete ? 'bg-gray-100' : ''}`}>
                             <span className="text-xs text-gray-400 font-medium">Lunch</span>
                           </td>
                         );
@@ -341,12 +369,13 @@ export const TeacherTimetable: React.FC<TeacherTimetableProps> = ({ teacherId })
 
                       if (slot) {
                         const color = getSubjectColor(slot.subjectCode) || defaultColor;
+                        const isMuted = isToday && (isDayComplete || isClassPeriodComplete(slotIdx, now));
                         return (
                           <td key={slotIdx} className="px-2 py-3 align-middle">
                             <div
-                              className={`${color.bg} border ${color.border} rounded-xl px-3 py-3 min-h-[60px] flex flex-col justify-center`}
+                              className={`${isMuted ? 'bg-gray-100 border-gray-200' : `${color.bg} border ${color.border}`} rounded-xl border px-3 py-3 min-h-[60px] flex flex-col justify-center`}
                             >
-                              <div className={`font-semibold text-sm ${color.text} leading-tight`}>
+                              <div className={`font-semibold text-sm ${isMuted ? 'text-gray-500' : color.text} leading-tight`}>
                                 {slot.subjectCode ?? '-'}
                               </div>
                               <div className="text-xs text-gray-400 mt-1">

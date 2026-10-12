@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Search, Edit2, Trash2, CheckCircle2, AlertCircle,
-  ChevronDown, Loader2, X, Plus, Download
+  Loader2, X, Plus, Download
 } from 'lucide-react';
 import API from '../../services/api';
 import { PROGRAM_LABELS, STUDENT_PROGRAMS, type StudentProgram } from '../../constants/program';
@@ -464,7 +464,6 @@ export const StudentManagement: React.FC = () => {
                 <option value="all">All Programs</option>
                 {STUDENT_PROGRAMS.map(program => <option key={program} value={program}>{PROGRAM_LABELS[program]}</option>)}
               </DropdownSelect>
-              <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
             </div>
             
             {/* Semester Filter */}
@@ -477,7 +476,6 @@ export const StudentManagement: React.FC = () => {
                 <option value="all">All Semesters</option>
                 {semesters.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </DropdownSelect>
-              <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
             </div>
 
             {/* Semester Number Filter */}
@@ -492,7 +490,6 @@ export const StudentManagement: React.FC = () => {
                   <option key={number} value={number}>{number}{number === 1 ? 'st' : number === 2 ? 'nd' : number === 3 ? 'rd' : 'th'} Semester</option>
                 ))}
               </DropdownSelect>
-              <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
             </div>
 
             {/* Section/ClassGroup Filter */}
@@ -505,7 +502,6 @@ export const StudentManagement: React.FC = () => {
                 <option value="all">All Sections</option>
                 {sections.map(sec => <option key={sec} value={sec}>{sec}</option>)}
               </DropdownSelect>
-              <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
             </div>
             
             <span className="ml-auto text-xs text-gray-400 font-medium">{filteredStudents.length} Students found</span>
@@ -812,7 +808,6 @@ export const StudentManagement: React.FC = () => {
                         </option>
                       ))}
                     </DropdownSelect>
-                    <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                   </div>
                   {!activeSemester && !editingStudent && (
                     <p className="mt-1 text-xs text-amber-600">

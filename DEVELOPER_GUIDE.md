@@ -34,7 +34,7 @@ Setting up your development environment is straightforward:
 3. **Start the Database**: 
    Ensure Docker Desktop is running, then execute `npm run db:start` or `npm run db:setup` from the repository root to start PostgreSQL, generate the Prisma client, and apply the schema.
 4. **Seed Mock Data (Optional but Recommended)**: 
-   Run `npm run db:seed` (or `cd backend && npx prisma db seed`) to insert mock faculty, students, semesters, subjects, and timetable data.
+   Run `npm run db:seed` from the repository root to generate the Prisma client, apply pending migrations, and insert mock faculty, students, semesters, subjects, and timetable data. If running Prisma directly from `backend`, run `npm run prisma:generate`, `npx prisma migrate deploy`, then `npx prisma db seed`.
 5. **Start Development Servers**:
    Open separate terminal windows and run:
    - `npm run dev:backend` (Starts Express server on port 5001)

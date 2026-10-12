@@ -253,8 +253,8 @@ export const BacklogsManagement: React.FC<Props> = () => {
   const studentsWithBacklogs = displayedData.filter(student => student.numberOfBacklogs > 0).length;
 
   return (
-    <div className="flex-1 overflow-auto bg-gray-50/50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div className="min-h-full bg-gray-50/50">
+      <div className="w-full space-y-6 pb-8">
 
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

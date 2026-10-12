@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AlertCircle, CalendarDays, Check, CheckCircle2, ChevronRight, Clock3, Pencil, Plus, Save, Search, UserPlus, X } from 'lucide-react';
 import API from '../../services/api';
 import { DropdownSelect } from '../ui/DropdownSelect';
@@ -28,12 +29,20 @@ const PERIODS = [
 ] as const;
 
 const subjectColors = [
-  ['bg-blue-50', 'border-blue-200', 'text-blue-700'],
-  ['bg-orange-50', 'border-orange-200', 'text-orange-700'],
-  ['bg-green-50', 'border-green-200', 'text-green-700'],
-  ['bg-purple-50', 'border-purple-200', 'text-purple-700'],
-  ['bg-rose-50', 'border-rose-200', 'text-rose-700'],
+  ['bg-blue-50', 'border-blue-200', 'text-blue-700', 'border-l-blue-300'],
+  ['bg-amber-50', 'border-amber-200', 'text-amber-700', 'border-l-amber-300'],
+  ['bg-emerald-50', 'border-emerald-200', 'text-emerald-700', 'border-l-emerald-300'],
+  ['bg-violet-50', 'border-violet-200', 'text-violet-700', 'border-l-violet-300'],
+  ['bg-rose-50', 'border-rose-200', 'text-rose-700', 'border-l-rose-300'],
+  ['bg-cyan-50', 'border-cyan-200', 'text-cyan-700', 'border-l-cyan-300'],
 ];
+
+const getSubjectColor = (subjectCode?: string | null) => {
+  const normalizedCode = subjectCode?.trim().toUpperCase();
+  if (!normalizedCode) return subjectColors[0];
+  const hash = Array.from(normalizedCode).reduce((sum, character) => sum + character.charCodeAt(0), 0);
+  return subjectColors[hash % subjectColors.length];
+};
 
 interface SlotForm {
   day: string;
@@ -173,6 +182,22 @@ export const TimetableManagement: React.FC = () => {
       loadStudentSemestersForSemester(activeSemesterId);
     }
   }, [activeSemesterId]);
+
+  useEffect(() => {
+    if (!selectedCell) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !saving) setSelectedCell(null);
+    };
+
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [selectedCell, saving]);
 
   const loadStudentSemestersForSemester = async (semesterId: string) => {
     if (!semesterId) {
@@ -680,52 +705,71 @@ export const TimetableManagement: React.FC = () => {
         </div>
       ) : (
         <>
-          {selectedCell && (
-            <div className="bg-white rounded-2xl border border-blue-100 shadow-sm p-5 sm:p-6">
-              <div className="flex items-center gap-3 mb-5">
-                <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center"><Pencil size={17} /></div>
-                <div>
-                  <h2 className="font-semibold text-gray-900">Edit period</h2>
-                  <p className="text-xs text-gray-500">{slotForm.day} · {PERIODS[Number(slotForm.slotIndex)].label}</p>
+          {selectedCell && createPortal(
+            <div
+              className="animate-fade-in fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-slate-950/45 p-4 backdrop-blur-sm"
+              onMouseDown={(event) => {
+                if (event.target === event.currentTarget && !saving) setSelectedCell(null);
+              }}
+            >
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="timetable-period-title"
+                className="animate-slide-up my-auto w-full max-w-3xl rounded-2xl border border-gray-100 bg-white p-5 shadow-2xl sm:p-6"
+              >
+                <div className="mb-5 flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-700"><Pencil size={17} /></div>
+                    <div>
+                      <h2 id="timetable-period-title" className="font-semibold text-gray-900">{getSlot(selectedCell.day, selectedCell.slotIndex) ? 'Edit period' : 'Add period'}</h2>
+                      <p className="mt-1 text-xs text-gray-500">{slotForm.day} · {PERIODS[Number(slotForm.slotIndex)].label}</p>
+                    </div>
+                  </div>
+                  <button type="button" aria-label="Close period form" disabled={saving} onClick={() => setSelectedCell(null)} className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50"><X size={18} /></button>
                 </div>
+                <form onSubmit={saveSlot} className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500">Subject code</label>
+                    <input required value={slotForm.subjectCode} onChange={(event: React.ChangeEvent<HTMLInputElement>) => setSlotForm({ ...slotForm, subjectCode: event.target.value })} placeholder="e.g. SUBJECT101" className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 text-sm focus:border-blue-500 focus:outline-none" />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500">Faculty</label>
+                    <DropdownSelect required value={slotForm.teacherId} onChange={(event: React.ChangeEvent<HTMLSelectElement>) => setSlotForm({ ...slotForm, teacherId: event.target.value })} className="h-11 min-h-11 w-full rounded-xl px-4 py-2">
+                      <option value="">Select faculty</option>
+                      {faculty.map((member) => <option key={member.id} value={member.id}>{member.name} ({member.email || '—'})</option>)}
+                    </DropdownSelect>
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500">Co-Teacher</label>
+                    <DropdownSelect value={slotForm.coTeacherId || ''} onChange={(event: React.ChangeEvent<HTMLSelectElement>) => setSlotForm({ ...slotForm, coTeacherId: event.target.value })} className="h-11 min-h-11 w-full rounded-xl px-4 py-2">
+                      <option value="">None</option>
+                      {faculty.map((member) => <option key={member.id} value={member.id}>{member.name} ({member.email || '—'})</option>)}
+                    </DropdownSelect>
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500">Room</label>
+                    <input value={slotForm.room} onChange={(event) => setSlotForm({ ...slotForm, room: event.target.value })} placeholder="Optional" className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 text-sm focus:border-blue-500 focus:outline-none" />
+                  </div>
+                  {message && <div role="status" className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm sm:col-span-2 ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>{message.type === 'success' && <Check size={15} />}{message.text}</div>}
+                  <div className="flex justify-end gap-2 sm:col-span-2">
+                    <button type="button" disabled={saving} onClick={() => setSelectedCell(null)} className="inline-flex h-11 items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50">Cancel</button>
+                    <button type="submit" disabled={saving} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-100 px-5 text-sm font-semibold text-blue-800 transition-colors hover:bg-blue-200 disabled:opacity-60">
+                      {saving ? <Clock3 size={16} className="animate-spin" /> : <Save size={16} />}
+                      {saving ? 'Saving...' : 'Save period'}
+                    </button>
+                  </div>
+                </form>
               </div>
-              <form onSubmit={saveSlot} className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Subject code</label>
-                  <input required value={slotForm.subjectCode} onChange={(event: React.ChangeEvent<HTMLInputElement>) => setSlotForm({ ...slotForm, subjectCode: event.target.value })} placeholder="e.g. SUBJECT101" className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-blue-500" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Faculty</label>
-                  <DropdownSelect required value={slotForm.teacherId} onChange={(event: React.ChangeEvent<HTMLSelectElement>) => setSlotForm({ ...slotForm, teacherId: event.target.value })} className="w-full rounded-xl px-4 py-2.5">
-                    <option value="">Select faculty</option>
-                    {faculty.map((member) => <option key={member.id} value={member.id}>{member.name} ({member.email || '—'})</option>)}
-                  </DropdownSelect>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Co-Teacher</label>
-                  <DropdownSelect value={slotForm.coTeacherId || ''} onChange={(event: React.ChangeEvent<HTMLSelectElement>) => setSlotForm({ ...slotForm, coTeacherId: event.target.value })} className="w-full rounded-xl px-4 py-2.5">
-                    <option value="">None</option>
-                    {faculty.map((member) => <option key={member.id} value={member.id}>{member.name} ({member.email || '—'})</option>)}
-                  </DropdownSelect>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Room</label>
-                  <input value={slotForm.room} onChange={(event) => setSlotForm({ ...slotForm, room: event.target.value })} placeholder="Optional" className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-blue-500" />
-                </div>
-                <button type="submit" disabled={saving} className="h-[42px] inline-flex items-center justify-center gap-2 rounded-2xl border border-blue-200 bg-blue-100 px-4 text-sm font-semibold text-blue-800 hover:bg-blue-200 disabled:opacity-60">
-                  {saving ? <Clock3 size={16} className="animate-spin" /> : <Save size={16} />}
-                  {saving ? 'Saving...' : 'Save period'}
-                </button>
-              </form>
-              {message && <div className={`mt-4 inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>{message.type === 'success' && <Check size={15} />}{message.text}</div>}
-            </div>
+            </div>,
+            document.body,
           )}
 
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
               <div>
                 <h2 className="font-semibold text-gray-900">
-                  {selectedSection ? `${getOrdinalSuffix(parseInt(selectedStudentSemester))} Semester · ${selectedProgram} · ${selectedSection}` : `${getOrdinalSuffix(parseInt(selectedStudentSemester))} Semester · ${selectedProgram}`} weekly timetable
+                  {selectedSection ? `${selectedStudentSemester}${getOrdinalSuffix(Number(selectedStudentSemester))} Semester · ${selectedProgram} · ${selectedSection}` : `${selectedStudentSemester}${getOrdinalSuffix(Number(selectedStudentSemester))} Semester · ${selectedProgram}`} weekly timetable
                 </h2>
                 <p className="text-xs text-gray-500 mt-1">
                   {currentSemester?.name || 'Active semester'} ·
@@ -736,7 +780,7 @@ export const TimetableManagement: React.FC = () => {
               </div>
               <CalendarDays size={19} className="text-blue-600" />
             </div>
-            <div className="grid gap-3 p-4 md:hidden">
+            <div className="grid gap-3 p-4 xl:hidden">
               {DAYS.map((day) => (
                 <section key={day} className="overflow-hidden rounded-xl border border-gray-100 bg-gray-50/60">
                   <div className="border-b border-gray-100 bg-white px-4 py-3">
@@ -753,30 +797,28 @@ export const TimetableManagement: React.FC = () => {
                         );
                       }
                       const slot = getSlot(day, slotIndex);
-                      const color = subjectColors[(day.length + slotIndex) % subjectColors.length];
+                      const color = getSubjectColor(slot?.subjectCode);
                       const selected = selectedCell?.day === day && selectedCell.slotIndex === slotIndex;
                       return (
                         <button
                           key={period.label}
                           type="button"
                           onClick={() => selectCell(day, slotIndex)}
-                          className={`flex w-full items-center gap-3 px-4 py-3 text-left ${selected ? 'bg-blue-50' : 'bg-white'}`}
+                          className="flex w-full items-center gap-3 px-4 py-2 text-left"
                         >
                           <span className="w-[4.5rem] shrink-0 text-[11px] font-semibold text-gray-400">{period.label}</span>
                           {slot ? (
-                            <span className={`min-w-0 flex-1 rounded-lg border px-3 py-2 ${color[0]} ${color[1]}`}>
-                              <div className="flex flex-col">
-                                <span className={`block text-sm font-semibold ${color[2]}`}>{slot.subjectCode}</span>
-                                <span className="block text-[11px] text-gray-500 mt-1">{slot.activityType}</span>
-                              </div>
-                              <span className="block text-[11px] text-gray-500 mt-1 truncate">{slot.room || 'Room TBD'}</span>
-                              <span className="block text-[11px] text-gray-400 mt-1 truncate">{getFacultyName(slot.teacherId || '')}</span>
+                            <span className={`flex h-[92px] min-w-0 flex-1 flex-col justify-center overflow-hidden rounded-lg border border-l-2 px-3 py-2 ${color[0]} ${color[1]} ${color[3]} ${selected ? 'ring-2 ring-blue-300' : ''}`}>
+                              <span className={`block truncate text-sm font-semibold ${color[2]}`}>{slot.subjectCode}</span>
+                              <span className="mt-0.5 block truncate text-[11px] text-gray-500">{slot.activityType || 'Class'}</span>
+                              <span className="mt-0.5 block truncate text-[11px] text-gray-500">{slot.room || 'Room TBD'}</span>
+                              <span className="mt-0.5 block truncate text-[11px] text-gray-500">{getFacultyName(slot.teacherId || '')}</span>
                               {slot.coTeacherId && (
-                                <span className="block text-[11px] text-gray-400 mt-1 truncate">{getFacultyName(slot.coTeacherId || '')}</span>
+                                <span className="mt-0.5 block truncate text-[10px] text-gray-500">{getFacultyName(slot.coTeacherId)}</span>
                               )}
                             </span>
                           ) : (
-                            <span className="flex min-h-10 min-w-0 flex-1 items-center justify-center rounded-lg border border-dashed border-gray-200 bg-gray-50 text-xs text-gray-400">
+                            <span className={`flex h-[92px] min-w-0 flex-1 items-center justify-center rounded-lg border border-dashed text-xs text-gray-400 ${selected ? 'border-blue-300 bg-blue-50' : 'border-gray-200 bg-gray-50'}`}>
                               <Plus size={14} className="mr-1" /> Add class
                             </span>
                           )}
@@ -787,14 +829,16 @@ export const TimetableManagement: React.FC = () => {
                 </section>
               ))}
             </div>
-            <div className="hidden md:block overflow-x-auto">
-              <table className="w-full min-w-[980px] border-collapse">
+            <div className="hidden overflow-hidden xl:block">
+              <table className="w-full table-fixed border-collapse">
                 <thead>
                   <tr className="bg-gray-50/70">
-                    <th className="w-[120px] px-5 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Day</th>
+                    <th className="w-[88px] px-2 py-3 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-400 sm:w-[104px] sm:px-3 sm:text-xs">Day</th>
                     {PERIODS.map((period) => (
-                      <th key={period.label} className={`px-2 py-4 text-center text-xs font-semibold uppercase tracking-wide whitespace-nowrap ${period.kind === 'class' ? 'text-gray-500' : 'text-gray-300'}`}>
-                        {period.label}
+                      <th key={period.label} className={`px-0.5 py-3 text-center text-[9px] font-semibold uppercase leading-tight tracking-tight sm:px-1 sm:text-[10px] lg:text-xs ${period.kind === 'class' ? 'text-gray-500' : 'text-gray-300'}`}>
+                        {period.label.split('–').map((part, index) => (
+                          <React.Fragment key={part}>{index > 0 && <br />}{part}</React.Fragment>
+                        ))}
                       </th>
                     ))}
                   </tr>
@@ -802,35 +846,39 @@ export const TimetableManagement: React.FC = () => {
                 <tbody>
                   {DAYS.map((day) => (
                     <tr key={day} className="border-t border-gray-100">
-                      <td className="px-5 py-4 text-sm font-semibold text-gray-800">{day}</td>
+                      <td className="px-2 py-2 text-xs font-semibold text-gray-800 sm:px-3 sm:text-sm">{day}</td>
                       {PERIODS.map((period, slotIndex) => {
                         if (period.kind !== 'class') {
-                          return <td key={period.label} className="px-2 py-3 text-center text-xs text-gray-300">{period.kind === 'break' ? 'Break' : 'Lunch'}</td>;
+                          return (
+                            <td key={period.label} className="px-1 py-2 align-middle">
+                              <div className="flex h-[112px] items-center justify-center rounded-xl border border-gray-100 bg-gray-50 text-center text-[10px] font-medium text-gray-400 sm:text-xs">
+                                {period.kind === 'break' ? 'Break' : 'Lunch'}
+                              </div>
+                            </td>
+                          );
                         }
                         const slot = getSlot(day, slotIndex);
-                        const color = subjectColors[(day.length + slotIndex) % subjectColors.length];
+                        const color = getSubjectColor(slot?.subjectCode);
                         const selected = selectedCell?.day === day && selectedCell.slotIndex === slotIndex;
                         return (
-                          <td key={period.label} className={`px-2 py-2 align-middle ${selected ? 'bg-blue-50' : ''}`}>
+                          <td key={period.label} className="px-1 py-2 align-middle">
                             <button
                               type="button"
                               onClick={() => selectCell(day, slotIndex)}
-                              className="w-full min-h-[76px] rounded-xl border px-3 py-3 text-left"
+                              className={`flex h-[112px] w-full flex-col justify-center overflow-hidden rounded-xl border border-l-2 px-2 py-2 text-left transition-shadow sm:px-2.5 ${slot ? `${color[0]} ${color[1]} ${color[3]}` : 'border-dashed border-gray-200 bg-gray-50'} ${selected ? 'ring-2 ring-blue-300 ring-offset-1' : 'hover:shadow-sm'}`}
                             >
                               {slot ? (
                                 <>
-                                  <div className="flex flex-col">
-                                    <span className={`block text-sm font-semibold leading-tight ${color[2]}`}>{slot.subjectCode}</span>
-                                    <span className="block text-[11px] text-gray-500 mt-1">{slot.activityType}</span>
-                                  </div>
-                                  <span className="block text-[11px] text-gray-500 mt-1 truncate">{slot.room || 'Room TBD'}</span>
-                                  <span className="block text-[11px] text-gray-500 mt-1 truncate">{getFacultyName(slot.teacherId || '')}</span>
+                                  <span className={`block truncate text-xs font-semibold leading-tight sm:text-sm ${color[2]}`}>{slot.subjectCode}</span>
+                                  <span className="mt-1 block truncate text-[10px] text-gray-500 sm:text-[11px]">{slot.activityType || 'Class'}</span>
+                                  <span className="mt-1 block truncate text-[10px] text-gray-500 sm:text-[11px]">{slot.room || 'Room TBD'}</span>
+                                  <span className="mt-1 block truncate text-[10px] text-gray-500 sm:text-[11px]">{getFacultyName(slot.teacherId || '')}</span>
                                   {slot.coTeacherId && (
-                                    <span className="block text-[11px] text-gray-400 mt-1 truncate">{getFacultyName(slot.coTeacherId || '')}</span>
+                                    <span className="mt-1 block truncate text-[10px] text-gray-500 sm:text-[11px]">{getFacultyName(slot.coTeacherId)}</span>
                                   )}
                                 </>
                               ) : (
-                                <span className="flex h-full min-h-[50px] items-center justify-center text-gray-300"><Plus size={14} className="mr-1" /> Add class</span>
+                                <span className="inline-flex items-center justify-center text-xs text-gray-400"><Plus size={14} className="mr-1" /> Add class</span>
                               )}
                             </button>
                           </td>

@@ -165,25 +165,25 @@ button:not(:disabled) {
   }
 
   .dashboard-scroll .text-base {
-    font-size: 0.9375rem;
-    line-height: 1.4;
+    font-size: 1rem;
+    line-height: 1.45;
   }
 
   .dashboard-scroll .text-sm {
-    font-size: 0.8125rem;
-    line-height: 1.4;
+    font-size: 0.875rem;
+    line-height: 1.45;
   }
 
   .dashboard-scroll .text-xs {
-    font-size: 0.6875rem;
-    line-height: 1.4;
+    font-size: 0.75rem;
+    line-height: 1.45;
   }
 
   .dashboard-scroll p,
   .dashboard-scroll span,
   .dashboard-scroll td,
   .dashboard-scroll th {
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
   }
 
   input,
@@ -208,6 +208,14 @@ button:not(:disabled) {
 
   .dashboard-scroll :is(input:not([type='checkbox']):not([type='radio']), select, textarea) {
     min-height: 2.75rem;
+  }
+
+  .dashboard-scroll :is(input, select, textarea) {
+    min-width: 0;
+  }
+
+  .dashboard-scroll button {
+    touch-action: manipulation;
   }
 }
 

@@ -121,7 +121,7 @@ export const StudentDashboard: React.FC<Props> = ({ user, onLogout }) => {
           </button>
         </div>
 
-        <div key={active} className="dashboard-scroll flex-1 min-h-0 p-3 sm:p-6 md:p-8 animate-slide-up">
+        <div key={active} className="dashboard-scroll flex-1 min-h-0 px-3 py-3 sm:px-6 sm:py-6 md:px-10 md:pt-8 animate-slide-up">
           {renderContent()}
         </div>
 

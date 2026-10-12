@@ -82,6 +82,8 @@ export const DropdownSelect: React.FC<DropdownSelectProps> = ({
       if (!trigger) return;
       const bounds = trigger.getBoundingClientRect();
       const menuHeight = Math.min(menuOptions.length * 40 + 12, 256);
+      const width = Math.min(Math.max(bounds.width, 256), window.innerWidth - 16);
+      const left = Math.min(Math.max(bounds.left, 8), window.innerWidth - width - 8);
       const spaceBelow = window.innerHeight - bounds.bottom;
       const top = spaceBelow < menuHeight + 16 && bounds.top > spaceBelow
         ? Math.max(8, bounds.top - menuHeight - 8)
@@ -90,8 +92,8 @@ export const DropdownSelect: React.FC<DropdownSelectProps> = ({
       setMenuPosition({
         position: 'fixed',
         top,
-        left: bounds.left,
-        width: bounds.width,
+        left,
+        width,
         zIndex: 1000,
       });
     };

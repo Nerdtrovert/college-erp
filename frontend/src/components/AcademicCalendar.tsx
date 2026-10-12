@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   CalendarDays,
   ChevronLeft,
@@ -98,6 +99,21 @@ export const AcademicCalendar: React.FC<AcademicCalendarProps> = ({
 
     return () => window.clearTimeout(timeoutId);
   }, [today]);
+  useEffect(() => {
+    if (!showForm) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setShowForm(false);
+    };
+
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showForm]);
   useEffect(() => {
     try {
       if (window.localStorage.getItem(ACADEMIC_CALENDAR_VERSION_KEY) === 'complete') return;
@@ -291,38 +307,55 @@ export const AcademicCalendar: React.FC<AcademicCalendarProps> = ({
         </div>
       )}
 
-      {showForm && editable && (
-        <form onSubmit={saveEvent} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div>
-              <h2 className="font-semibold text-gray-900">{editingEvent ? 'Edit calendar event' : 'Add calendar event'}</h2>
-              <p className="mt-1 text-xs text-gray-500">Changes apply to the shared calendar view.</p>
+      {showForm && editable && createPortal(
+        <div
+          className="animate-fade-in fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-slate-950/45 p-4 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setShowForm(false);
+          }}
+        >
+          <form
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="calendar-event-form-title"
+            onSubmit={saveEvent}
+            className="animate-slide-up my-auto w-full max-w-xl rounded-2xl border border-gray-100 bg-white p-5 shadow-2xl sm:p-6"
+          >
+            <div className="mb-5 flex items-start justify-between gap-3">
+              <div>
+                <h2 id="calendar-event-form-title" className="text-lg font-semibold text-gray-900">{editingEvent ? 'Edit calendar event' : 'Add calendar event'}</h2>
+                <p className="mt-1 text-sm text-gray-500">Changes apply to the shared calendar view.</p>
+              </div>
+              <button type="button" aria-label="Close event form" onClick={() => setShowForm(false)} className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"><X size={18} /></button>
             </div>
-            <button type="button" aria-label="Close event form" onClick={() => setShowForm(false)} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700"><X size={18} /></button>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1.6fr_1fr_auto] lg:items-end">
-            <label className="text-xs font-medium text-gray-700">
-              Start date
-              <input required type="date" value={form.date} onChange={(event) => setForm({ ...form, date: event.target.value })} className="mt-1.5 h-11 w-full rounded-xl border border-gray-200 px-3 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
-            </label>
-            <label className="text-xs font-medium text-gray-700">
-              End date (optional)
-              <input type="date" min={form.date || undefined} value={form.endDate} onChange={(event) => setForm({ ...form, endDate: event.target.value })} className="mt-1.5 h-11 w-full rounded-xl border border-gray-200 px-3 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
-            </label>
-            <label className="text-xs font-medium text-gray-700">
-              Event name
-              <input required value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="e.g. CIE - III" className="mt-1.5 h-11 w-full rounded-xl border border-gray-200 px-3 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
-            </label>
-            <label className="text-xs font-medium text-gray-700">
-              Category
-              <DropdownSelect value={form.type} onChange={(event: React.ChangeEvent<HTMLSelectElement>) => setForm({ ...form, type: event.target.value as EventType })} className="mt-1.5 h-11 rounded-xl px-3">
-                {Object.entries(EVENT_STYLES).filter(([type]) => editableTypes.includes(type as EventType) && type !== 'general').map(([type, style]) => <option key={type} value={type}>{style.label}</option>)}
-              </DropdownSelect>
-            </label>
-            <button type="submit" className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-100 px-4 text-sm font-semibold text-blue-800 transition-colors hover:border-blue-300 hover:bg-blue-200"><Save size={16} /> Save</button>
-          </div>
-          {feedback && <p role="alert" className="mt-3 text-xs font-medium text-rose-600">{feedback}</p>}
-        </form>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="text-sm font-medium text-gray-700">
+                Start date
+                <input required type="date" value={form.date} onChange={(event) => setForm({ ...form, date: event.target.value })} className="mt-1.5 h-11 w-full rounded-xl border border-gray-200 px-3 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
+              </label>
+              <label className="text-sm font-medium text-gray-700">
+                End date (optional)
+                <input type="date" min={form.date || undefined} value={form.endDate} onChange={(event) => setForm({ ...form, endDate: event.target.value })} className="mt-1.5 h-11 w-full rounded-xl border border-gray-200 px-3 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
+              </label>
+              <label className="text-sm font-medium text-gray-700 sm:col-span-2">
+                Event name
+                <input autoFocus required value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="e.g. CIE - III" className="mt-1.5 h-11 w-full rounded-xl border border-gray-200 px-3 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
+              </label>
+              <label className="text-sm font-medium text-gray-700 sm:col-span-2">
+                Category
+                <DropdownSelect value={form.type} onChange={(event: React.ChangeEvent<HTMLSelectElement>) => setForm({ ...form, type: event.target.value as EventType })} className="mt-1.5 h-11 rounded-xl px-3">
+                  {Object.entries(EVENT_STYLES).filter(([type]) => editableTypes.includes(type as EventType) && type !== 'general').map(([type, style]) => <option key={type} value={type}>{style.label}</option>)}
+                </DropdownSelect>
+              </label>
+            </div>
+            {feedback && <p role="alert" className="mt-3 text-sm font-medium text-rose-600">{feedback}</p>}
+            <div className="mt-6 flex justify-end gap-2">
+              <button type="button" onClick={() => setShowForm(false)} className="inline-flex h-11 items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50">Cancel</button>
+              <button type="submit" className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-100 px-5 text-sm font-semibold text-blue-800 transition-colors hover:border-blue-300 hover:bg-blue-200"><Save size={16} /> Save</button>
+            </div>
+          </form>
+        </div>,
+        document.body,
       )}
 
       {importFeedback && (
@@ -370,66 +403,73 @@ export const AcademicCalendar: React.FC<AcademicCalendarProps> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-7 overflow-hidden rounded-xl border border-gray-200">
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-            <div key={day} className="border-b border-gray-200 bg-gray-50 px-0.5 py-2 text-center text-[9px] font-semibold uppercase text-gray-500 sm:px-2 sm:text-xs sm:tracking-wide">
-              {day}
-            </div>
-          ))}
-          {cells.map((cell, index) => {
-            if (!cell) {
-              return <div key={`empty-${index}`} className="min-h-14 border-b border-r border-gray-100 bg-gray-50/40 sm:min-h-32" />;
-            }
-            const primaryEvent = cell.events[0];
-            const hasSundayHoliday = cell.date.getDay() === 0 && !cell.events.some((event) => event.title === 'Sunday holiday');
-            const isToday = cell.date.getFullYear() === today.getFullYear() && cell.date.getMonth() === today.getMonth() && cell.day === today.getDate();
-            return (
-              <button type="button" key={cell.dateKey} aria-current={isToday ? 'date' : undefined} aria-label={`${isToday ? 'Today, ' : ''}${cell.date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}${cell.events.length ? `, ${cell.events.map((event) => event.title).join(', ')}` : ''}`} onClick={() => setSelectedDate(cell.dateKey)} className={`group relative min-h-[4.5rem] border-b border-r border-gray-100 p-1 text-left sm:min-h-32 sm:p-2 ${selectedDate === cell.dateKey ? 'bg-blue-50 ring-2 ring-inset ring-blue-400' : hasSundayHoliday ? 'bg-slate-50/70' : 'bg-white'}`}>
-                <div className="mb-1 flex items-center justify-between gap-1 sm:mb-2">
-                  <div className={`flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold sm:h-7 sm:w-7 sm:text-xs ${isToday ? 'bg-blue-600 text-white ring-2 ring-blue-100' : primaryEvent?.type === 'cie' ? 'bg-amber-500 text-white' : primaryEvent?.type === 'government' ? 'bg-rose-100 text-rose-700' : hasSundayHoliday ? 'text-gray-400' : 'text-gray-700'}`}>
-                    {cell.day}
+        <div className="overflow-hidden rounded-xl border border-gray-200">
+          <div className="grid grid-cols-7">
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+              <div key={day} className="border-b border-r border-gray-200 bg-gray-50 px-0.5 py-2 text-center text-[9px] font-semibold uppercase text-gray-500 last:border-r-0 sm:px-2 sm:text-xs sm:tracking-wide">
+                {day}
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-7 auto-rows-[5.5rem] sm:auto-rows-[9rem] [&>*:nth-child(7n)]:border-r-0">
+            {cells.map((cell, index) => {
+              if (!cell) {
+                return <div key={`empty-${index}`} className="border-b border-r border-gray-100 bg-gray-50/40 last:border-r-0" />;
+              }
+              const primaryEvent = cell.events[0];
+              const hasSundayHoliday = cell.date.getDay() === 0 && !cell.events.some((event) => event.title === 'Sunday holiday');
+              const isToday = cell.date.getFullYear() === today.getFullYear() && cell.date.getMonth() === today.getMonth() && cell.day === today.getDate();
+              return (
+                <div key={cell.dateKey} className={`group relative flex h-full min-h-0 flex-col overflow-hidden border-b border-r border-gray-100 p-1.5 text-left last:border-r-0 sm:p-2 ${selectedDate === cell.dateKey ? 'bg-blue-50 ring-2 ring-inset ring-blue-400' : hasSundayHoliday ? 'bg-slate-50/70' : 'bg-white'}`}>
+                  <button type="button" aria-current={isToday ? 'date' : undefined} aria-label={`${isToday ? 'Today, ' : ''}${cell.date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}${cell.events.length ? `, ${cell.events.map((event) => event.title).join(', ')}` : ''}`} onClick={() => setSelectedDate(cell.dateKey)} className="absolute inset-0 z-0 cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 focus-visible:outline-offset-[-2px]" />
+                  <div className="pointer-events-none relative z-10 mb-1 flex min-h-7 shrink-0 items-center gap-1 pr-8">
+                    <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold sm:h-7 sm:w-7 sm:text-xs ${isToday ? 'bg-blue-600 text-white ring-2 ring-blue-100' : primaryEvent?.type === 'cie' ? 'bg-amber-500 text-white' : primaryEvent?.type === 'government' ? 'bg-rose-100 text-rose-700' : hasSundayHoliday ? 'text-gray-400' : 'text-gray-700'}`}>
+                      {cell.day}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    {isToday && <span className="hidden rounded-full bg-blue-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-blue-700 sm:inline">Today</span>}
-                    {editable && (
-                      <span role="button" aria-label={`Add event on ${cell.dateKey}`} onClick={(event) => { event.stopPropagation(); openAddForm(cell.dateKey); }} className="hidden h-7 w-7 items-center justify-center rounded-lg border border-blue-100 bg-blue-50 text-blue-600 transition-colors hover:border-blue-200 hover:bg-blue-100 sm:flex" title="Add event on this date">
-                        <Plus size={14} />
+                  {editable && (
+                    <button type="button" aria-label={`Add event on ${cell.dateKey}`} onClick={() => openAddForm(cell.dateKey)} className="absolute right-1.5 top-1.5 z-20 hidden h-7 w-7 items-center justify-center rounded-lg border border-blue-100 bg-blue-50 text-blue-600 transition-colors hover:border-blue-200 hover:bg-blue-100 sm:flex" title="Add event on this date">
+                      <Plus size={14} />
+                    </button>
+                  )}
+                  <div className="pointer-events-none relative z-10 mt-auto hidden min-h-0 space-y-0.5 sm:block">
+                    {cell.events.slice(0, 3).map((event) => {
+                      const style = EVENT_STYLES[event.type];
+                      const isSundayHoliday = event.type === 'general' && event.title === 'Sunday holiday';
+                      return (
+                        <div key={`${event.date}-${event.title}`} title={event.title} className={`pointer-events-none flex h-6 min-w-0 items-center gap-1 rounded px-1.5 text-[10px] font-medium leading-none sm:rounded-md sm:border sm:text-[11px] ${style.className}`}>
+                          <span className="min-w-0 flex-1 truncate">{event.title}</span>
+                          {canEditEvent(event) && !isSundayHoliday && (
+                            <div className="pointer-events-auto flex shrink-0 items-center">
+                              <button type="button" aria-label={`Edit ${event.title}`} onClick={(clickEvent) => { clickEvent.stopPropagation(); openEditForm(event); }} className="rounded p-0.5 hover:bg-white/70"><Edit3 size={9} /></button>
+                              <button type="button" aria-label={`Delete ${event.title}`} onClick={(clickEvent) => { clickEvent.stopPropagation(); deleteEvent(event); }} className="rounded p-0.5 hover:bg-white/70"><Trash2 size={9} /></button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                    {cell.events.length > 3 && (
+                      <span className="block truncate px-1 text-[9px] leading-4 text-gray-500" title={`${cell.events.length - 3} more events`}>
+                        +{cell.events.length - 3} more
                       </span>
                     )}
                   </div>
+                  {cell.events.length > 0 && (
+                    <div aria-hidden="true" className="flex min-h-2 items-center gap-1 px-0.5 sm:hidden">
+                      {cell.events.slice(0, 3).map((event) => (
+                        <span key={`${event.date}-${event.title}`} className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                          event.type === 'cie' ? 'bg-amber-500' :
+                          event.type === 'government' ? 'bg-rose-500' :
+                          event.type === 'academic' ? 'bg-blue-500' : 'bg-slate-400'
+                        }`} />
+                      ))}
+                      {cell.events.length > 3 && <span className="text-[9px] font-semibold leading-none text-gray-500">+{cell.events.length - 3}</span>}
+                    </div>
+                  )}
                 </div>
-                <div className="hidden space-y-1 sm:block">
-                  {cell.events.map((event) => {
-                    const style = EVENT_STYLES[event.type];
-                    const isSundayHoliday = event.type === 'general' && event.title === 'Sunday holiday';
-                    return (
-                      <span key={`${event.date}-${event.title}`} title={event.title} className={`block rounded-md px-0.5 py-0.5 text-[8px] font-medium leading-tight break-words sm:rounded-lg sm:border sm:px-1.5 sm:py-1 sm:text-[11px] sm:leading-tight ${style.className}`}>
-                        <span className="line-clamp-2 sm:line-clamp-3">{event.title}</span>
-                        {canEditEvent(event) && !isSundayHoliday && (
-                          <span className="mt-1 hidden gap-1 border-t border-current/10 pt-1 sm:flex">
-                            <span role="button" aria-label={`Edit ${event.title}`} onClick={(clickEvent) => { clickEvent.stopPropagation(); openEditForm(event); }} className="rounded p-1 hover:bg-white/70"><Edit3 size={11} /></span>
-                            <span role="button" aria-label={`Delete ${event.title}`} onClick={(clickEvent) => { clickEvent.stopPropagation(); deleteEvent(event); }} className="rounded p-1 hover:bg-white/70"><Trash2 size={11} /></span>
-                          </span>
-                        )}
-                      </span>
-                    );
-                  })}
-                </div>
-                {cell.events.length > 0 && (
-                  <div aria-hidden="true" className="flex min-h-2 items-center gap-1 px-0.5 sm:hidden">
-                    {cell.events.slice(0, 3).map((event) => (
-                      <span key={`${event.date}-${event.title}`} className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-                        event.type === 'cie' ? 'bg-amber-500' :
-                        event.type === 'government' ? 'bg-rose-500' :
-                        event.type === 'academic' ? 'bg-blue-500' : 'bg-slate-400'
-                      }`} />
-                    ))}
-                    {cell.events.length > 3 && <span className="text-[9px] font-semibold leading-none text-gray-500">+{cell.events.length - 3}</span>}
-                  </div>
-                )}
-              </button>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
 
         {selectedDate && (() => {

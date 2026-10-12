@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, CheckCircle2, ChevronDown, Download, Upload } from 'lucide-react';
+import { Save, CheckCircle2, Download, Upload } from 'lucide-react';
 import API from '../../services/api';
 import { parseExcelFile } from '../../utils/excelParser';
 import { DropdownSelect } from '../ui/DropdownSelect';
@@ -243,7 +243,6 @@ export const TeacherMarks: React.FC = () => {
               >
                 {subjects.map(c => <option key={`${c.code}|${c.classGroup}`} value={`${c.code}|${c.classGroup}`}>{c.code} — {c.name} ({c.classGroup})</option>)}
               </DropdownSelect>
-              <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
             </div>
           </div>
           <div>
