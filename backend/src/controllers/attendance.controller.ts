@@ -46,6 +46,7 @@ export const getTeacherClasses = async (req: AuthRequest, res: Response) => {
           startTime,
           endTime,
           semester: { status: 'ACTIVE' },
+          ...(slot.subjectCode ? { assignment: { subject: { code: slot.subjectCode } } } : {}),
         },
         select: { id: true },
       });
@@ -84,9 +85,25 @@ export const getStudentAttendance = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'No active semester found' });
     }
 
+    // Find student active enrollment to filter subjects for their specific semester number
+    const enrollment = await prisma.studentEnrollment.findFirst({
+      where: { studentId, semester: { status: 'ACTIVE' } },
+      orderBy: { semester: { createdAt: 'desc' } },
+    });
+    const studentSemNum = enrollment?.semesterNumber;
+
+    const inferStudentSemesterNumber = (code: string): number | null => {
+      const match = code.match(/\b\d*[A-Z]{2,}(\d)\d[A-Z0-9]*\b/i);
+      if (match) {
+        const num = Number(match[1]);
+        if (num >= 1 && num <= 8) return num;
+      }
+      return null;
+    };
+
     // Get all assignments corresponding to the student's class group section
-    const assignments = await prisma.subjectSectionAssignment.findMany({
-      where: { classGroup },
+    const rawAssignments = await prisma.subjectSectionAssignment.findMany({
+      where: { classGroup: enrollment?.classGroup || classGroup },
       include: {
         subject: { select: { code: true, name: true, type: true } },
         theoryFaculty: { select: { name: true } },
@@ -104,6 +121,12 @@ export const getStudentAttendance = async (req: AuthRequest, res: Response) => {
           },
         },
       },
+    });
+
+    const assignments = rawAssignments.filter((assign) => {
+      if (!studentSemNum) return true;
+      const subSem = inferStudentSemesterNumber(assign.subject.code);
+      return !subSem || subSem === studentSemNum;
     });
 
     // Map assignments into structure required by frontend
@@ -174,9 +197,24 @@ export const getTeacherAttendance = async (req: AuthRequest, res: Response) => {
       select: { id: true },
     });
 
-    // Get all students enrolled in this subject's class section
+    const inferStudentSemesterNumber = (code: string): number | null => {
+      const match = code.match(/\b\d*[A-Z]{2,}(\d)\d[A-Z0-9]*\b/i);
+      if (match) {
+        const num = Number(match[1]);
+        if (num >= 1 && num <= 8) return num;
+      }
+      return null;
+    };
+    const targetSemesterNumber = timetableSlot.studentSemesterNumber ?? inferStudentSemesterNumber(subjectCode);
+
+    // Get all students enrolled in this subject's class section and semester
     const enrollments = await prisma.studentEnrollment.findMany({
-      where: { semesterId: activeSem.id, classGroup, student: { is: { role: 'student' } } },
+      where: {
+        semesterId: activeSem.id,
+        classGroup,
+        ...(targetSemesterNumber ? { semesterNumber: targetSemesterNumber } : {}),
+        student: { is: { role: 'student' } },
+      },
       include: { student: true },
       orderBy: { studentId: 'asc' },
     });

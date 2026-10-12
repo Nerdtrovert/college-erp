@@ -17,7 +17,18 @@ export const getStudentTimetable = async (req: AuthRequest, res: Response) => {
     });
     if (!enrollment) return res.status(404).json({ error: 'No current student enrollment found' });
     const slots = await prisma.timetableSlot.findMany({
-      where: { semesterId: enrollment.semesterId, classGroup: enrollment.classGroup },
+      where: {
+        semesterId: enrollment.semesterId,
+        classGroup: enrollment.classGroup,
+        ...(enrollment.semesterNumber
+          ? {
+              OR: [
+                { studentSemesterNumber: enrollment.semesterNumber },
+                { studentSemesterNumber: null },
+              ],
+            }
+          : {}),
+      },
       include: { assignment: { select: { subject: { select: { code: true } } } } },
       orderBy: [
         { day: 'asc' },

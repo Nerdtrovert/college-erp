@@ -61,12 +61,13 @@ const removeUploadedFile = async (filePath: string): Promise<void> => {
   }
 };
 
-const hasExpectedFileSignature = (buffer: Buffer, ext: string): boolean => {
-  if (ext === '.pdf') return buffer.subarray(0, 5).toString() === '%PDF-';
-  if (ext === '.xls') return buffer.subarray(0, 8).equals(Buffer.from('D0CF11E0A1B11AE1', 'hex'));
-  if (ext === '.xlsx' || ext === '.docx') return buffer.subarray(0, 2).toString() === 'PK';
-  if (ext === '.doc') return buffer.subarray(0, 8).equals(Buffer.from('D0CF11E0A1B11AE1', 'hex'));
-  return false;
+const inferStudentSemesterNumber = (code: string): number | null => {
+  const match = code.match(/\b\d*[A-Z]{2,}(\d)\d[A-Z0-9]*\b/i);
+  if (match) {
+    const num = Number(match[1]);
+    if (num >= 1 && num <= 8) return num;
+  }
+  return null;
 };
 
 /**
@@ -394,9 +395,16 @@ export const getStudentMarks = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'No active semester found' });
     }
 
+    // Find student active enrollment to filter subjects for their specific semester number
+    const enrollment = await prisma.studentEnrollment.findFirst({
+      where: { studentId, semester: { status: 'ACTIVE' } },
+      orderBy: { semester: { createdAt: 'desc' } },
+    });
+    const studentSemNum = enrollment?.semesterNumber;
+
     // Find all assignments for this student's class group in the active semester
-    const assignments = await prisma.subjectSectionAssignment.findMany({
-      where: { classGroup },
+    const rawAssignments = await prisma.subjectSectionAssignment.findMany({
+      where: { classGroup: enrollment?.classGroup || classGroup },
       include: {
         subject: { select: { code: true, name: true, type: true } },
         theoryFaculty: { select: { name: true } },
@@ -408,6 +416,12 @@ export const getStudentMarks = async (req: AuthRequest, res: Response) => {
           },
         },
       },
+    });
+
+    const assignments = rawAssignments.filter((assign) => {
+      if (!studentSemNum) return true;
+      const subSem = inferStudentSemesterNumber(assign.subject.code);
+      return !subSem || subSem === studentSemNum;
     });
 
     // Map into the format expected by StudentMarks.tsx
@@ -531,9 +545,16 @@ export const getTeacherMarks = async (req: AuthRequest, res: Response) => {
       }
     });
 
-    // Get all students inside this class group section
+    const targetSemesterNumber = inferStudentSemesterNumber(subjectCode);
+
+    // Get all students inside this class group section and semester
     const enrollments = await prisma.studentEnrollment.findMany({
-      where: { semesterId: activeSem.id, classGroup, student: { is: { role: 'student' } } },
+      where: {
+        semesterId: activeSem.id,
+        classGroup,
+        ...(targetSemesterNumber ? { semesterNumber: targetSemesterNumber } : {}),
+        student: { is: { role: 'student' } },
+      },
       include: { student: true },
       orderBy: { studentId: 'asc' },
     });
@@ -636,9 +657,15 @@ export const exportTeacherMarks = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: 'Subject section assignment not found' });
     }
 
+    const targetSemesterNumber = inferStudentSemesterNumber(subjectCode);
     const [students, marks] = await Promise.all([
       prisma.studentEnrollment.findMany({
-        where: { semesterId: activeSem.id, classGroup, student: { is: { role: 'student' } } },
+        where: {
+          semesterId: activeSem.id,
+          classGroup,
+          ...(targetSemesterNumber ? { semesterNumber: targetSemesterNumber } : {}),
+          student: { is: { role: 'student' } },
+        },
         select: { student: { select: { id: true, name: true } } },
         orderBy: { studentId: 'asc' },
       }).then((enrollments) => enrollments.map(({ student }) => student)),

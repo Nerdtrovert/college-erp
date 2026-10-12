@@ -7,6 +7,15 @@ import { isSubjectAtRisk } from '../utils/academicRisk';
 import { calculateProjectedSgpa } from '../utils/projectedSgpa';
 import { SubjectType } from '@prisma/client';
 
+const inferStudentSemesterNumber = (code: string): number | null => {
+  const match = code.match(/\b\d*[A-Z]{2,}(\d)\d[A-Z0-9]*\b/i);
+  if (match) {
+    const num = Number(match[1]);
+    if (num >= 1 && num <= 8) return num;
+  }
+  return null;
+};
+
 const getStudentReportWhere = (
   semesterId: string | undefined,
   program?: string,
@@ -249,7 +258,14 @@ export const getVergeOfBacklogReport = async (req: AuthRequest, res: Response) =
       const subjectsDetail: any[] = [];
       const atRiskSubjects: string[] = [];
       const studentDetails = getReportStudentDetails(student, activeSemesterId);
-      const studentSubjects = subjects.filter((subject): subject is { classGroup: string; code: string; name: string; type: SubjectType } => subject.classGroup === studentDetails.classGroup);
+      const studentSubjects = subjects.filter((subject): subject is { classGroup: string; code: string; name: string; type: SubjectType } => {
+        if (subject.classGroup !== studentDetails.classGroup) return false;
+        if (studentDetails.currentSemester) {
+          const subSem = inferStudentSemesterNumber(subject.code);
+          if (subSem && subSem !== studentDetails.currentSemester) return false;
+        }
+        return true;
+      });
 
       for (const subject of studentSubjects) {
         const subjectCode = subject.code;
@@ -468,7 +484,14 @@ export const getAttendanceAndAssignmentReport = async (req: AuthRequest, res: Re
       const report = students.flatMap((student) => {
         const studentDetails = getReportStudentDetails(student, semesterId);
         return assignments
-          .filter((assign) => assign.classGroup === studentDetails.classGroup)
+          .filter((assign) => {
+            if (assign.classGroup !== studentDetails.classGroup) return false;
+            if (studentDetails.currentSemester) {
+              const subSem = inferStudentSemesterNumber(assign.subject.code);
+              if (subSem && subSem !== studentDetails.currentSemester) return false;
+            }
+            return true;
+          })
           .flatMap((assign) => {
             const assignmentMarks = student.marks.filter((mark) =>
               mark.assignment?.id === assign.id && ['assignment', 'assignment1', 'assignment2'].includes(mark.type)
