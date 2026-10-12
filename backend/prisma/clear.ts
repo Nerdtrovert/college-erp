@@ -10,7 +10,7 @@ async function main() {
     await prisma.attendanceSession.deleteMany({});
     await prisma.studentEnrollment.deleteMany({});
     await prisma.mark.deleteMany({});
-    await prisma.assignment.deleteMany({}); // Note: This is SubjectSectionAssignment? Actually, the model is SubjectSectionAssignment
+    await prisma.subjectSectionAssignment.deleteMany({});
     await prisma.subject.deleteMany({});
     await prisma.user.deleteMany({});
     await prisma.semester.deleteMany({});

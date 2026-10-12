@@ -1,11 +1,11 @@
-import { PrismaClient, SubjectType } from '@prisma/client';
+import { PrismaClient, SubjectType, SubjectCourseType } from '@prisma/client';
 
 export async function seedSubjects(
   prisma: PrismaClient,
   facultyEmailToIdMap: Map<string, string>,
   facultyData: any[]
 ) {
-  const canonicalSubjects = [
+  const canonicalSubjects: Array<{ code: string; name: string; type: SubjectType; courseType?: SubjectCourseType }> = [
     { code: 'BCS501', name: 'Software Engineering & PM', type: SubjectType.STANDALONE },
     { code: 'BCS503', name: 'Theory of Computation', type: SubjectType.STANDALONE },
     { code: 'BRMK557', name: 'Research Methodology and IPR', type: SubjectType.STANDALONE },
@@ -26,6 +26,16 @@ export async function seedSubjects(
     { code: 'BYOK559', name: 'YOGA', type: SubjectType.STANDALONE },
     { code: 'BAD515C', name: 'Cloud Computing', type: SubjectType.STANDALONE },
     { code: 'BCS502', name: 'Computer Networks', type: SubjectType.INTEGRATED },
+
+    // 3rd Sem Canonical Subjects
+    { code: '1BMATCS301', name: 'Mathematics for CSE', type: SubjectType.STANDALONE },
+    { code: '1BCS302', name: 'Digital Design & Computer Organization', type: SubjectType.INTEGRATED },
+    { code: '1BCS303', name: 'Operating Systems', type: SubjectType.STANDALONE },
+    { code: '1BCS304', name: 'Data Structures and Applications', type: SubjectType.STANDALONE },
+    { code: '1BCS305', name: 'Object Oriented Programming with Java', type: SubjectType.STANDALONE },
+    { code: '1BCSL306', name: 'Data Structures Laboratory', type: SubjectType.STANDALONE },
+    { code: '1BAIL307A', name: 'Social Connect & Responsibility', type: SubjectType.STANDALONE },
+    { code: '1BCP308', name: 'Project / Technical Ability', type: SubjectType.STANDALONE, courseType: SubjectCourseType.PROJECT },
   ];
 
   for (const s of canonicalSubjects) {
@@ -33,7 +43,7 @@ export async function seedSubjects(
     // but ideally we could leave them alone. However, we'll keep the update for name and type.
     await prisma.subject.upsert({
       where: { code: s.code },
-      update: { name: s.name, type: s.type },
+      update: { name: s.name, type: s.type, ...(s.courseType ? { courseType: s.courseType } : {}) },
       create: s,
     });
   }
@@ -46,8 +56,8 @@ export async function seedSubjects(
       ISE: { theoryFacultyIdName: 'Prof. Harshitha', labFacultyIdName: null },
     },
     BCS502: {
-      'CSE-A': { theoryFacultyIdName: 'Prof. Vijaya Singh', labFacultyIdName: 'Prof. Harshitha' },
-      'CSE-B': { theoryFacultyIdName: 'Prof. Vijaya Singh', labFacultyIdName: 'Prof. Harshitha' },
+      'CSE-A': { theoryFacultyIdName: 'Prof. Vinaya Singh', labFacultyIdName: 'Prof. Harshitha' },
+      'CSE-B': { theoryFacultyIdName: 'Prof. Vinaya Singh', labFacultyIdName: 'Prof. Harshitha' },
       ISE: { theoryFacultyIdName: 'Prof. Harshitha', labFacultyIdName: 'Prof. Harshitha' },
     },
     BCS503: {
@@ -57,7 +67,7 @@ export async function seedSubjects(
     },
     BRMK557: {
       'CSE-A': { theoryFacultyIdName: 'Dr. Bhargavi K S', labFacultyIdName: null },
-      'CSE-B': { theoryFacultyIdName: 'Prof. Lashmi A M', labFacultyIdName: null },
+      'CSE-B': { theoryFacultyIdName: 'Prof. Lakshmi A N', labFacultyIdName: null },
       ECE: { theoryFacultyIdName: null, labFacultyIdName: null },
       ISE: { theoryFacultyIdName: 'Prof. Megashree', labFacultyIdName: null },
     },
@@ -94,7 +104,65 @@ export async function seedSubjects(
     BYOK559: { ECE: { theoryFacultyIdName: null, labFacultyIdName: null } },
     BAIL504: { ISE: { theoryFacultyIdName: null, labFacultyIdName: null } },
     BAD515C: {
-      'AI&DS-A': { theoryFacultyIdName: 'Prof. Vijaya Singh', labFacultyIdName: null },
+      'AI&DS-A': { theoryFacultyIdName: 'Prof. Vinaya Singh', labFacultyIdName: null },
+    },
+
+    // 3rd Sem Subject Assignments
+    '1BMATCS301': {
+      'AI&DS-A': { theoryFacultyIdName: 'Dr. Preetham Raj', labFacultyIdName: null },
+      'CSE-A': { theoryFacultyIdName: 'Dr. Shwetha K S', labFacultyIdName: null },
+      'CSE-B': { theoryFacultyIdName: 'Dr. Shwetha K S', labFacultyIdName: null },
+      'ISE-A': { theoryFacultyIdName: 'Prof. Aishwarya M', labFacultyIdName: null },
+      'ISE-B': { theoryFacultyIdName: null, labFacultyIdName: null },
+    },
+    '1BCS302': {
+      'AI&DS-A': { theoryFacultyIdName: 'Prof. Archana B K', labFacultyIdName: 'Prof. Archana B K' },
+      'CSE-A': { theoryFacultyIdName: 'Dr. Nanditha Y', labFacultyIdName: 'Dr. Nanditha Y' },
+      'CSE-B': { theoryFacultyIdName: 'Dr. Nanditha Y', labFacultyIdName: 'Dr. Nanditha Y' },
+      'ISE-A': { theoryFacultyIdName: 'Prof. Archana B K', labFacultyIdName: 'Prof. Archana B K' },
+      'ISE-B': { theoryFacultyIdName: 'Prof. Pooja H S', labFacultyIdName: 'Prof. Pooja H S' },
+    },
+    '1BCS303': {
+      'AI&DS-A': { theoryFacultyIdName: 'Prof. Ravishankar', labFacultyIdName: null },
+      'CSE-A': { theoryFacultyIdName: 'Prof. Sunil Kumar S', labFacultyIdName: null },
+      'CSE-B': { theoryFacultyIdName: 'Prof. Sunil Kumar S', labFacultyIdName: null },
+      'ISE-A': { theoryFacultyIdName: 'Dr. Gopalsharma Joshi', labFacultyIdName: null },
+      'ISE-B': { theoryFacultyIdName: 'Prof. Sunil Kumar S', labFacultyIdName: null },
+    },
+    '1BCS304': {
+      'AI&DS-A': { theoryFacultyIdName: 'Dr. Ashok Kumar A R', labFacultyIdName: null },
+      'CSE-A': { theoryFacultyIdName: 'Dr. Ashok Kumar A R', labFacultyIdName: null },
+      'CSE-B': { theoryFacultyIdName: 'Dr. Ashok Kumar A R', labFacultyIdName: null },
+      'ISE-A': { theoryFacultyIdName: 'Prof. Shruthi B', labFacultyIdName: null },
+      'ISE-B': { theoryFacultyIdName: 'Prof. Shruthi B', labFacultyIdName: null },
+    },
+    '1BCS305': {
+      'AI&DS-A': { theoryFacultyIdName: 'Prof. Vinay Bharadwaj', labFacultyIdName: null },
+      'CSE-A': { theoryFacultyIdName: 'Dr. Suma Swamy', labFacultyIdName: null },
+      'CSE-B': { theoryFacultyIdName: 'Dr. Suma Swamy', labFacultyIdName: null },
+      'ISE-A': { theoryFacultyIdName: 'Prof. Vinay Bharadwaj', labFacultyIdName: null },
+      'ISE-B': { theoryFacultyIdName: 'Prof. Bhavana', labFacultyIdName: null },
+    },
+    '1BCSL306': {
+      'AI&DS-A': { theoryFacultyIdName: null, labFacultyIdName: 'Prof. Vinay Bharadwaj' },
+      'CSE-A': { theoryFacultyIdName: null, labFacultyIdName: 'Dr. Suma Swamy' },
+      'CSE-B': { theoryFacultyIdName: null, labFacultyIdName: 'Dr. Suma Swamy' },
+      'ISE-A': { theoryFacultyIdName: null, labFacultyIdName: 'Prof. Vinay Bharadwaj' },
+      'ISE-B': { theoryFacultyIdName: null, labFacultyIdName: 'Prof. Bhavana' },
+    },
+    '1BAIL307A': {
+      'AI&DS-A': { theoryFacultyIdName: null, labFacultyIdName: null },
+      'CSE-A': { theoryFacultyIdName: 'Prof. Dhanuja', labFacultyIdName: 'Prof. Brunda' },
+      'CSE-B': { theoryFacultyIdName: 'Prof. Dhanuja', labFacultyIdName: 'Prof. Brunda' },
+      'ISE-A': { theoryFacultyIdName: null, labFacultyIdName: null },
+      'ISE-B': { theoryFacultyIdName: null, labFacultyIdName: null },
+    },
+    '1BCP308': {
+      'AI&DS-A': { theoryFacultyIdName: 'Dr. Praveen Kumar B C', labFacultyIdName: null },
+      'CSE-A': { theoryFacultyIdName: 'Dr. B S C Ranjan', labFacultyIdName: null },
+      'CSE-B': { theoryFacultyIdName: 'Dr. B S C Ranjan', labFacultyIdName: null },
+      'ISE-A': { theoryFacultyIdName: 'Dr. Praveen Kumar B C', labFacultyIdName: null },
+      'ISE-B': { theoryFacultyIdName: 'Dr. Praveen Kumar B C', labFacultyIdName: null },
     },
   };
 

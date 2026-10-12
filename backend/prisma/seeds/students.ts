@@ -23,7 +23,7 @@ export async function seedStudents(prisma: PrismaClient, defaultSemester: Semest
       if (!emailToUserMap.has(key)) {
         emailToUserMap.set(key, []);
       }
-      emailToUserMap.get(key).push(user);
+      emailToUserMap.get(key)!.push(user);
     }
   }
 

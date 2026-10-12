@@ -17,21 +17,34 @@ export async function seedFaculty(prisma: PrismaClient) {
 
   const facultyData = [
     { email: 'madhumathi@hnnce.in', name: 'Prof. Madhumathi', password: teacherPasswordHash, role: Role.teacher, department: 'Dept of CSE' },
-    { email: 'vijaya@hnnce.in', name: 'Prof. Vijaya Singh', password: teacherPasswordHash, role: Role.teacher, department: 'Dept of CSE' },
+    { email: 'vinaya@hnnce.in', name: 'Prof. Vinaya Singh', password: teacherPasswordHash, role: Role.teacher, department: 'Dept of CSE' },
     { email: 'nagasundara@hnnce.in', name: 'Dr. Nagasundara K B', password: teacherPasswordHash, role: Role.teacher, department: 'Dept of CSE' },
     { email: 'bhargavi@hnnce.in', name: 'Dr. Bhargavi K S', password: teacherPasswordHash, role: Role.teacher, department: 'Dept of CSE' },
     { email: 'rajesh@hnnce.in', name: 'Prof. Rajesh M', password: teacherPasswordHash, role: Role.teacher, department: 'Dept of CSE' },
-    { email: 'praveen@hnnce.in', name: 'Dr. Praveen Kumar B C', password: teacherPasswordHash, role: Role.teacher, department: 'Dept of CSE' },
+    { email: 'praveen@hnnce.in', name: 'Dr. Praveen Kumar B C', password: teacherPasswordHash, role: Role.teacher, department: 'Dept of Mechanical' },
     { email: 'harshitha@hnnce.in', name: 'Prof. Harshitha', password: teacherPasswordHash, role: Role.teacher, department: 'Dept of CSE' },
     { email: 'sunil@hnnce.in', name: 'Prof. Sunil Kumar S', password: teacherPasswordHash, role: Role.teacher, department: 'Dept of CSE' },
-    { email: 'madhimatha@hnnce.in', name: 'Prof. Madhimatha', password: teacherPasswordHash, role: Role.teacher, department: 'Dept of CSE' },
-    { email: 'lashmi@hnnce.in', name: 'Prof. Lashmi A M', password: teacherPasswordHash, role: Role.teacher, department: 'Dept of CSE' },
-    { email: 'archana.bk@hnnce.in', name: 'Prof. Archana B K', password: teacherPasswordHash, role: Role.teacher, department: 'EC' },
-    { email: 'sadashiva@hnnce.in', name: 'Dr. Sadashiva V C', password: teacherPasswordHash, role: Role.teacher, department: 'EC' },
-    { email: 'archana.s@hnnce.in', name: 'Prof. Archana S', password: teacherPasswordHash, role: Role.teacher, department: 'EC' },
-    { email: 'ranjan@hnnce.in', name: 'Dr. B S C Ranjan', password: teacherPasswordHash, role: Role.teacher, department: 'EC' },
-    { email: 'lakshmi@hnnce.in', name: 'Prof. Lakshmi A N', password: teacherPasswordHash, role: Role.teacher, department: 'EC' },
-    { email: 'megashree@hnnce.in', name: 'Prof. Megashree', password: teacherPasswordHash, role: Role.teacher, department: 'ISE' },
+    { email: 'archana.bk@hnnce.in', name: 'Prof. Archana B K', password: teacherPasswordHash, role: Role.teacher, department: 'Dept of EC' },
+    { email: 'sadashiva@hnnce.in', name: 'Dr. Sadashiva V C', password: teacherPasswordHash, role: Role.teacher, department: 'Dept of EC' },
+    { email: 'archana.s@hnnce.in', name: 'Prof. Archana S', password: teacherPasswordHash, role: Role.teacher, department: 'Dept of EC' },
+    { email: 'ranjan@hnnce.in', name: 'Dr. B S C Ranjan', password: teacherPasswordHash, role: Role.teacher, department: 'Dept of Mechanical' },
+    { email: 'lakshmi@hnnce.in', name: 'Prof. Lakshmi A N', password: teacherPasswordHash, role: Role.teacher, department: 'Dept of EC' },
+    { email: 'megashree@hnnce.in', name: 'Prof. Megashree', password: teacherPasswordHash, role: Role.teacher, department: 'Dept of CSE' },
+
+    // 3rd Sem Faculty
+    { email: 'nanditha@hnnce.in', name: 'Dr. Nanditha Y', password: teacherPasswordHash, role: Role.teacher, department: 'Dept of CSE' },
+    { email: 'suma.swamy@hnnce.in', name: 'Dr. Suma Swamy', password: teacherPasswordHash, role: Role.teacher, department: 'Dept of CSE' },
+    { email: 'shwetha.ks@hnnce.in', name: 'Dr. Shwetha K S', password: teacherPasswordHash, role: Role.teacher, department: 'Mathematics' },
+    { email: 'preetham.raj@hnnce.in', name: 'Dr. Preetham Raj', password: teacherPasswordHash, role: Role.teacher, department: 'Mathematics' },
+    { email: 'vinay.bharadwaj@hnnce.in', name: 'Prof. Vinay Bharadwaj', password: teacherPasswordHash, role: Role.teacher, department: 'Dept of CSE' },
+    { email: 'shruthi.b@hnnce.in', name: 'Prof. Shruthi B', password: teacherPasswordHash, role: Role.teacher, department: 'Dept of CSE' },
+    { email: 'pooja.hs@hnnce.in', name: 'Prof. Pooja H S', password: teacherPasswordHash, role: Role.teacher, department: 'Dept of CSE' },
+    { email: 'bhavana@hnnce.in', name: 'Prof. Bhavana', password: teacherPasswordHash, role: Role.teacher, department: 'Dept of CSE' },
+    { email: 'aishwarya.m@hnnce.in', name: 'Prof. Aishwarya M', password: teacherPasswordHash, role: Role.teacher, department: 'Mathematics' },
+    { email: 'gopalsharma@hnnce.in', name: 'Dr. Gopalsharma Joshi', password: teacherPasswordHash, role: Role.teacher, department: 'Dept of CSE' },
+    { email: 'ravishankar@hnnce.in', name: 'Prof. Ravishankar', password: teacherPasswordHash, role: Role.teacher, department: 'Dept of CSE' },
+    { email: 'dhanuja@hnnce.in', name: 'Prof. Dhanuja', password: teacherPasswordHash, role: Role.teacher, department: 'Dept of CSE' },
+    { email: 'brunda@hnnce.in', name: 'Prof. Brunda', password: teacherPasswordHash, role: Role.teacher, department: 'Dept of CSE' },
 
     // Admins
     { email: 'deanCSE@hnnce.in', name: 'Dr. Dean Administrator', password: adminPasswordHash, role: Role.dean, department: 'Administration' },
@@ -54,7 +67,7 @@ export async function seedFaculty(prisma: PrismaClient) {
       if (!emailToUserMap.has(key)) {
         emailToUserMap.set(key, []);
       }
-      emailToUserMap.get(key).push(user);
+      emailToUserMap.get(key)!.push(user);
     }
   }
 

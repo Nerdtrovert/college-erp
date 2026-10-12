@@ -8,7 +8,7 @@ export async function seedSemester(prisma: PrismaClient) {
       code: 'sem1',
       name: 'Odd sem 2026-27',
       startDate: '2026-08-01',
-      endDate: '2026-12-20',
+      endDate: '2027-02-01',
       status: SemesterStatus.ACTIVE,
     },
   });

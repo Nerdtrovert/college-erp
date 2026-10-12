@@ -80,15 +80,26 @@ const normalizeStudentName = (name: string): string =>
   // has to match exactly, and the stored database value is never changed.
   name.replace(/\s+/g, '').toLowerCase();
 
-const normalizeSubjectCode = (value: unknown): string => {
-  const text = String(value || '').trim().toUpperCase();
-  const codeMatch = text.match(/\b[A-Z]{2,}[A-Z0-9]*\d{3,}[A-Z]*\b/);
-  return (codeMatch?.[0] || text.replace(/[^A-Z0-9]/g, '')).trim();
+const extractExplicitSubjectCode = (value: unknown): string => {
+  const text = String(value || '').trim();
+  // Check for code inside parentheses first: e.g. '... (1BMATE201)'
+  const parenMatches = [...text.matchAll(/\(([A-Z0-9]+)\)/gi)];
+  for (const m of parenMatches) {
+    const candidate = m[1].trim();
+    if (/[A-Z]/i.test(candidate) && /\d/.test(candidate)) {
+      return candidate.toUpperCase();
+    }
+  }
+  // Standard code match: alphanumeric containing both letters and numbers (e.g. 1BMATE201, BCS501, 1BCP308, 1BAIL307A)
+  const match = text.toUpperCase().match(/\b([A-Z0-9]*[A-Z][A-Z0-9]*\d[A-Z0-9]*|[A-Z0-9]*\d[A-Z0-9]*[A-Z][A-Z0-9]*)\b/);
+  return match?.[1] || match?.[0] || '';
 };
 
-const extractExplicitSubjectCode = (value: unknown): string => {
-  const match = String(value || '').toUpperCase().match(/\b[A-Z]{2,}[A-Z0-9]*\d{3,}[A-Z]*\b/);
-  return match?.[0] || '';
+const normalizeSubjectCode = (value: unknown): string => {
+  const text = String(value || '').trim().toUpperCase();
+  const explicit = extractExplicitSubjectCode(text);
+  if (explicit) return explicit;
+  return text.replace(/[^A-Z0-9]/g, '').trim();
 };
 
 /**
@@ -303,20 +314,24 @@ export const processGradecard = async (req: AuthRequest, res: Response) => {
               (subject.grade === 'F' || subject.grade === 'P' || subject.grade === 'A')
             );
 
-          const businessLogicWithoutCode = studentData.subjects
-            .filter((subject: any) => isBusinessLogicSubject(subject.subjectName) && !extractExplicitSubjectCode(subject.subjectName));
-            
-          if (businessLogicWithoutCode.length > 0) {
-            const businessLogicSubjects = await tx.subject.findMany({
-              where: { name: { contains: 'Business Logic', mode: 'insensitive' } },
-              select: { code: true }
-            });
-            if (businessLogicSubjects.length === 1) {
-              const businessLogicCode = businessLogicSubjects[0].code;
-              for (const subject of uploadedSubjects) {
-                if (!subject.code && isBusinessLogicSubject(subject.name)) {
-                  subject.code = businessLogicCode;
-                }
+          // For any subject missing a canonical code, attempt database lookup by subject name
+          const subjectsWithoutCode = uploadedSubjects.filter(
+            (subject: { code: string; name: string }) => !subject.code && subject.name
+          );
+
+          if (subjectsWithoutCode.length > 0) {
+            for (const subject of subjectsWithoutCode) {
+              const matchedSubject = await tx.subject.findFirst({
+                where: {
+                  OR: [
+                    { name: { equals: subject.name, mode: 'insensitive' } },
+                    { name: { contains: subject.name, mode: 'insensitive' } },
+                  ]
+                },
+                select: { code: true }
+              });
+              if (matchedSubject) {
+                subject.code = matchedSubject.code;
               }
             }
           }
@@ -597,8 +612,8 @@ function parsePDFText(text: string): any {
     }
     // Parse subject table - look for subject code patterns and process accordingly
     else if (currentStudent) {
-      // Check if this line starts with a subject code pattern
-      const subjectCodePattern = /^[A-Z]+[A-Z0-9]*\d+[A-Z0-9]*(?:\s|$)/;
+      // Check if this line starts with a subject code pattern (letters or digits prefix, e.g. BCS501, 1BMATE201)
+      const subjectCodePattern = /^(?:[A-Z0-9]*[A-Z][A-Z0-9]*\d[A-Z0-9]*|[A-Z0-9]*\d[A-Z0-9]*[A-Z][A-Z0-9]*)(?:\s|$)/i;
       const marksPattern = /^\d+/; // Lines that start with digits are marks lines
 
       if (subjectCodePattern.test(trimmedLine)) {
@@ -611,9 +626,9 @@ function parsePDFText(text: string): any {
         let grade = null;
 
         // Extract subject code from the beginning of the line
-        const codeMatch = trimmedLine.match(/^([A-Z]+[A-Z0-9]*\d+[A-Z0-9]*)/);
+        const codeMatch = trimmedLine.match(/^([A-Z0-9]*[A-Z][A-Z0-9]*\d[A-Z0-9]*|[A-Z0-9]*\d[A-Z0-9]*[A-Z][A-Z0-9]*)/i);
         if (codeMatch) {
-          subjectCode = codeMatch[1];
+          subjectCode = codeMatch[1].toUpperCase();
           const restOfLine = trimmedLine.substring(codeMatch[0].length);
 
           // Check if the rest of the line contains marks data (look for patterns like number number number)
@@ -702,7 +717,7 @@ function parsePDFText(text: string): any {
                 continue;
               }
               // If next line doesn't start with subject code and doesn't look like marks, it's likely name continuation
-              const nextLineIsSubjectCode = /^[A-Z]+[A-Z0-9]*\d+[A-Z0-9]*(?:\s|$)/.test(nextLine);
+              const nextLineIsSubjectCode = /^(?:[A-Z0-9]*[A-Z][A-Z0-9]*\d[A-Z0-9]*|[A-Z0-9]*\d[A-Z0-9]*[A-Z][A-Z0-9]*)(?:\s|$)/i.test(nextLine);
               const nextLineIsMarks = /^\d+/.test(nextLine) || /\b(P|F|A)\b/i.test(nextLine) || /^NE\b/i.test(nextLine);
 
               if (!nextLineIsSubjectCode && !nextLineIsMarks && nextLine.length > 0) {
@@ -952,10 +967,10 @@ export function parseExcelSheet(workbook: any): any {
 
       // Convert collected mark data to subject objects
       for (const [subjectName, marks] of Object.entries(subjectMarks)) {
-        const codeMatch = subjectName.match(/\b[A-Z]{2,}[A-Z0-9]*\d{3,}[A-Z]*\b/i);
+        const explicitCode = extractExplicitSubjectCode(subjectName);
         const subject: any = {
           subjectName: subjectName,
-          subjectCode: codeMatch?.[0].toUpperCase() || subjectName.replace(/\s+/g, '').toUpperCase().substring(0, 10),
+          subjectCode: explicitCode || subjectName.replace(/\s+/g, '').toUpperCase().substring(0, 10),
           credits: 4 // Default credits
         };
 
@@ -1060,10 +1075,10 @@ export function parseExcelRows(rows: any[]): any {
     }
 
     for (const [subjectName, marks] of Object.entries(subjectMarks)) {
-      const codeMatch = subjectName.match(/\b[A-Z]{2,}[A-Z0-9]*\d{3,}[A-Z]*\b/i);
+      const explicitCode = extractExplicitSubjectCode(subjectName);
       student.subjects.push({
         subjectName,
-        subjectCode: codeMatch?.[0].toUpperCase() || subjectName.replace(/\s+/g, '').toUpperCase().substring(0, 10),
+        subjectCode: explicitCode || subjectName.replace(/\s+/g, '').toUpperCase().substring(0, 10),
         ...(marks.grade ? { grade: marks.grade } : {}),
         ...(marks.internal !== undefined ? { internalMarks: marks.internal } : {}),
         ...(marks.external !== undefined ? { externalMarks: marks.external } : {}),
