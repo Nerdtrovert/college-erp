@@ -16,18 +16,20 @@ export const getStudentTimetable = async (req: AuthRequest, res: Response) => {
       orderBy: { semester: { createdAt: 'desc' } },
     });
     if (!enrollment) return res.status(404).json({ error: 'No current student enrollment found' });
+    if (
+      typeof enrollment.semesterNumber !== 'number' ||
+      !Number.isInteger(enrollment.semesterNumber) ||
+      enrollment.semesterNumber < 1 ||
+      enrollment.semesterNumber > 8
+    ) {
+      return res.status(400).json({ error: 'Student enrollment lacks a valid semester number' });
+    }
+
     const slots = await prisma.timetableSlot.findMany({
       where: {
         semesterId: enrollment.semesterId,
         classGroup: enrollment.classGroup,
-        ...(enrollment.semesterNumber
-          ? {
-              OR: [
-                { studentSemesterNumber: enrollment.semesterNumber },
-                { studentSemesterNumber: null },
-              ],
-            }
-          : {}),
+        studentSemesterNumber: enrollment.semesterNumber,
       },
       include: { assignment: { select: { subject: { select: { code: true } } } } },
       orderBy: [
