@@ -11,7 +11,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "prisma db seed",
-    "seed:backlog-demo": "tsx prisma/seed-backlog-demo.ts"
+    "db:clear": "tsx prisma/clear.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

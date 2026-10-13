@@ -4,25 +4,54 @@ const prisma = new PrismaClient();
 
 async function main() {
   try {
-    // Delete in order to avoid foreign key constraints
-    await prisma.timetableSlot.deleteMany({});
+    // Fast path: Truncate all tables and restart sequences in PostgreSQL
+    await prisma.$executeRawUnsafe(`
+      TRUNCATE TABLE
+        "AttendanceRecord",
+        "AttendanceSession",
+        "TimetableSlot",
+        "Mark",
+        "StudentEnrollment",
+        "SubjectSectionAssignment",
+        "Announcement",
+        "Note",
+        "AdminUpload",
+        "Subject",
+        "User",
+        "Semester"
+      RESTART IDENTITY CASCADE;
+    `);
+    console.log('All data cleared successfully.');
+  } catch (truncateError) {
+    // Fallback: Delete in reverse dependency order to satisfy foreign key constraints
+    console.warn('TRUNCATE CASCADE failed, falling back to deleteMany in dependency order:', truncateError);
     await prisma.attendanceRecord.deleteMany({});
     await prisma.attendanceSession.deleteMany({});
-    await prisma.studentEnrollment.deleteMany({});
+    await prisma.timetableSlot.deleteMany({});
     await prisma.mark.deleteMany({});
+    await prisma.studentEnrollment.deleteMany({});
     await prisma.subjectSectionAssignment.deleteMany({});
-    await prisma.subject.deleteMany({});
-    await prisma.user.deleteMany({});
-    await prisma.semester.deleteMany({});
     await prisma.announcement.deleteMany({});
     await prisma.note.deleteMany({});
     await prisma.adminUpload.deleteMany({});
-    console.log('All data cleared.');
-  } catch (e) {
-    console.error('Error clearing data:', e);
-  } finally {
-    await prisma.$disconnect();
+    await prisma.user.deleteMany({});
+    await prisma.subject.deleteMany({});
+    await prisma.semester.deleteMany({});
+
+    try {
+      await prisma.$executeRawUnsafe(`ALTER SEQUENCE IF EXISTS "Announcement_id_seq" RESTART WITH 1;`);
+    } catch {
+      // Ignore sequence reset error if unsupported
+    }
+    console.log('All data cleared successfully.');
   }
 }
 
-main();
+main()
+  .catch((error) => {
+    console.error('Failed to clear database:', error);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
